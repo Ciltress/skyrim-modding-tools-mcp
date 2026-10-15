@@ -69,10 +69,10 @@ export class ProjectsHandlers extends BaseHandler {
                         openWorldHint: false
                     },
                     description:
-                        'Start or extend a patch: copy existing records into a project as overrides, so they can be ' +
-                        'changed without touching the plugins they come from. Each record is copied from its current ' +
-                        'winning version — so other mods\' changes are kept — or from `from`. Creates the project when ' +
-                        'it does not exist. Answers each copied file\'s full path and text (`added[].files`): edit it ' +
+                        'Start or extend a patch — no newProject first: this creates the project when it does not ' +
+                        'exist. Copies existing records into the project as overrides, to change them without touching ' +
+                        'the plugins they come from: each from its current winning version — so other mods\' changes ' +
+                        'are kept — or from `from`. Answers each copied file\'s full path and text (`added[].files`): edit it ' +
                         'with your file tools, then run buildProject. Past about ten records the text is left out ' +
                         '(`textLeftOut`) — read those files first. A record already in the project is reported under ' +
                         '`alreadyInProject` and left alone.',

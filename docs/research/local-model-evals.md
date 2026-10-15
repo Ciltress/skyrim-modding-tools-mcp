@@ -62,6 +62,8 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-15 | gemma4:26b | `all` | 29d52de (the machine slowed, see round 7) | 15/15 | 4.4 s | ~385 tokens/s | ~50 tokens/s | 77% |
 | 2026-10-15 | gemma4:e4b | `all` | 29d52de | 15/15 | 1.33 s | ~7,137 tokens/s | ~177 tokens/s | 100% |
 | 2026-10-15 | gemma4:26b | `all` | 29d52de (again) | 15/15 | 2.99 s | ~970 tokens/s | ~53 tokens/s | 77% |
+| 2026-10-15 | gemma4:26b | `all` | 29d52de + round 8's changes | 15/15 | 2.82 s | ~969 tokens/s | ~43 tokens/s | 77% |
+| 2026-10-15 | gemma4:e4b | `all` | 29d52de + round 8's changes | 15/15 | 1.37 s | ~6,928 tokens/s | ~168 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way (see [the speed section](#speed-on-this-machine-2026-10-15)) — they are the
@@ -274,6 +276,46 @@ gemma4:26b, `all`, again (prompt ~970 tokens/s, generation ~53 tokens/s):
 **Changed after it:** `newProject` and `addPatch` refuse a plugin name the load order already has, and
 say to pass a plugin to copy from as `from`; `addPatch`'s `plugin` argument says it is the new
 project's own plugin, not the one to copy from.
+
+## Round 8 — "no newProject first" (2026-10-15)
+
+**Changed before it:** round 7's plugin-name refusal, and `addPatch`'s description now opens with
+"Start or extend a patch — no newProject first: this creates the project when it does not exist"
+instead of saying so in its fourth sentence. Also in the build, at the user's decision: the Nexus
+tools are listed only with `NEXUS_API_KEY`, and the download only when Nexus confirms a premium
+account — `.env` holds one, so the list is the same 14 tools as in round 7.
+
+gemma4:26b, `all` (prompt ~969 tokens/s, generation ~43 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 5642 | 5.9 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 6651 | 7.6 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 5856 | 7.3 |
+| patch | 3/3 | 4.7 | 3.7 | 0 | 0 | 7890 | 13.9 |
+| build | 3/3 | 5.3 | 4.3 | 0 | 0 | 8205 | 14.7 |
+
+gemma4:e4b, `all` (prompt ~6,928 tokens/s, generation ~168 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 5902 | 7.8 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 7129 | 4.2 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 4510 | 2.6 |
+| patch | 3/3 | 4 | 3 | 0 | 0 | 7551 | 5.9 |
+| build | 3/3 | 5 | 4 | 0 | 0 | 7955 | 6.9 |
+
+(e4b's find includes loading the model.)
+
+**Seen.**
+
+- `newProject` before `addPatch`: e4b in none of its 6 patch and build runs (3 of 6 in round 7), 26b
+  in 1 of 6 (3 of 6 in round 7's second run). e4b took the shortest route in every run — 3 calls a
+  patch, 4 a build, its fewest in any round.
+- 26b's other extra calls were reads of a file it already had: once after editing it, to check, and
+  once before, though `addPatch` had answered its text. Nothing a tool said asked for them.
+- No invalid argument and no failed call in 30 runs. 26b's generation (~43 tokens/s) was lower than
+  usual, its prompt speed (~969 tokens/s) as usual.
 
 ## Speed on this machine (2026-10-15)
 
