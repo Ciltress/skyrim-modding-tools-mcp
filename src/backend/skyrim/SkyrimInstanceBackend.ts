@@ -294,9 +294,11 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         const { plugin } = readProjectHeader(paths);
 
         // The Creation Kit writes a plugin it edits back to its mod, but one it saves anew can land
-        // elsewhere — in Mod Organizer, in overwrite. The newest copy is the latest work.
+        // elsewhere — in Mod Organizer, in overwrite. The newest copy is the latest work; of copies with
+        // the same time — a coarse file clock gives them that — the one that outranks the mod is what the
+        // game loads. Highest first, so the stable sort keeps that order among equals.
         const deployed = path.join(instance.modsDir, project, plugin);
-        const candidates = [deployed, ...this.engine.modManager.shadowingCopies(instance, project, plugin)].filter(file => fs.existsSync(file));
+        const candidates = [...this.engine.modManager.shadowingCopies(instance, project, plugin), deployed].filter(file => fs.existsSync(file));
         if (candidates.length === 0) {
             throw new ProjectError(`There is no deployed ${plugin} to pull from: deploy the project first.`);
         }

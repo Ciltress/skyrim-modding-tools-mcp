@@ -303,9 +303,12 @@ describe('deploying into Amethyst', () => {
         await backend.buildProject('MyPatch');
         await backend.deployProject('MyPatch');
 
-        // Saved anew by the Creation Kit, running in the prefix: Data now holds a file of its own.
+        // Saved anew by the Creation Kit, running in the prefix: Data now holds a file of its own. Linux stamps
+        // files from a coarse clock, so it may carry the very time of the deploy's own write: pinned here.
         const inData = path.join(setup.game, 'Data', 'MyPatch.esp');
         write(inData, 'saved in the Creation Kit');
+        const instant = new Date();
+        for (const file of [inData, path.join(setup.mods, 'MyPatch', 'MyPatch.esp')]) fs.utimesSync(file, instant, instant);
         await expect(backend.deployProject('MyPatch')).rejects.toThrow(/pullProject/);
 
         const pulled = await backend.pullProject('MyPatch');
