@@ -466,7 +466,8 @@ reaches stdout.
 of its values, list a plugin's armor, patch a record, patch and build — through Ollama's `/api/chat`,
 with the server's tools and four file tools confined to a temporary projects folder. It checks each
 task against the instance itself, deploys nothing (`deployProject` is listed, but a call to it is
-refused), and writes every call with its arguments and answer to a JSON file. `--model`, `--profile`,
+refused), and writes every call with its arguments and answer to a JSON file. Then it measures the
+model's prompt and generation speed at the same context, apart from the tasks. `--model`, `--profile`,
 `--runs`, `--tasks` and `--ctx` choose what to measure. Run it after changing what a tool says or
 answers: the transcripts show where a model loses turns — they are how the relative paths
 `addPatch` used to answer with were found. Every round is recorded in

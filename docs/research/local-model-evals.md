@@ -12,10 +12,11 @@ npm run eval:ollama -- --model gemma4:26b --runs 3
 ```
 
 [`scripts/eval-ollama.mjs`](../../scripts/eval-ollama.mjs) runs the tasks below through the built
-server against the instance in `.env`, with its own agent loop on Ollama's `/api/chat`. At the end it
-prints the entry for this log — the summary row and the per-task table — and saves it beside the JSON
-record of every call (`<out>.md`, `<out>.json`; by default under the system temp folder). Paste the
-entry into a new round below, and write down what changed before it and what the transcripts showed.
+server against the instance in `.env`, with its own agent loop on Ollama's `/api/chat`, then measures
+the model's speed. At the end it prints the entry for this log — the summary row and the per-task
+table — and saves it beside the JSON record of every call (`<out>.md`, `<out>.json`; by default under
+the system temp folder). Paste the entry into a new round below, and write down what changed before it
+and what the transcripts showed.
 
 **The tasks.** Each is checked against the instance itself, never against values written into the
 script. Nothing is deployed: `deployProject` stays listed, but a call to it is refused.
@@ -31,8 +32,12 @@ script. Nothing is deployed: `deployProject` stays listed, but a call to it is r
 **The columns.** *calls*: tool calls per run, file tools included. *invalid arguments*: calls refused
 with `InvalidParams`. *other errors*: every other failed call, file tools included. *largest prompt*:
 the most tokens Ollama evaluated in one turn. *seconds*: per run, mean. *s/turn*: mean time of a
-model turn, the session's first (the model loading) left out. *GPU*: the share of the model Ollama
-put on the GPU.
+model turn, the session's first (the model loading) left out. *prompt* and *generation*: how fast
+the model reads a prompt and writes an answer on this machine at the round's context — the tool
+reference (~1,700 tokens) summarised in 300 tokens, three times, the median of each, with thinking off.
+The script measures it after the tasks, apart from them: their turns reuse Ollama's prompt cache and
+answer in a few dozen tokens, so figures taken from them would not compare. *GPU*: the share of the
+model Ollama put on the GPU.
 
 **The machine**, unless a round says otherwise: Windows 11, RTX 5080 16 GB, 32 GB RAM; Ollama 0.40.4
 with `OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0`; num_ctx 131072; the model's own defaults
@@ -41,22 +46,28 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 
 ## All rounds
 
-| date | model | profile | build | passed | s/turn | GPU |
-|---|---|---|---|---|---|---|
-| 2026-10-15 | gemma4:26b | `all` | 1cba00d | 15/15 | 3.0 s | 77% |
-| 2026-10-15 | gemma4:26b | `all` | 1cba00d + round 2's changes | 15/15 | 2.9 s | 77% |
-| 2026-10-15 | gemma4:26b | `core` | 1cba00d + round 2's changes | 15/15 | 2.8 s | 77% |
-| 2026-10-15 | qwen2.5-coder:3b | `all` | 1cba00d + round 2's changes | 0/15 | 0.2 s | 100% |
-| 2026-10-15 | qwen2.5-coder:3b | `core` | 1cba00d + round 2's changes | 0/15 | 0.2 s | 100% |
-| 2026-10-15 | gemma4:26b | `all` | 37a2c1c (patch and build only) | 6/6 | 2.5 s | 77% |
-| 2026-10-15 | gemma4:26b | `all` | 37a2c1c + round 4's changes | 15/15 | 3.4 s | 77% |
-| 2026-10-15 | gemma4:e4b | `all` | 37a2c1c + round 4's changes | 14/15 | 1.8 s | 100% |
-| 2026-10-15 | gemma4:e4b | `all` | 37a2c1c + rounds 4 and 5's changes | 15/15 | 1.3 s | 100% |
-| 2026-10-15 | gemma4:26b | `all` | 37a2c1c + rounds 4 and 5's changes | 15/15 | 2.9 s | 77% |
+| date | model | profile | build | passed | s/turn | prompt | generation | GPU |
+|---|---|---|---|---|---|---|---|---|
+| 2026-10-15 | gemma4:26b | `all` | 1cba00d | 15/15 | 3.0 s | ~900 tokens/s | ~50 tokens/s | 77% |
+| 2026-10-15 | gemma4:26b | `all` | 1cba00d + round 2's changes | 15/15 | 2.9 s | ~900 tokens/s | ~50 tokens/s | 77% |
+| 2026-10-15 | gemma4:26b | `core` | 1cba00d + round 2's changes | 15/15 | 2.8 s | ~900 tokens/s | ~50 tokens/s | 77% |
+| 2026-10-15 | qwen2.5-coder:3b | `all` | 1cba00d + round 2's changes | 0/15 | 0.2 s | ~14,400 tokens/s | ~230 tokens/s | 100% |
+| 2026-10-15 | qwen2.5-coder:3b | `core` | 1cba00d + round 2's changes | 0/15 | 0.2 s | ~14,400 tokens/s | ~230 tokens/s | 100% |
+| 2026-10-15 | gemma4:26b | `all` | 37a2c1c (patch and build only) | 6/6 | 2.5 s | ~900 tokens/s | ~50 tokens/s | 77% |
+| 2026-10-15 | gemma4:26b | `all` | 37a2c1c + round 4's changes | 15/15 | 3.4 s | ~900 tokens/s | ~50 tokens/s | 77% |
+| 2026-10-15 | gemma4:e4b | `all` | 37a2c1c + round 4's changes | 14/15 | 1.8 s | ~5,900 tokens/s | ~170 tokens/s | 100% |
+| 2026-10-15 | gemma4:e4b | `all` | 37a2c1c + rounds 4 and 5's changes | 15/15 | 1.3 s | ~5,900 tokens/s | ~170 tokens/s | 100% |
+| 2026-10-15 | gemma4:26b | `all` | 37a2c1c + rounds 4 and 5's changes | 15/15 | 2.9 s | ~900 tokens/s | ~50 tokens/s | 77% |
+| 2026-10-15 | gemma4:26b | `all` | 2757aba + round 6's changes (find only, 1 run) | 1/1 | 3.07 s | ~907 tokens/s | ~48 tokens/s | 77% |
+
+Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
+afterwards the same way (see [the speed section](#speed-on-this-machine-2026-10-15)) — they are the
+model's and the machine's, not the build's.
 
 ## Round 1 — the baseline (2026-10-15)
 
-gemma4:26b, `all` (10 server tools + 4 file tools, 10,754 bytes of schemas), build 1cba00d.
+gemma4:26b, `all` (10 server tools + 4 file tools, 10,754 bytes of schemas), build 1cba00d; prompt
+~900 tokens/s, generation ~50 tokens/s.
 
 | task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
 |---|---|---|---|---|---|---|---|
@@ -77,7 +88,7 @@ arguments at all.
 (`assignedFormIds[].file`) answer full paths; `BaseHandler` takes an argument sent as text as its
 declared type (a list as JSON text, one item for a list, a number or `true`/`false` in quotes).
 
-gemma4:26b, `all`:
+gemma4:26b, `all` (prompt ~900 tokens/s, generation ~50 tokens/s):
 
 | task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
 |---|---|---|---|---|---|---|---|
@@ -87,7 +98,7 @@ gemma4:26b, `all`:
 | patch | 3/3 | 5.7 | 4.7 | 0 | 1 | 6564 | 18.7 |
 | build | 3/3 | 6 | 5 | 0 | 0 | 6234 | 14.9 |
 
-gemma4:26b, `core` (8 tools):
+gemma4:26b, `core` (8 tools; prompt ~900 tokens/s, generation ~50 tokens/s):
 
 | task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
 |---|---|---|---|---|---|---|---|
@@ -97,7 +108,8 @@ gemma4:26b, `core` (8 tools):
 | patch | 3/3 | 5.3 | 4.3 | 0 | 0 | 6415 | 16.2 |
 | build | 3/3 | 6 | 5 | 0 | 0 | 5815 | 14.9 |
 
-qwen2.5-coder:3b, `all` and `core`: 0/15 each, every run one turn and no tool call.
+qwen2.5-coder:3b, `all` and `core` (prompt ~14,400 tokens/s, generation ~230 tokens/s): 0/15 each,
+every run one turn and no tool call.
 
 **Seen.** Patch calls nearly halved; 10 of 12 patch and build runs took the shortest route,
 `findRecords → addPatch → read_file → edit_file (→ buildProject)`. The one error left: the model read
@@ -109,7 +121,7 @@ no client acts on; it is fine for code completion, and left out of later rounds.
 ## Round 3 — the committed build (2026-10-15)
 
 **Changed before it:** `addPatch`'s description says the full paths are in `added[].files`. Build
-37a2c1c. gemma4:26b, `all`, patch and build only:
+37a2c1c. gemma4:26b, `all`, patch and build only (prompt ~900 tokens/s, generation ~50 tokens/s):
 
 | task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
 |---|---|---|---|---|---|---|---|
@@ -123,7 +135,7 @@ once (past 16,000 bytes of text the rest is left out, and `textLeftOut` says so)
 full paths; `readRecord`'s relative `path` is called `pathInPluginFolder`, so that a field named `path`
 is always one a file tool opens.
 
-gemma4:26b, `all`:
+gemma4:26b, `all` (prompt ~900 tokens/s, generation ~50 tokens/s):
 
 | task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
 |---|---|---|---|---|---|---|---|
@@ -133,7 +145,8 @@ gemma4:26b, `all`:
 | patch | 3/3 | 4 | 3 | 0 | 0 | 6072 | 14.8 |
 | build | 3/3 | 5 | 4 | 0 | 0 | 6366 | 17.9 |
 
-gemma4:e4b, `all` (first round with it; it fits the GPU whole):
+gemma4:e4b, `all` (first round with it; it fits the GPU whole; prompt ~5,900 tokens/s, generation
+~170 tokens/s):
 
 | task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
 |---|---|---|---|---|---|---|---|
@@ -159,7 +172,7 @@ of matching nothing. Text matches rank exact matches first, then in-game names, 
 and among equals the editor ID that spells the text out (`SteelSword` before the quest sword
 `FFRiften16HarraldSword`, both named "Steel Sword").
 
-gemma4:e4b, `all`:
+gemma4:e4b, `all` (prompt ~5,900 tokens/s, generation ~170 tokens/s):
 
 | task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
 |---|---|---|---|---|---|---|---|
@@ -169,7 +182,7 @@ gemma4:e4b, `all`:
 | patch | 3/3 | 4.3 | 3.3 | 0 | 0 | 7200 | 6.9 |
 | build | 3/3 | 5.3 | 4.3 | 0 | 0 | 7716 | 6.2 |
 
-gemma4:26b, `all`:
+gemma4:26b, `all` (prompt ~900 tokens/s, generation ~50 tokens/s):
 
 | task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
 |---|---|---|---|---|---|---|---|
@@ -183,7 +196,34 @@ gemma4:26b, `all`:
 
 **Seen.** Both models passed everything, with no failed call in 30 runs. gemma4:26b took the shortest route in every patch and build run; e4b once read the file it had just been given, and once looked the record up with `readRecord` before copying it. e4b is about twice as fast (1.3 s a turn against 2.9 s), as it runs on the GPU alone.
 
-## Speed of gemma4:26b on this machine (2026-10-15)
+## Round 6 — speed in every entry (2026-10-15)
+
+**Changed before it:** the script measures the model's prompt and generation speed after the tasks
+and puts both into the entry (at the user's request: every round carries them). On the server side,
+the build has step 6 — Mod Organizer under Proton — which changes nothing a tool says on Windows.
+A check of the measurement, not of the server: gemma4:26b, `all`, find only, one run.
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 1/1 | 2 | 1 | 0 | 0 | 4633 | 7.5 |
+
+**Seen.** Prompt ~907 tokens/s (1,727 tokens) and generation ~48 tokens/s, in line with the separate
+measurement below; the find run took the same single call as in every round before.
+
+## Speed on this machine (2026-10-15)
+
+Every model measured so far, at num_ctx 131072, the way the script measures it (the tool reference,
+~1,700 tokens, summarised in 300 tokens; three runs, the median):
+
+| model | on the GPU | prompt | generation |
+|---|---|---|---|
+| gemma4:26b | 77% | ~900 tokens/s (911) | ~50 tokens/s (49) |
+| gemma4:e4b | 100% | ~5,900 tokens/s | ~170 tokens/s |
+| qwen2.5-coder:3b | 100% | ~14,400 tokens/s | ~230 tokens/s |
+
+e4b's first run after loading was much slower (~3,100 and ~63 tokens/s) — the median leaves it out.
+
+### gemma4:26b in detail
 
 Gemma-4-26B-A4B: 30 layers, 128 experts with 8 used per token, 15.8 GiB at Q4_K_M, plus a small draft
 model for speculative decoding. It does not fit 16 GB: Ollama keeps the always-used layers on the GPU

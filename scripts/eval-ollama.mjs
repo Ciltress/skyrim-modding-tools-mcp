@@ -21,7 +21,8 @@
  * Every task is checked against the instance itself: the expected FormIDs and values are read through
  * the server at startup, not written into this file. The full record — every call, its arguments and
  * what came back — goes to --out as JSON; a summary is printed, with the entry for the log of every
- * round, docs/research/local-model-evals.md (also saved beside the JSON as .md).
+ * round, docs/research/local-model-evals.md (also saved beside the JSON as .md). After the tasks it
+ * measures the model's prompt and generation speed at the same context, for that entry.
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -496,6 +497,36 @@ try {
 
 const loaded = await ollama('/api/ps').catch(() => ({ models: [] }));
 
+/**
+ * How fast the model reads a prompt and writes an answer on this machine, at this context: the tool
+ * reference (~2,300 tokens) to summarise in 300 tokens, three times, the median of each. Measured apart
+ * from the tasks, whose turns reuse Ollama's prompt cache and answer in a few dozen tokens — figures
+ * taken from them would not compare between rounds. A fresh first line keeps the cache out of it here.
+ */
+async function measureSpeed() {
+    const doc = fs.readFileSync(path.join(root, 'docs', 'Tool-Reference.md'), 'utf8');
+    const samples = [];
+    for (let i = 0; i < 3; i++) {
+        const reply = await ollama('/api/generate', {
+            model: opt.model, stream: false, think: false,
+            prompt: `Run ${Date.now()}-${i}.\n\n${doc}\n\nSummarise the document above in about 250 words.`,
+            options: { num_ctx: NUM_CTX, num_predict: 300, seed: i }
+        });
+        samples.push({
+            promptTokens: reply.prompt_eval_count,
+            prompt: reply.prompt_eval_count / (reply.prompt_eval_duration / 1e9),
+            generation: reply.eval_count / (reply.eval_duration / 1e9)
+        });
+    }
+    const median = key => samples.map(s => s[key]).sort((a, b) => a - b)[1];
+    return { promptTokens: samples[0].promptTokens, promptPerSecond: Math.round(median('prompt')), generationPerSecond: Math.round(median('generation')) };
+}
+
+const speed = await measureSpeed().catch(error => {
+    console.error(`eval: the speed measurement failed: ${error.message}`);
+    return null;
+});
+
 /** The build that was measured: the commit, and whether the working tree differed from it. */
 function measuredBuild() {
     const git = args => {
@@ -524,6 +555,7 @@ const report = {
     secondsPerTurn: laterTurns.length
         ? Math.round(laterTurns.reduce((sum, t) => sum + t.seconds, 0) / laterTurns.length * 100) / 100
         : null,
+    speed,
     toolListBytes,
     instructionsChars: instructions.length,
     ollama: loaded.models.find(m => m.name === opt.model || m.model === opt.model) ?? null,
@@ -554,11 +586,13 @@ console.log(`eval: ${passed}/${results.length} passed. Full record: ${outFile}`)
 // A ratio rather than sizes: for gemma4, Ollama 0.40 reports sizes a tenth of the real ones.
 const onGpu = report.ollama ? `${Math.round((report.ollama.size_vram ?? 0) / (report.ollama.size || 1) * 100)}%` : '?';
 if (report.ollama) console.log(`eval: Ollama ran it with context ${report.ollama.context_length ?? '?'}, ${onGpu} on the GPU`);
+const rate = value => value === undefined ? '?' : `~${value.toLocaleString('en-US')} tokens/s`;
+if (speed) console.log(`eval: prompt ${rate(speed.promptPerSecond)} (${speed.promptTokens} tokens), generation ${rate(speed.generationPerSecond)}`);
 
 // The entry for docs/research/local-model-evals.md, where every round is recorded.
 const entry = [
     `| ${report.when.slice(0, 10)} | ${report.model} | \`${report.profile}\` | ${report.build} | ${passed}/${results.length} | ` +
-    `${report.secondsPerTurn ?? '?'} s | ${onGpu} |`,
+    `${report.secondsPerTurn ?? '?'} s | ${rate(speed?.promptPerSecond)} | ${rate(speed?.generationPerSecond)} | ${onGpu} |`,
     '',
     '| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |',
     '|---|---|---|---|---|---|---|---|',
