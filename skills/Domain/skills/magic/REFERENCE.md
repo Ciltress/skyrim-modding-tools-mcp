@@ -1,7 +1,5 @@
 # Magic — reference
 
-<!-- STEP 2: add each record's shape in a project (Spriggit YAML) once the spike produces real output. -->
-
 ## The effect chain
 
 Every kind of magic is a **list of effects**, and every effect is a **magic effect** (`MGEF`) with
@@ -102,6 +100,62 @@ Perks change magic through **entry points** — *Mod Spell Magnitude*, *Mod Spel
 Cost*… — filtered by conditions, mostly on the effect's **keywords** and **school**. Augmented Flames
 raises effects carrying `MagicDamageFire`. A new effect without the vanilla keywords gets none of the
 vanilla perks. Copy the keyword set from the closest vanilla effect.
+
+## In a project
+
+Vanilla records as they appear in project text, trimmed (`…`), with comments naming the FormIDs.
+Enchantments live in the folder `ObjectEffects`; delivery is called `TargetType` (`Self`, `Touch`,
+`Aimed`, `TargetActor`, `TargetLocation`).
+
+```yaml
+# Spells/Flames - 012FCD_Skyrim.esm.yaml
+FormKey: 012FCD:Skyrim.esm
+EditorID: Flames
+Name: { TargetLanguage: English, Value: Flames }
+EquipmentType: 013F44:Skyrim.esm
+BaseCost: 14
+CastType: Concentration
+TargetType: Aimed
+HalfCostPerk: 0F2CA8:Skyrim.esm          # DestructionNovice00 — makes it a Novice spell
+Effects:
+- BaseEffect: 013CA9:Skyrim.esm          # FireDamageConcAimed
+  Data: { Magnitude: 8, Duration: 1 }
+- BaseEffect: 0F392F:Skyrim.esm
+  Data: { Magnitude: 99, Duration: 15 }
+
+# MagicEffects/FireDamageConcAimed - 013CA9_Skyrim.esm.yaml
+Keywords: [01CEAD:Skyrim.esm]            # MagicDamageFire
+Flags: [Hostile, Detrimental, NoArea, FXPersist, PowerAffectsMagnitude, NoDeathDispel]
+BaseCost: 1.5
+MagicSkill: Destruction
+ResistValue: ResistFire
+Archetype:
+  MutagenObjectType: MagicEffectArchetype   # Value Modifier
+  ActorValue: Health
+CastType: Concentration
+TargetType: Aimed
+Projectile: 012FCF:Skyrim.esm
+Description:
+  TargetLanguage: English
+  Value: A gout of fire that does <mag> points per second. Targets on fire take extra damage.
+
+# ObjectEffects/EnchWeaponFireDamageBase - 10FB95_Skyrim.esm.yaml
+Name: { TargetLanguage: English, Value: Fire Damage }
+EnchantType: Enchantment
+CastType: FireAndForget
+TargetType: Touch
+EnchantmentCost: 11
+EnchantmentAmount: 11
+Effects:
+- BaseEffect: 04605A:Skyrim.esm          # EnchFireDamageFFContact
+  Data: { Magnitude: 10 }
+```
+
+- A spell's cost field is `BaseCost`; a magic effect's `BaseCost` is the per-effect base it is computed
+  from.
+- Effect numbers live in `Data` on the spell's effect entry; a missing `Area` or `Duration` is 0.
+- `Archetype` carries its own type name (`MutagenObjectType`); read a vanilla effect of the archetype
+  you want and mirror it.
 
 ## Typical bugs
 

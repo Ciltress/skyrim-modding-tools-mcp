@@ -1,7 +1,5 @@
 # Items and crafting — reference
 
-<!-- STEP 2: add each record's shape in a project (Spriggit YAML) once the spike produces real output. -->
-
 ## The record types
 
 | Signature | Record | Key fields |
@@ -131,6 +129,78 @@ A new item that nothing places is unobtainable. Plan the route:
   list is an override and conflicts with every other mod changing it.
 - **A recipe** — crafted at a station.
 - **SPID or a script** — added to NPCs or the player at runtime, conflict-free.
+
+## In a project
+
+Vanilla records as they appear in project text, trimmed (`…`). Format rules are in the
+`skyrim-modding-basics` reference.
+
+```yaml
+# Weapons/IronSword - 012EB7_Skyrim.esm.yaml
+FormKey: 012EB7:Skyrim.esm
+EditorID: IronSword
+Name: { TargetLanguage: English, Value: Iron Sword }
+Model: { File: Weapons\Iron\LongSword.nif, Data: 0x0200… }
+EquipmentType: 013F42:Skyrim.esm                     # RightHand
+Keywords:
+- 01E718:Skyrim.esm                                  # WeapMaterialIron
+- 01E711:Skyrim.esm                                  # WeapTypeSword
+- 08F958:Skyrim.esm                                  # VendorItemWeapon
+BasicStats: { Value: 25, Weight: 9, Damage: 7 }
+Data:
+  AnimationType: OneHandSword
+  Speed: 1
+  Reach: 1
+  Skill: OneHanded
+  Stagger: 0.75
+Critical: { Damage: 3, Flags: [OnDeath], … }
+
+# Armors/ArmorIronCuirass - 012E49_Skyrim.esm.yaml
+BodyTemplate:
+  FirstPersonFlags: [Body]          # the biped slots, by name
+  ArmorType: HeavyArmor             # LightArmor, HeavyArmor, Clothing
+Race: 000019:Skyrim.esm             # DefaultRace
+Keywords:
+- 06BBD2:Skyrim.esm                 # ArmorHeavy
+- 06BBE3:Skyrim.esm                 # ArmorMaterialIron
+- 06C0EC:Skyrim.esm                 # ArmorCuirass
+- 08F959:Skyrim.esm                 # VendorItemArmor
+Armature: [012E48:Skyrim.esm]       # the armor addons: IronCuirassAA
+Value: 125
+Weight: 30
+ArmorRating: 25
+
+# ArmorAddons/IronCuirassAA - 012E48_Skyrim.esm.yaml
+BodyTemplate: { FirstPersonFlags: [Body, Forearms, Calves], … }
+Race: 000019:Skyrim.esm
+AdditionalRaces: [013740:Skyrim.esm, 08883A:Skyrim.esm, …]
+WeightSliderEnabled: { Male: True, Female: True }
+WorldModel:
+  Male: { File: Armor\Iron\Male\CuirassLight_1.nif, Data: … }
+  Female: { File: Armor\Iron\F\CuirassLight_1.nif, Data: … }
+
+# ConstructibleObjects/TemperWeaponIronSword - 0ADB77_Skyrim.esm.yaml
+CreatedObject: 012EB7:Skyrim.esm
+CreatedObjectCount: 1
+WorkbenchKeyword: 088108:Skyrim.esm        # CraftingSmithingSharpeningWheel
+Items:
+- Item: { Item: 05ACE4:Skyrim.esm, Count: 1 }      # IngotIron
+Conditions:
+- MutagenObjectType: ConditionFloat
+  CompareOperator: NotEqualTo
+  Flags: [OR]
+  Data: { MutagenObjectType: EPTemperingItemIsEnchantedConditionData }
+  ComparisonValue: 1
+- MutagenObjectType: ConditionFloat
+  Data: { MutagenObjectType: HasPerkConditionData, Perk: 05218E:Skyrim.esm }   # Arcane Blacksmith
+  ComparisonValue: 1
+```
+
+- Weapons keep value, weight and damage under `BasicStats`; armor keeps them at the top level.
+- The weight slider shows here as the `_1` mesh path; the `_0` file must exist beside it.
+- The tempering conditions read "not enchanted, *or* has Arcane Blacksmith": a condition carrying the
+  `OR` flag is or-ed with the one after it; all others are and-ed.
+- The comments name what each FormID is. Project files carry no such comments — look FormIDs up.
 
 ## Typical bugs
 

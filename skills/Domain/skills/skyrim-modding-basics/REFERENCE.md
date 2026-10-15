@@ -64,6 +64,50 @@ record inside a cell that places a base record in the world: `REFR` for objects,
 Change the base and every reference follows; change one reference and only that one does. References
 are either **persistent** (always in memory, needed for quests and scripts) or temporary.
 
+## What a project looks like
+
+A project's plugin is kept as text in Spriggit's YAML format: one folder per record group, one file
+per record.
+
+```
+RecordData.yaml                                  header: ModKey, game, flags, masters
+Weapons/IronSword - 012EB7_Skyrim.esm.yaml       an override of a Skyrim.esm record
+Weapons/SpikeSword - 000800_SpikeTest.esp.yaml   a new record of this project
+Spells/…   LeveledItems/…   Npcs/…
+```
+
+- **File name**: `<editor ID> - <local ID>_<defining plugin>.yaml`. The defining plugin tells a new
+  record (this project's plugin) from an override (a master's).
+- **Folder names are Mutagen's group names**, not CK names or signatures:
+
+  | Signature | Folder | Signature | Folder | Signature | Folder |
+  | --- | --- | --- | --- | --- | --- |
+  | `WEAP` | `Weapons` | `SPEL` | `Spells` | `NPC_` | `Npcs` |
+  | `ARMO` | `Armors` | `MGEF` | `MagicEffects` | `FACT` | `Factions` |
+  | `ARMA` | `ArmorAddons` | `ENCH` | `ObjectEffects` | `OTFT` | `Outfits` |
+  | `AMMO` | `Ammunitions` | `SCRL` | `Scrolls` | `PACK` | `Packages` |
+  | `ALCH` | `Ingestibles` | `SHOU` | `Shouts` | `RACE` | `Races` |
+  | `INGR` | `Ingredients` | `LVLI` | `LeveledItems` | `CLAS` | `Classes` |
+  | `BOOK` | `Books` | `LVLN` | `LeveledNpcs` | `KYWD` | `Keywords` |
+  | `MISC` | `MiscItems` | `LVSP` | `LeveledSpells` | `FLST` | `FormLists` |
+  | `COBJ` | `ConstructibleObjects` | `QUST` | `Quests` | `CELL` / `WRLD` | `Cells` / `Worldspaces` |
+
+- **Every reference is a FormID** written `012EB7:Skyrim.esm` — `Keywords: [01E718:Skyrim.esm]`, never
+  `WeapMaterialIron`. Look a FormID up before reasoning about what it is, and look an editor ID up
+  before writing one.
+- **An override file carries the complete record**, as the rule of one demands. Start it from the
+  current winning version of the record, then change only the fields you mean to change.
+- **Leave bookkeeping as found**: `VersionControl`, `Version2`, `FormVersion`, `Unknown…`, `Unused…`,
+  `Fluff`, `MajorFlags`, and the hex `Data:` under a model (texture hashes). Copy them unchanged.
+- **Value conventions**: enums and flags by name (`CastType: Concentration`, `Flags: [Hostile,
+  Detrimental]`), unnamed flags as hex (`0x200`); percentages as fractions (`ChanceNone: 0.25` is 25%);
+  colours as `'#00RRGGBB'`; texts as `{TargetLanguage: English, Value: …}`.
+- **Header**: `Flags: [Small]` is the light flag; `MasterReferences` lists the masters.
+- **Field names are Mutagen's.** When unsure how a field is written, read a vanilla record of the
+  same type in this format and mirror it.
+
+<!-- STEP 2: add how a new record gets its FormID once build assigns them. -->
+
 ## Load order
 
 - The game reads the active plugins from `plugins.txt` (`*Name.esp` = active), in

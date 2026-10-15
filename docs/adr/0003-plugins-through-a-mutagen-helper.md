@@ -19,3 +19,8 @@ runtime, not the SDK.
 
 - The repository holds two languages and two builds.
 - Mutagen is GPL-3.0, which is why the project is too ([ADR-0006](0006-gpl-3.md)).
+- The helper also writes the project text format itself. Spriggit's Skyrim package is published as a
+  dotnet tool and cannot be referenced, so the helper generates the same converter from Mutagen's
+  serialization source generator, with Spriggit's customization copied in. Mutagen and the generator
+  are pinned together, to the versions a Spriggit release uses
+  ([spike](../research/2026-10-15-spriggit-embedding-spike.md)).

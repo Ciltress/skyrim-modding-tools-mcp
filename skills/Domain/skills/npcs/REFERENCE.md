@@ -1,7 +1,5 @@
 # NPCs — reference
 
-<!-- STEP 2: add each record's shape in a project (Spriggit YAML) once the spike produces real output. -->
-
 ## The records around an NPC
 
 ```
@@ -51,7 +49,7 @@ textures\actors\character\FaceGenData\FaceTint\<plugin>\<FormID>.dds
 ```
 
 `<plugin>` is the plugin that **first defined** the NPC — `Skyrim.esm` for Lydia, even when another
-mod changes her — and `<FormID>` is her local number as eight hex digits (`000A2C94.nif`).
+mod changes her — and `<FormID>` is her local number as eight hex digits (`000A2C8E.nif`).
 
 - Change any appearance field — race, head parts, morphs, tints, weight — and the FaceGen files must be
   **regenerated**, in the Creation Kit (select the NPC, *Ctrl+F4*). A project can't produce them
@@ -119,6 +117,55 @@ To give *many* NPCs a spell, perk, item, outfit or faction, prefer **SPID** (`*_
 faction, race, keyword, level…) over overriding each NPC. Overrides conflict with every other mod
 touching those NPCs; SPID applies at runtime without overriding anything. Edit records for *specific*
 NPCs.
+
+## In a project
+
+Lydia as she appears in project text, trimmed (`…`), with comments naming the FormIDs. NPCs live in
+the folder `Npcs`; the CK's flags and level sit under `Configuration`.
+
+```yaml
+# Npcs/HousecarlWhiterun - 0A2C8E_Skyrim.esm.yaml
+FormKey: 0A2C8E:Skyrim.esm
+EditorID: HousecarlWhiterun
+Configuration:
+  Flags: [Female, AutoCalcStats, Unique, Protected, OppositeGenderAnims]
+  Level: { MutagenObjectType: PcLevelMult, LevelMult: 1 }
+  CalcMinLevel: 6
+  CalcMaxLevel: 50
+  HealthOffset: 50
+Factions:
+- Faction: 05C84E:Skyrim.esm     # CurrentFollowerFaction
+  Rank: -1                       # "potential", not yet following
+  Fluff: 0x000000
+- Faction: 0A2C8D:Skyrim.esm
+  Fluff: 0x000000                # rank 0 is omitted
+- …
+Voice: 013ADD:Skyrim.esm         # FemaleEvenToned
+Race: 013746:Skyrim.esm          # NordRace
+Class: 013176:Skyrim.esm         # CombatWarrior1H
+Items:
+- Item: { Item: 013989:Skyrim.esm, Count: 1 }
+AIData: { Aggression: Aggressive, Confidence: Foolhardy, EnergyLevel: 50, Assistance: HelpsFriendsAndAllies }
+Packages: [100770:Skyrim.esm, 0E0EC6:Skyrim.esm, 01B217:Skyrim.esm]
+Name: { TargetLanguage: English, Value: Lydia }
+PlayerSkills: { SkillValues: […], Health: 158, Magicka: 50, Stamina: 67, … }
+DefaultOutfit: 0FF7E9:Skyrim.esm # PlayerHousecarlOutfit
+CrimeFaction: 10336E:Skyrim.esm
+HeadParts: [0EC1B2:Skyrim.esm, 051193:Skyrim.esm, 040210:Skyrim.esm]
+HairColor: 0A0434:Skyrim.esm
+FaceMorph: { NoseLongVsShort: 0.1, JawUpVsDown: -0.3, … }
+TintLayers: [{ Index: 24, Color: '#00CECDCC', InterpolationValue: 1, Preset: 602 }, …]
+
+# Outfits/PlayerHousecarlOutfit - 0FF7E9_Skyrim.esm.yaml
+Items: [013951:Skyrim.esm, 013952:Skyrim.esm, 013953:Skyrim.esm, 013955:Skyrim.esm]
+```
+
+- Everything from `HeadParts` down is **appearance**: touch it, and the FaceGen files must be
+  regenerated (above).
+- A templated NPC carries `Template` and template flags under `Configuration`; read a vanilla bandit
+  to see the shape before writing one.
+- Field order and a field's absence matter less than they look: Spriggit omits defaults (rank 0,
+  offsets of 0).
 
 ## Typical bugs
 

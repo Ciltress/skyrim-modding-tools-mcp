@@ -1,7 +1,5 @@
 # Leveled lists — reference
 
-<!-- STEP 2: add each record's shape in a project (Spriggit YAML) once the spike produces real output. -->
-
 ## The three list types
 
 | Signature | List of | Used by |
@@ -69,6 +67,37 @@ When a project touches a vanilla list, record which list and why, and expect it 
 - **Spawns**: a placed actor whose base is an `LVLN` — bandit camps, dungeon draugr. The list's
   entries are often *templates* for NPCs defined elsewhere (see the `npcs` skill).
 - **Spell lists**: an `LVSP` in an NPC's spells gives level-appropriate spells.
+
+## In a project
+
+Lists live in the folders `LeveledItems`, `LeveledNpcs` and `LeveledSpells`. A vanilla list and a new
+one, trimmed:
+
+```yaml
+# LeveledItems/TG02MercLItemSword - 10FE64_Skyrim.esm.yaml  (vanilla, 8 entries)
+FormKey: 10FE64:Skyrim.esm
+EditorID: TG02MercLItemSword
+Flags: [CalculateFromAllLevelsLessThanOrEqualPlayer, CalculateForEachItemInCount]
+Entries:
+- Data: { Level: 1, Reference: 012EB7:Skyrim.esm, Count: 1 }   # IronSword
+- Data: { Level: 1, Reference: 013989:Skyrim.esm, Count: 1 }
+- …                                                           # the same two, repeated: weights
+
+# LeveledItems/SpikeLootList - 000802_SpikeTest.esp.yaml  (new)
+FormKey: 000802:SpikeTest.esp
+EditorID: SpikeLootList
+ChanceNone: 0.25                       # a fraction: 25 %
+Flags: [CalculateFromAllLevelsLessThanOrEqualPlayer]
+Entries:
+- Data: { Level: 1, Reference: 000800:SpikeTest.esp, Count: 1 }
+- Data: { Level: 5, Reference: 012EB7:Skyrim.esm, Count: 2 }
+```
+
+- The flags are `CalculateFromAllLevelsLessThanOrEqualPlayer` (*All levels*),
+  `CalculateForEachItemInCount` (*Each*) and `UseAll`.
+- **`ChanceNone` is a fraction here** (`0.25`), although the CK shows and the plugin stores 0–100.
+- To add to a vanilla list, the override must repeat *every* entry of the winning version, then add
+  yours — the whole list is replaced.
 
 ## Typical bugs
 
