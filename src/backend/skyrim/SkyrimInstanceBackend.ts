@@ -86,14 +86,19 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
     }
 
     /**
-     * `nexus-catalogue` always — searching and reading Nexus need no key — and `nexus-premium` when
-     * NEXUS_API_KEY belongs to a premium account. Undefined when Nexus could not be asked: then the
-     * backend cannot say, and nothing is withheld.
+     * `instance` always, `nexus-api-key` when NEXUS_API_KEY is set — the Nexus tools are offered only
+     * with one, at the user's decision — and `nexus-premium` when Nexus confirms the key belongs to a
+     * premium account. A key Nexus could not check, or did not in time, is not confirmed premium: the
+     * download is not offered then, and a restart asks again. `instance` keeps the list from ever being
+     * empty, which would gate nothing (capabilityGate.ts) and list the Nexus tools after all.
      */
     async capabilities(): Promise<readonly string[] | undefined> {
-        const account = await this.nexus.account();
-        if ('unchecked' in account) return undefined;
-        return ['nexus-catalogue', ...('premium' in account && account.premium ? ['nexus-premium'] : [])];
+        const account = await this.nexusAccount(CAPABILITIES_WAIT_MS);
+        return [
+            'instance',
+            ...(account.apiKey ? ['nexus-api-key'] : []),
+            ...('premium' in account && account.premium ? ['nexus-premium'] : [])
+        ];
     }
 
     /** The Nexus account, waiting no longer than healthcheck can afford; a slow check finishes in the background. */
@@ -600,6 +605,12 @@ function isProjectMod(projectsDir: string, mod: string): boolean {
         return false; // not a name a project can have
     }
 }
+
+/**
+ * How long capabilities() waits for Nexus's key check: under the server's 8 s for the whole gate, so the
+ * answer arrives in time — a late one would leave the gate empty and list the download after all.
+ */
+const CAPABILITIES_WAIT_MS = 5_000;
 
 /** Builds and pulls of big plugins take a while; the helper's default timeout is for lookups. */
 const BUILD_TIMEOUT_MS = 600_000;

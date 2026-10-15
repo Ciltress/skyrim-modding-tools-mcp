@@ -27,8 +27,9 @@ export interface GatedFeature {
 }
 
 /**
- * The optional features a backend may or may not offer. Downloading through Nexus's API needs a
- * premium account's key in NEXUS_API_KEY; everything else works against any instance.
+ * The optional features a backend may or may not offer. The Nexus tools are offered only with a
+ * personal API key in NEXUS_API_KEY, and downloading through Nexus's API only when Nexus confirms that
+ * key is a premium account's; everything else works against any instance.
  *
  * Which tools need one is declared by the tools themselves, through
  * `ToolDefinition.needsFeature`, never as a list of names here — a renamed tool
@@ -37,6 +38,7 @@ export interface GatedFeature {
  * a feature listed here, so a typo cannot un-gate a tool either.
  */
 export const GATED_FEATURES: readonly GatedFeature[] = [
+    { id: 'nexus-api-key', label: 'a Nexus Mods personal API key (NEXUS_API_KEY)' },
     { id: 'nexus-premium', label: 'a Nexus Mods premium account (its personal API key in NEXUS_API_KEY)' }
 ];
 

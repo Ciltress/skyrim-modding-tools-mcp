@@ -104,7 +104,7 @@
         {
           "name": "NEXUS_API_KEY",
           "isSecret": true,
-          "description": "Your personal Nexus Mods API key (nexusmods.com/settings/api-keys). Searching and reading Nexus need none; downloadNexusFile needs a premium account's, and healthcheck shows the account it belongs to. Never share it: Nexus allows personal keys for personal use only."
+          "description": "Your personal Nexus Mods API key (nexusmods.com/settings/api-keys). Without it the Nexus tools are not offered; downloadNexusFile is offered only when Nexus confirms a premium account. healthcheck shows the account it belongs to. Never share it: Nexus allows personal keys for personal use only."
         },
         {
           "name": "SKYRIM_ACCEPTED_TOKENS",

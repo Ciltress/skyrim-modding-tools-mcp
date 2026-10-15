@@ -5,9 +5,10 @@ import type { NexusSort } from '../backend/index.js';
 
 /**
  * The Nexus Mods catalogue for Skyrim Special Edition: finding a mod, reading its page — what it
- * requires and which files it offers — and downloading a file of it. Searching and reading need no
- * API key; downloading through the API needs a premium account's, so that tool is gated. Nexus is an
- * outside service, so these are the server's open-world tools.
+ * requires and which files it offers — and downloading a file of it. All three are offered only with
+ * a personal API key in NEXUS_API_KEY (the user's decision: Nexus is opt-in), though Nexus answers
+ * searches and pages without one; downloading through the API also needs the key to be a premium
+ * account's, as Nexus confirms it. Nexus is an outside service, so these are the open-world tools.
  */
 
 const DEFAULT_LIMIT = 10;
@@ -53,7 +54,8 @@ export class NexusHandlers extends BaseHandler {
                             }
                         }
                     },
-                    narrowingHint: 'Make `text` more specific, or lower `limit`.'
+                    narrowingHint: 'Make `text` more specific, or lower `limit`.',
+                    needsFeature: 'nexus-api-key'
                 },
                 onFailure: 'Failed to search Nexus Mods',
                 run: args => asRequestError(this.backend.searchNexus({
@@ -86,7 +88,8 @@ export class NexusHandlers extends BaseHandler {
                             }
                         },
                         required: ['modId']
-                    }
+                    },
+                    needsFeature: 'nexus-api-key'
                 },
                 onFailure: 'Failed to read the Nexus mod',
                 run: args => asRequestError(this.backend.readNexusMod(requirePositiveInteger(args, 'modId', MOD_ID_HINT)))

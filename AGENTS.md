@@ -150,7 +150,9 @@ scripts/eval-ollama.mjs          runs fixed modding tasks with a local model thr
 - **The backend decides what it can serve; ask it, do not hard-code it.** Tools declare
   `needsFeature`; `capabilities()` says what this backend has. **Every failure path leaves the gate
   empty and the list complete**: hiding a tool that would have worked is worse than offering one that
-  errors, because the first is invisible.
+  errors, because the first is invisible. The one exception is the user's decision: the Nexus tools
+  are offered only with `NEXUS_API_KEY`, and `downloadNexusFile` only when Nexus confirms a premium
+  account — a check Nexus did not answer withholds it ([§3.3 of `docs/MCP-Tools.md`](docs/MCP-Tools.md)).
 - **The profile decides what is listed _and_ what is routed.** A tool outside the profile is not
   callable, so `readonly` genuinely cannot write. Renaming a tool a profile names fails at **startup**
   (`applyProfile` throws), and `profiles.test.ts` catches it first.

@@ -49,7 +49,7 @@ Workflows and the error model: [`MCP-Tools.md`](./MCP-Tools.md). The vocabulary:
 
 | You want to… | Call |
 | --- | --- |
-| Find a mod on Nexus by name | `searchNexus` with `text` — words of the name, in any order |
+| Find a mod on Nexus by name | `searchNexus` with `text` — words of the name, in any order. The Nexus tools are listed only with `NEXUS_API_KEY` set |
 | See what is popular, or new | `searchNexus` without `text`, `sort: "downloads"` or `"updated"` |
 | Check what a mod needs before installing it — SKSE, Address Library, other mods | `readNexusMod` with its `modId` → `requirements`, `dlcRequirements` |
 | Choose which file of a mod to get | `readNexusMod` → `files`: the main file, optional files, updates, with versions |

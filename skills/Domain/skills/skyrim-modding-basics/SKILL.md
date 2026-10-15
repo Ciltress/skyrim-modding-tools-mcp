@@ -64,9 +64,10 @@ When a change has no effect in game, `readRecord` with `allVersions: true` shows
 ## Installing someone else's mod
 
 1. **Check it.** `searchNexus`, then `readNexusMod`: its `requirements` and `dlcRequirements` must be
-   in the instance first — install those first, the same way.
+   in the instance first — install those first, the same way. Without these tools (no Nexus API key),
+   ask the user what the mod page says it needs.
 2. **Get the file.** `downloadNexusFile` with the main file's `fileId`, plus optional files the user
-   wants. Without that tool (no premium key), the user downloads it into the downloads folder.
+   wants. Without that tool (no premium account), the user downloads it into the downloads folder.
 3. **Install.** `installMod` with the file. A FOMOD installer answers its steps first: choose with the
    user where it matters, then call again with `choices`. Done when it succeeds, `missingMasters` is
    empty, and the user has heard `modManager.nextStep`, if there is one.

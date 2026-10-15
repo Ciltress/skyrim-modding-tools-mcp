@@ -290,6 +290,13 @@ answers, so no client needs `tools/list_changed`.
 worked is worse than offering one that errors, because the first is invisible. `MCP_GATE=off` skips
 the question entirely.
 
+**The exception is Nexus, by the user's decision.** The Nexus tools need `nexus-api-key` — a key in
+`NEXUS_API_KEY` — and `downloadNexusFile` needs `nexus-premium` as well, which the backend reports only
+when Nexus *confirms* the key is a premium account's. A key Nexus could not check, or not within 5 s,
+is not confirmed: the download is withheld, and a restart asks again. The backend always reports
+`instance` too, so its list is never empty — an empty one would gate nothing — and it answers within
+the server's 8 s, so a slow Nexus cannot leave the gate empty either.
+
 ---
 
 ## 4. Golden paths
@@ -353,11 +360,12 @@ the game's prefix with Amethyst):
 {"tool":"installMod","args":{"file":"Realistic Water Two SE v5.7.3-2182-5-7-3-1767473625.7z","choices":["2.1.1","3.1.6"]}}
 ```
 
-Searching and reading need no API key. Recommend a mod only with its `requirements` checked against
-what the instance has — an SKSE plugin without SKSE does nothing, and one built for another game
-version crashes it. `downloadNexusFile` is listed only when `NEXUS_API_KEY` belongs to a premium
-account (`health.nexus` says whether it does); it writes the file and Mod Organizer's `<file>.meta`
-record beside it. Without one, the user downloads the file into the downloads folder themselves.
+The Nexus tools are listed only with a key in `NEXUS_API_KEY`. Recommend a mod only with its
+`requirements` checked against what the instance has — an SKSE plugin without SKSE does nothing, and
+one built for another game version crashes it. `downloadNexusFile` is listed only when Nexus confirms
+the key is a premium account's (`health.nexus` says whether it is); it writes the file and Mod
+Organizer's `<file>.meta` record beside it. Without it, the user downloads the file into the downloads
+folder themselves; `installMod` is listed either way.
 
 `installMod` takes any `.7z`, `.zip` or `.rar` there. Without a FOMOD installer it installs the
 file's Data folder at once — the top, a `Data` folder or the one folder there is; when that is not
@@ -456,7 +464,8 @@ Start with `healthcheck`.
 | `searchNexus` / `readNexusMod` → "Nexus Mods could not be reached" | No internet connection from this machine, or Nexus is down | Check the connection; the instance's tools work without it |
 | `searchNexus` / `readNexusMod` → "Nexus Mods answered HTTP 429" | Nexus's rate limit | Wait, then ask again — fewer calls, a narrower `text` |
 | `healthcheck` → `health.nexus.problem`: "Nexus Mods refused the key in NEXUS_API_KEY" | A mistyped, revoked or regenerated personal API key | Copy the key from nexusmods.com/settings/api-keys into `NEXUS_API_KEY`, restart the server |
-| `downloadNexusFile` not listed; `tools.withheldForBackend` names it | `NEXUS_API_KEY` is unset, refused, or not a premium account's — Nexus gives download links through its API to premium accounts only | Set a premium account's key and restart; otherwise the user downloads the file on the mod page |
+| `searchNexus`, `readNexusMod`, `downloadNexusFile` not listed; `tools.withheldForBackend` names them | `NEXUS_API_KEY` is unset — the Nexus tools are offered only with a key | Set a personal API key and restart; `installMod` works without one, on files the user downloads |
+| `downloadNexusFile` not listed; `tools.withheldForBackend` names it | `NEXUS_API_KEY` is refused or not a premium account's — Nexus gives download links through its API to premium accounts only — or Nexus did not answer the key check when the server started (`health.nexus.unchecked`) | Set a premium account's key and restart, or restart once Nexus answers; otherwise the user downloads the file on the mod page |
 | `downloadNexusFile` → "came out N of M bytes" | The download broke off; nothing was kept | Call it again |
 | `newProject` / `addPatch` → "X is already a plugin in the load order" | The project's own plugin was given the name of one the instance has — often the plugin meant to copy from | Leave `plugin` out (the project gets `<project>.esp`); to copy from a plugin, pass it to `addPatch` as `from` |
 | `installMod` → "A mod named 'X' is already in the instance" | The mod is installed, or another one has its name | `replace: true` to install over it (it keeps its place in the mod order), or `name` for a separate mod |
