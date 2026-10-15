@@ -23,8 +23,9 @@ one, at any depth; every directory containing a `SKILL.md` is one skill, and eve
 | `leveled-lists` | Leveled items, NPCs and spells: how a pick works, the conflict problem | `REFERENCE.md` |
 
 Each `SKILL.md` stays short and points at its `REFERENCE.md`, where the record family's fields,
-gotchas, real project text and typical bugs live. The record families' tool workflows are still to
-be written (marked `STEP 2:`).
+gotchas, real project text and typical bugs live. The tool workflow every task follows is in
+`skyrim-modding-basics`; each record family's `SKILL.md` adds what its records need, naming the real
+tools.
 
 ### A SKILL.md
 

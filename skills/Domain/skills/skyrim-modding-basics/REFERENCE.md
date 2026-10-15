@@ -66,6 +66,18 @@ are either **persistent** (always in memory, needed for quests and scripts) or t
 
 ## What a project looks like
 
+A project is one folder:
+
+| Folder | Holds |
+| --- | --- |
+| `plugin/` | the plugin as text, described below |
+| `scripts/` | Papyrus sources (`.psc`); the build compiles them into `Scripts/` beside the plugin |
+| `assets/` | files the game reads beside the plugin — meshes, textures, sounds, a SPID `*_DISTR.ini` — at their path under `Data`: `assets/meshes/armor/MyArmor/cuirass_1.nif` |
+| `build/` | what `buildProject` writes; leave it to the build |
+
+A deploy makes the mod folder exactly `build/` plus `assets/`, the mod manager's own `meta.ini` aside:
+a file the mod needs belongs in the project, or the next deploy removes it.
+
 A project's plugin is kept as text in Spriggit's YAML format: one folder per record group, one file
 per record.
 
@@ -105,8 +117,16 @@ Spells/…   LeveledItems/…   Npcs/…
 - **Header**: `Flags: [Small]` is the light flag; `MasterReferences` lists the masters.
 - **Field names are Mutagen's.** When unsure how a field is written, read a vanilla record of the
   same type in this format and mirror it.
-
-<!-- STEP 2: add how a new record gets its FormID once build assigns them. -->
+- **A new record's FormID comes from `buildProject`.** Write the file without a `FormKey` line, under
+  any name. The build gives it the next free number after the highest the project uses — from
+  `000800`, files in path order — writes `FormKey: 000801:MyMod.esp` at its top, and renames the file
+  `<editor ID> - 000801_MyMod.esp.yaml`. The build's `assignedFormIds` lists them: that is the FormID
+  to write wherever another record points at the new one.
+- **The build numbers a light project's records `000800`–`000FFF`** under either header version —
+  2,048 new records. Past that it stops and says so; removing `Small` from the header's `Flags` makes
+  the project a full plugin.
+- **An assigned FormID is permanent.** Saves and other plugins point at it, so a record keeps its
+  `FormKey` for life — renumbering it, or deleting and re-creating it, breaks every one of them.
 
 ## Load order
 

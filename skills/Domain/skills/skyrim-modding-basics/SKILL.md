@@ -34,6 +34,33 @@ instance. Change a record by editing its text file with your standard file tools
 override into your own project: a patch survives the other mod's next update, an edit to its plugin
 does not.
 
+## The workflow
+
+Every authoring task runs this loop; each record-family skill adds what its records need.
+
+1. **Look up.** `findRecords` by name — `text`, narrowed with `types` such as `["WEAP"]` — or by
+   FormID and editor ID with `records`. Done when you hold the FormID of every record you will change
+   or point at.
+2. **Get the text.**
+   - A record of the base game or another mod: `addPatch` copies its winning version into the project
+     and answers each copy's path and text.
+   - A new record: `newProject` once, then write the file into `plugin/<group folder>/`, mirroring a
+     vanilla record of the same type read with `readRecord`. Leave out `FormKey`.
+   - One of the project's own records: its file is already there.
+3. **Edit** with your file tools — only the fields the task names; the rest stays as copied. Look up
+   every FormID before you write it. Scripts and files such as meshes have folders of their own
+   ([`REFERENCE.md`](REFERENCE.md), *What a project looks like*).
+4. **Build.** `buildProject`. A broken link fails it with the list of offenders: fix each and build
+   again. New records get their FormIDs here, answered in `assignedFormIds`; a record that points at
+   another new one is written after that build, with that FormID, and built again. Done when the
+   build succeeds.
+5. **Deploy**, when the user wants the mod in the game: `deployProject`. Done when it succeeds and the
+   user has heard its `modManager.nextStep`, if it has one.
+6. **Pull** after the user worked on the deployed plugin in the Creation Kit or xEdit: commit the
+   project, `pullProject`, review `git diff`, then build and deploy.
+
+When a change has no effect in game, `readRecord` with `allVersions: true` shows which plugin wins.
+
 ## Where to look next
 
 - [`REFERENCE.md`](REFERENCE.md) — plugins and flags, FormIDs, load order, overrides and patches,
@@ -41,5 +68,3 @@ does not.
   Creation Kit's role.
 - [`TOOLS.md`](TOOLS.md) — the community's tools, what each is for, and when to send the user to one.
 - Record families, one skill each: `items-and-crafting`, `magic`, `npcs`, `leveled-lists`.
-
-<!-- STEP 2: add the tool workflow (look up, build, deploy, pull) once the tools exist. -->
