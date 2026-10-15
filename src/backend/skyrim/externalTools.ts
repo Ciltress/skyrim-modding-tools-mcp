@@ -8,7 +8,11 @@ const run = promisify(execFile);
 
 /** Papyrus and git, the two outside programs a project build and pull rely on. */
 
+/** A script did not compile — something to fix in the project's sources. */
 export class ScriptCompileError extends Error { }
+
+/** The compiler cannot run on this machine — something to install, not something in the project. */
+export class CompilerUnavailableError extends Error { }
 
 /**
  * Compiles a project's Papyrus sources with the Creation Kit's compiler into `outputDir`.
@@ -32,14 +36,14 @@ export async function compileScripts(options: {
     const vanilla = path.join(creationKitDir, 'Data', 'Source', 'Scripts');
     const flags = path.join(vanilla, 'TESV_Papyrus_Flags.flg');
     if (!fs.existsSync(compiler) || !fs.existsSync(flags)) {
-        throw new ScriptCompileError(
+        throw new CompilerUnavailableError(
             `The project has Papyrus scripts, but there is no Papyrus compiler with vanilla sources in '${creationKitDir}'. ` +
             `Install the Creation Kit (Steam), open it once so it unpacks Scripts.zip, or set SKYRIM_CK_DIR to its folder.`);
     }
     // The compiler is a .NET Framework 2.0 program. Without .NET 3.5 it does not fail politely: Windows
     // opens an "install this feature" dialog on the user's screen for every attempt, and the compiler crashes.
     if (!(await hasDotNet35())) {
-        throw new ScriptCompileError(
+        throw new CompilerUnavailableError(
             `The Creation Kit's Papyrus compiler needs .NET Framework 3.5, which is not installed. Turn it on in ` +
             `Windows Features (".NET Framework 3.5 (includes .NET 2.0 and 3.0)"), then build again.`);
     }

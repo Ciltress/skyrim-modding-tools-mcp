@@ -6,7 +6,7 @@
  * stale, try again" and which mean "stop, retrying makes it worse", what it
  * supports, and whether it is alive. The *domain* operations — what the tools
  * actually call — live on the concrete backend that extends this interface
- * (see ./notes.ts for the example).
+ * (see ./skyrim/SkyrimBackend.ts).
  *
  * Two rules every implementation must keep:
  *

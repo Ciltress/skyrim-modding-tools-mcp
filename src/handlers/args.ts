@@ -50,12 +50,13 @@ export function limitArg(args: any, fallback: number, max: number): number {
 }
 
 /**
- * Failures that are about the request — a record that does not exist, a malformed FormID, a reference
- * to nothing, a project in the wrong state, a script that does not compile — become `InvalidParams`,
- * so the client sees something to fix rather than a server fault. Everything else passes through to
- * BaseHandler's mapping.
+ * Failures that are about the request — a record that does not exist, a malformed FormID, a link to
+ * nothing, project text the plugin cannot be written from, a project in the wrong state, a script
+ * that does not compile — become `InvalidParams`, so the client sees something to fix rather than a
+ * server fault. What is missing on the machine — a compiler, a writable disk — is not the request's
+ * fault and passes through to BaseHandler's mapping, as does everything else.
  */
-const REQUEST_ERRORS = new Set(['notFound', 'badRequest', 'danglingReferences', 'formIdRange', 'writeFailed']);
+const REQUEST_ERRORS = new Set(['notFound', 'badRequest', 'danglingLinks', 'writeFailed']);
 
 export async function asRequestError<T>(work: Promise<T> | T): Promise<T> {
     try {

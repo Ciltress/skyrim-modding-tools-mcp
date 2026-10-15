@@ -11,7 +11,7 @@ import { createLogger } from '../../lib/logger.js';
  * one process for the server's lifetime rather than one per call.
  */
 
-/** A failure the helper reported. `code` is stable — `notFound`, `badRequest`, `danglingReferences`… */
+/** A failure the helper reported. `code` is stable — `notFound`, `badRequest`, `danglingLinks`… */
 export class HelperError extends Error {
     constructor(readonly code: string, message: string) {
         super(message);

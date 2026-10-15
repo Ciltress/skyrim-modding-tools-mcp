@@ -55,8 +55,13 @@ export function readProjectHeader(paths: ProjectPaths): { plugin: string; light:
     }
     const text = fs.readFileSync(file, 'utf8');
     const plugin = /^ModKey:\s*(.+?)\s*$/m.exec(text)?.[1];
-    if (!plugin) throw new ProjectError(`'${file}' names no ModKey.`);
-    return { plugin, light: /^\s*-\s*Small\s*$/m.test(text) };
+    if (!plugin) {
+        throw new ProjectError(
+            `'${file}' names no ModKey. Add a first line 'ModKey: <plugin file name>', as newProject writes it.`);
+    }
+    // The header's flags, as a block list (`- Small`) or a flow list (`Flags: [Small]`).
+    const flowFlags = /^\s*Flags:\s*\[([^\]]*)\]/m.exec(text)?.[1].split(',').map(flag => flag.trim()) ?? [];
+    return { plugin, light: /^\s*-\s*Small\s*$/m.test(text) || flowFlags.includes('Small') };
 }
 
 export function projectInfo(name: string, paths: ProjectPaths, created: boolean): ProjectInfo {
@@ -121,8 +126,9 @@ export function assignFormIds(pluginDir: string, plugin: string, light: boolean)
     for (const { file, text } of fresh) {
         if (next > max) {
             throw new ProjectError(
-                `${plugin} is a light plugin and has no FormIDs left (it holds at most ${LIGHT_MAX - FIRST_ID + 1} new ` +
-                `records). Remove the 'Small' flag from plugin/RecordData.yaml to make it a full plugin.`);
+                `${plugin} is a light plugin and has no FormIDs left (the build numbers a light plugin's new records ` +
+                `000800–000FFF, ${LIGHT_MAX - FIRST_ID + 1} in all). Remove the 'Small' flag from plugin/RecordData.yaml ` +
+                `to make it a full plugin.`);
         }
         const id = next.toString(16).toUpperCase().padStart(6, '0');
         next++;
@@ -146,11 +152,15 @@ function escapeRegExp(text: string): string {
 
 // ---------------------------------------------------------------- files
 
-/** The newest modification time of the project's sources: plugin, scripts and assets. */
+/**
+ * The newest modification time of the project's sources: plugin, scripts and assets. Folders count
+ * too, because deleting a file changes only its folder's time.
+ */
 export function newestSourceTime(paths: ProjectPaths): number {
     let newest = 0;
     const walk = (dir: string) => {
         if (!fs.existsSync(dir)) return;
+        newest = Math.max(newest, fs.statSync(dir).mtimeMs);
         for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
             const full = path.join(dir, entry.name);
             if (entry.isDirectory()) walk(full);

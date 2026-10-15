@@ -25,6 +25,8 @@ export class SkyrimEngine {
     private fingerprint?: string;
 
     instance?: Mo2Instance;
+    /** Why the last attempt to start failed — cleared by the next one that succeeds. */
+    startError?: string;
     gameVersion?: string;
     helperVersion?: string;
     activePlugins = 0;
@@ -53,7 +55,12 @@ export class SkyrimEngine {
 
     /** Starts the helper and hands it the load order. Concurrent callers share one attempt. */
     connect(): Promise<void> {
-        this.connecting ??= this.doConnect().finally(() => { this.connecting = undefined; });
+        this.connecting ??= this.doConnect()
+            .then(() => { this.startError = undefined; }, error => {
+                this.startError = (error as Error).message;
+                throw error;
+            })
+            .finally(() => { this.connecting = undefined; });
         return this.connecting;
     }
 

@@ -14,9 +14,6 @@ import {
 /**
  * The bundled skills, served as resources and through readSkill. Like the guide
  * tests, these read the real skills/ directory: what ships is what is served.
- *
- * skills/Development is a git submodule and may be absent from a plain clone,
- * so nothing here depends on it — only on the vendored skills/Domain.
  */
 
 describe('parseFrontmatter', () => {

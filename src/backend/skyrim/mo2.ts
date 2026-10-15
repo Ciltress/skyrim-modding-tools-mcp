@@ -121,7 +121,9 @@ export function readInstance(instanceDir: string): Mo2Instance {
     const profile = general.get('selected_profile') || 'Default';
     const profileDir = path.join(profilesDir, profile);
     if (!fs.existsSync(profileDir)) {
-        throw new Mo2ConfigError(`The selected profile '${profile}' has no folder at '${profileDir}'.`);
+        throw new Mo2ConfigError(
+            `The selected profile '${profile}' has no folder at '${profileDir}'. Select an existing profile in Mod ` +
+            `Organizer, or fix selected_profile in ModOrganizer.ini.`);
     }
 
     return {

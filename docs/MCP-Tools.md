@@ -153,7 +153,7 @@ is `BaseHandler`'s:
 | `handle(name, args)` | Dispatches to `run`, never with `undefined` args; times the call; wraps the payload; maps errors. |
 | `envelope(payload)` | `{content:[{type:'text',text:<compact JSON>}]}`. Adds `status:'success'` to a plain object without a `status`; serialises a bare array as it stands. |
 | `asMcpError(error, onFailure)` | An `McpError` passes through untouched; anything else becomes `InternalError`, prefixed with the spec's `onFailure` and keeping the backend's own message. |
-| `backend` | The one `AppBackend` this server instance talks to. |
+| `backend` | The one `AppBackend` this server talks to. |
 | `logger` | `createLogger(this.constructor.name)` — **all levels go to stderr**. |
 | `getMetrics()` | Requests, errors, timing, bytes returned, largest answer, answers withheld. Surfaced per handler by `healthcheck`. |
 
@@ -399,8 +399,11 @@ Start with `healthcheck`.
 | "does not offer … calling it again will not help" | The capability gate withheld the tool for this backend | Not a request problem. `healthcheck` lists `withheldForBackend` |
 | `status: "truncated"` | The answer was over the profile's response budget | Do what `nextStep` says; or raise `MCP_MAX_RESPONSE_BYTES` |
 | "No record with editor ID …" / "No record … in the load order" | A guessed or misspelled ID, or a plugin that is not active | Find it with `findRecords`; check the plugin is active in the selected profile |
-| `buildProject` → "reference(s) point at records that exist neither…" | A FormID typed by hand, or a master that is not active | Resolve each with `findRecords` and fix the file |
-| `deployProject` → "changed since the last deploy" | The deployed plugin was saved in the Creation Kit or xEdit | `pullProject`, review, commit, then build and deploy |
+| `buildProject` → "link(s) point at records that exist neither…" | A FormID typed by hand, or a master that is not active | Resolve each with `findRecords` and fix the file |
+| `buildProject` → "cannot be written from the project's text" | A record whose fields Mutagen cannot write | Compare it with a vanilla record of the same type (`readRecord`) and fix the fields |
+| `buildProject` → "no Papyrus compiler" / ".NET Framework 3.5" | The machine lacks what compiles scripts — not a fault in the project | Install what the message names, then build again |
+| `deployProject` → "changed since the last deploy" | The deployed plugin was saved in the Creation Kit or xEdit — perhaps into overwrite | `pullProject`, review, commit, then build and deploy; deploy then clears the pulled copy from overwrite |
+| `deployProject` → "overwrite folder holds a …" | A plugin of the same name in overwrite would hide a first deploy | Pull it if it is this project's work; otherwise move it out of overwrite in Mod Organizer |
 | `deployProject` → "changed since its last build" | Project text is newer than the build | `buildProject` first |
 | `pullProject` → "uncommitted changes" | The project folder has uncommitted work | Commit it, so the pull shows on its own in `git diff` |
 | "The plugin helper is not built" | `helper/bin` is missing | `npm run build:helper` (needs the .NET 10 SDK) |

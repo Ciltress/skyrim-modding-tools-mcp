@@ -36,7 +36,7 @@ export interface BackendOptions {
 /** One engine per process — one helper, one load order — shared by every HTTP session. */
 let sharedEngine: SkyrimEngine | undefined;
 
-/** Builds the backend for one server instance. Starts nothing: the helper starts on connect(). */
+/** Builds the backend for one server: per process, or per session in HTTP mode. Starts nothing: the helper starts on connect(). */
 export function createBackend(env: NodeJS.ProcessEnv = process.env, options: BackendOptions = {}): AppBackend {
     const instanceDir = String(env.SKYRIM_MO2_INSTANCE ?? '');
     const projectsDir = path.resolve(PROJECT_ROOT, env.SKYRIM_PROJECTS_DIR || DEFAULT_PROJECTS_DIR);

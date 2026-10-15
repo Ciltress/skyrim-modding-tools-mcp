@@ -57,19 +57,19 @@ _writes · idempotent_
 
 `project`**\*** string · `records`**\*** array · `from` string · `plugin` string
 
-**`buildProject`** — Build a project's plugin from its text: gives new records their FormIDs (written back into their files), checks that every reference points at a record that exists, writes the plugin with the header this game version needs, and compiles the project's Papyrus scripts. Fails with the list of broken references, if any. Does not touch Mod Organizer — deployProject does.
+**`buildProject`** — Build a project's plugin from its text: gives new records their FormIDs (written back into their files), checks that every link (a FormID in a field) points at a record that exists, compiles the project's Papyrus scripts and writes the plugin with the header this game version needs. Fails with the list of broken links, if any. Does not touch Mod Organizer — deployProject does.
 
 _writes · idempotent_
 
 `project`**\*** string
 
-**`deployProject`** — Put a built project into Mod Organizer: replace its mod folder with the build and the project's assets, enable the mod, and activate the plugin — at the end of the load order when it is new, so it wins over what it patches. A running Mod Organizer is told to re-read its profile. Refuses when the project changed since its build, or when the deployed plugin was changed elsewhere (e.g. in the Creation Kit) — pull that first.
+**`deployProject`** — Put a built project into Mod Organizer: replace its mod folder with the build and the project's assets, enable the mod, and activate the plugin — at the end of the load order when it is new, so it wins over what it patches. A running Mod Organizer is told to re-read its profile. Refuses when the project changed since its build, or when the deployed plugin was changed elsewhere (e.g. in the Creation Kit, which may save it into overwrite) — pull that first; a pulled copy in overwrite is then removed, so it no longer hides the mod's.
 
 _writes · destructive · idempotent_
 
 `project`**\*** string
 
-**`pullProject`** — Bring changes made to a deployed plugin outside the project — placing objects in the Creation Kit, a fix in xEdit — back into the project's text. Refuses while the project folder has uncommitted changes, so what the pull changes can be reviewed with git diff and undone. Returns the files added, changed and removed.
+**`pullProject`** — Bring changes made to a deployed plugin outside the project — placing objects in the Creation Kit, a fix in xEdit — back into the project's text. Refuses while the project folder has uncommitted changes, so what the pull changes can be reviewed with git diff and undone; where git cannot tell (no git, or no repository), it pulls and says so in `warning`. Returns the files added, changed and removed.
 
 _writes · destructive · idempotent_
 
@@ -85,7 +85,7 @@ _read-only_
 
 `text` string · `records` array · `types` array · `plugin` string · `limit` number, default `25`
 
-**`readRecord`** — One record as project text (YAML): by default the version that wins in the load order; with `plugin`, that plugin's version; with `allVersions`, every plugin's version, winning first — compare them to see a conflict. Each version comes with the file path it would have in a project. References inside are FormIDs: resolve them with findRecords.
+**`readRecord`** — One record as project text (YAML): by default the version that wins in the load order; with `plugin`, that plugin's version; with `allVersions`, every plugin's version, winning first — compare them to see a conflict. Each version comes with the file path it would have in a project. Links inside are FormIDs: resolve them with findRecords.
 
 _read-only_
 

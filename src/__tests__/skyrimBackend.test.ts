@@ -6,10 +6,13 @@ import {
     Mo2ConfigError, decodeQtValue, parseModList, readInstance, readLoadOrder, readModList, resolvePluginFiles
 } from '../backend/skyrim/mo2';
 import { activatePlugin, enableMod } from '../backend/skyrim/mo2Profile';
-import { ProjectError, assignFormIds, projectPaths, syncYaml } from '../backend/skyrim/projects';
+import { ProjectError, assignFormIds, projectPaths, readProjectHeader, syncYaml } from '../backend/skyrim/projects';
 import { SkyrimEngine } from '../backend/skyrim/engine';
 import { Mo2SkyrimBackend } from '../backend/skyrim/Mo2SkyrimBackend';
-import type { HelperTransport } from '../backend/skyrim/helperClient';
+import { HelperError, HelperMissingError, HelperUnavailableError, type HelperTransport } from '../backend/skyrim/helperClient';
+import { CompilerUnavailableError, ScriptCompileError } from '../backend/skyrim/externalTools';
+import { asRequestError } from '../handlers/args';
+import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 
 /**
  * What the Skyrim backend actually does, against a real Mod Organizer instance laid out in a
@@ -193,6 +196,22 @@ describe('project files', () => {
         expect(assignFormIds(dir, 'MyMod.esp', true)).toEqual([]);
     });
 
+    it('reads the light flag in either form YAML writes a list in', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-header-'));
+        roots.push(dir);
+        const paths = projectPaths(dir, 'Flags');
+        for (const [header, light] of [
+            ['ModHeader:\n  Flags:\n  - Small\n', true],
+            ['ModHeader:\n  Flags: [Small]\n', true],
+            ['ModHeader:\n  Flags: [Master, Small]\n', true],
+            ['ModHeader:\n  Flags: [Master]\n', false],
+            ['', false]
+        ] as const) {
+            write(path.join(paths.plugin, 'RecordData.yaml'), `ModKey: Flags.esp\n${header}`);
+            expect(`${JSON.stringify(header)}: ${readProjectHeader(paths).light}`).toBe(`${JSON.stringify(header)}: ${light}`);
+        }
+    });
+
     it('stops a light plugin at its last FormID and says how to grow it', () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-ids-'));
         roots.push(dir);
@@ -265,13 +284,14 @@ function makeBackend() {
     return { fixture, backend, calls, engine };
 }
 
-/** Moves a file's clock back, so a build made "now" is newer than the sources. */
-function age(dir: string): void {
-    const past = new Date(Date.now() - 60_000);
+/** Moves the clock of a folder's files and folders back, so a build made "now" is newer than the sources. */
+function age(dir: string, ms = 60_000): void {
+    const past = new Date(Date.now() - ms);
     const walk = (d: string) => {
         for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
             const full = path.join(d, entry.name);
-            if (entry.isDirectory()) walk(full); else fs.utimesSync(full, past, past);
+            if (entry.isDirectory()) walk(full);
+            fs.utimesSync(full, past, past);
         }
     };
     walk(dir);
@@ -395,9 +415,124 @@ describe('the Skyrim backend', () => {
         expect(fs.readFileSync(path.join(fixture.instanceDir, 'mods', 'HighMod', 'Shared.esp'), 'utf8')).toBe('high');
     });
 
+    it('leaves nothing to deploy when a build fails, and nothing of an earlier build behind', async () => {
+        const { backend, fixture } = makeBackend();
+        await backend.newProject({ project: 'Scripted' });
+        const root = path.join(fixture.projects, 'Scripted');
+        age(root);
+        await backend.buildProject('Scripted');
+        // Output of an earlier build whose script is gone since: the next build must not keep it.
+        write(path.join(root, 'build', 'Scripts', 'Removed.pex'), 'compiled long ago');
+        age(root);
+        await backend.buildProject('Scripted');
+        expect(fs.existsSync(path.join(root, 'build', 'Scripts', 'Removed.pex'))).toBe(false);
+
+        // A script, and no Papyrus compiler in the test game: the build fails, and leaves no plugin to deploy.
+        write(path.join(root, 'scripts', 'MyQuest.psc'), 'ScriptName MyQuest extends Quest\n');
+        age(root);
+        await expect(backend.buildProject('Scripted')).rejects.toThrow(/Papyrus compiler/);
+        await expect(backend.deployProject('Scripted')).rejects.toThrow(/not been built yet/);
+    });
+
+    it('notices a source file that was deleted after the build', async () => {
+        const { backend, fixture } = makeBackend();
+        await backend.newProject({ project: 'Shrinking' });
+        const root = path.join(fixture.projects, 'Shrinking');
+        write(path.join(root, 'plugin', 'Weapons', 'Sword - 000800_Shrinking.esp.yaml'), 'FormKey: 000800:Shrinking.esp\n');
+        age(root);
+        await backend.buildProject('Shrinking');
+        age(path.join(root, 'build'), 30_000);
+
+        fs.rmSync(path.join(root, 'plugin', 'Weapons', 'Sword - 000800_Shrinking.esp.yaml'));
+        await expect(backend.deployProject('Shrinking')).rejects.toThrow(/changed since its last build/);
+    });
+
+    it('guards a plugin the Creation Kit saved anew into overwrite, and clears it once it is pulled', async () => {
+        const { backend, fixture } = makeBackend();
+        const root = path.join(fixture.projects, 'MyPatch');
+        await backend.addPatch({ project: 'MyPatch', records: ['IronSword'] });
+        age(root);
+        await backend.buildProject('MyPatch');
+        await backend.deployProject('MyPatch');
+
+        // Saved anew, the plugin lands in overwrite — which outranks the mod, so the game sees that copy.
+        const inOverwrite = path.join(fixture.instanceDir, 'overwrite', 'MyPatch.esp');
+        write(inOverwrite, 'saved anew in the Creation Kit');
+        await expect(backend.deployProject('MyPatch')).rejects.toThrow(/pullProject/);
+
+        const pulled = await backend.pullProject('MyPatch');
+        expect(pulled.source).toBe(inOverwrite);
+        age(root);
+        await backend.buildProject('MyPatch');
+
+        // The project holds that work now: deploy goes ahead and removes the copy that would hide it.
+        const deployed = await backend.deployProject('MyPatch');
+        expect(deployed.removedFromOverwrite).toBe(inOverwrite);
+        expect(fs.existsSync(inOverwrite)).toBe(false);
+        expect(fs.readFileSync(path.join(fixture.instanceDir, 'mods', 'MyPatch', 'MyPatch.esp'), 'utf8')).toMatch(/plugin built from/);
+    });
+
+    it('refuses a first deploy that a plugin of the same name in overwrite would hide', async () => {
+        const { backend, fixture } = makeBackend();
+        await backend.newProject({ project: 'Hidden' });
+        age(path.join(fixture.projects, 'Hidden'));
+        await backend.buildProject('Hidden');
+        write(path.join(fixture.instanceDir, 'overwrite', 'Hidden.esp'), 'someone else\'s');
+        await expect(backend.deployProject('Hidden')).rejects.toThrow(/overwrite/);
+    });
+
+    it('says in healthcheck why the helper could not start, rather than that it is starting', async () => {
+        const fixture = makeInstance();
+        const helper: HelperTransport = {
+            running: false,
+            async start() { throw new HelperMissingError('The plugin helper is not built: run npm run build:helper.'); },
+            stop() { },
+            async call() { throw new Error('not running'); }
+        };
+        const backend = new Mo2SkyrimBackend({ engine: new SkyrimEngine(fixture.instanceDir, helper, fixture.projects) });
+        await backend.connect();
+        await backend.findRecords({ limit: 1 }).catch(() => { });
+        const health = await backend.health();
+        expect(health.ok).toBe(false);
+        expect(health.summary).toMatch(/npm run build:helper/);
+    });
+
+    it('does not let a retry repeat a call that already wrote files', async () => {
+        // The helper goes away after the project was created: retrying would report it as already there.
+        const { backend, engine } = makeBackend();
+        const call = engine.helper.call.bind(engine.helper);
+        engine.helper.call = async (method: string, params?: Record<string, unknown>) => {
+            if (method === 'addOverrides') throw new HelperUnavailableError('The plugin helper is not running.');
+            return call(method, params);
+        };
+        const error = await backend.addPatch({ project: 'Half', records: ['IronSword'] }).catch(e => e);
+        expect(error).toBeInstanceOf(Error);
+        expect(backend.isSessionExpired(error)).toBe(false);
+        expect(error.message).toMatch(/already/);
+    });
+
     it('reports a pull with nothing deployed as something to fix', async () => {
         const { backend } = makeBackend();
         await backend.newProject({ project: 'Fresh' });
         await expect(backend.pullProject('Fresh')).rejects.toThrow(/deploy the project first/);
+    });
+});
+
+// ---------------------------------------------------------------- what the client is told
+
+describe('which failures the client is asked to fix', () => {
+    const code = (error: unknown) => asRequestError(Promise.reject(error)).catch(e => e instanceof McpError ? e.code : 'passed through');
+
+    it('asks to fix the request when the request or the project text is at fault', async () => {
+        expect(await code(new ScriptCompileError('MyQuest.psc(3,1): no viable alternative'))).toBe(ErrorCode.InvalidParams);
+        expect(await code(new HelperError('danglingLinks', 'x'))).toBe(ErrorCode.InvalidParams);
+        expect(await code(new HelperError('writeFailed', 'x'))).toBe(ErrorCode.InvalidParams);
+        expect(await code(new ProjectError('x'))).toBe(ErrorCode.InvalidParams);
+    });
+
+    it('does not blame the request for what is missing on the machine', async () => {
+        expect(await code(new CompilerUnavailableError('no Papyrus compiler'))).toBe('passed through');
+        expect(await code(new HelperError('ioFailed', 'x'))).toBe('passed through');
+        expect(await code(new HelperError('timeout', 'x'))).toBe('passed through');
     });
 });

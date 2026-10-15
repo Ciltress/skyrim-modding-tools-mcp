@@ -48,19 +48,19 @@ export class SkillsHandlers extends BaseHandler {
                             collection: {
                                 type: 'string',
                                 description:
-                                    "Which collection to describe, e.g. 'domain' or 'development'. Returns every " +
+                                    "Which collection to describe, e.g. 'domain'. Returns every " +
                                     'skill in it with its description. Omit for the cheap top-level index.'
                             },
                             skill: {
                                 type: 'string',
                                 description:
-                                    "A skill name from the index, e.g. 'notes-workflow' or 'tdd'. Returns its SKILL.md."
+                                    "A skill name from the index, e.g. 'skyrim-modding-basics' or 'magic'. Returns its SKILL.md."
                             },
                             file: {
                                 type: 'string',
                                 description:
                                     "A supporting file of that skill, as listed in its `files`, e.g. " +
-                                    "'reference/tagging.md'. Requires `skill`."
+                                    "'REFERENCE.md'. Requires `skill`."
                             }
                         }
                     },

@@ -62,6 +62,11 @@ hex value seen in game prefixes the plugin's load-order slot, so it moves when t
 the identity does not.
 _Avoid_: ID, ref ID, editor ID (a separate, human-readable name)
 
+**Link**:
+A field of a record that points at another record by its FormID — a weapon's enchantment, a leveled
+list's entries. A link to a record that exists nowhere in the load order is a broken link.
+_Avoid_: reference (which is a placed record), pointer, form link
+
 **Override**:
 A plugin's version of a record that one of its masters defined.
 _Avoid_: edit, change, copy
@@ -92,11 +97,13 @@ without touching their plugins. It starts from each record's current winning ver
 _Avoid_: fix, compatibility plugin, merge
 
 **Build**:
-Turning a project into a plugin, compiled scripts and collected assets, inside the project.
+Turning a project's text into a plugin and its scripts into compiled ones, inside the project. Each
+build starts from nothing. Assets are not copied: deploy takes them from the project as they are.
 _Avoid_: compile, export, pack
 
 **Deploy**:
-Copying a project's build into its mod in the instance, enabling it and placing it in the load order.
+Copying a project's build and assets into its mod in the instance, enabling it and placing it in the
+load order.
 _Avoid_: install, publish, sync
 
 **Pull**:

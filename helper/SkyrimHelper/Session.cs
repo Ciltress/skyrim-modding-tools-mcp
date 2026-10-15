@@ -337,8 +337,8 @@ public sealed class Session : IDisposable
             }
         }
         if (dangling.Count > 0)
-            throw new HelperException("danglingReferences",
-                $"{dangling.Count} reference(s) point at records that exist neither in the project nor in the load order: " +
+            throw new HelperException("danglingLinks",
+                $"{dangling.Count} link(s) point at records that exist neither in the project nor in the load order: " +
                 string.Join("; ", dangling.Distinct().Take(20)) + (dangling.Count > 20 ? "; …" : ""));
 
         Directory.CreateDirectory(Path.GetDirectoryName(output)!);
@@ -346,9 +346,16 @@ public sealed class Session : IDisposable
         {
             await mod.BeginWrite.ToPath(output).WithLoadOrder(others).WriteAsync();
         }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // The disk, not the project: a full drive, a file another program holds open.
+            throw new HelperException("ioFailed", $"Could not write '{output}': {e.Message}");
+        }
         catch (Exception e) when (e is not HelperException)
         {
-            throw new HelperException("writeFailed", e.Message);
+            throw new HelperException("writeFailed",
+                $"The plugin cannot be written from the project's text: {e.Message} Compare the records named " +
+                "there with a vanilla record of the same type (readRecord) and fix their fields.");
         }
 
         using var written = SkyrimMod.Create(release).FromPath(output).Construct();

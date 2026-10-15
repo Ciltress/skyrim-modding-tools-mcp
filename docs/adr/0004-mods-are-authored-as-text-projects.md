@@ -17,3 +17,10 @@ next deploy.
 - Build assigns a FormID to every new record and writes it back into the project. Once assigned, a
   FormID never changes.
 - Build, deploy and pull are explicit steps. Nothing watches files in the background.
+- Pull's guard needs git to answer. Where it cannot — git is not installed, or the projects folder is
+  not in a repository — pull goes ahead and says so in a warning, rather than refusing: the projects
+  folder normally sits inside this repository, so that case is rare, and refusing would leave no way
+  to pull at all.
+- A copy of the plugin that the Creation Kit saves anew lands in Mod Organizer's overwrite folder,
+  which outranks the mod. Deploy guards that copy like the mod's own, and removes it once it has been
+  pulled, so it cannot hide the next deploy.

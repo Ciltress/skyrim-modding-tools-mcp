@@ -110,8 +110,9 @@ scripts/smoke.mjs                drives the built server over stdio; fails on an
   any of them, and `server.test.ts` checks the same on the wire.
 - **Make every annotation true.** `idempotentHint: true` is a claim a test can check: repeat the call
   and compare the state. `skyrimBackend.test.ts` does it for `deployProject` — a second deploy of the
-  same build leaves Mod Organizer's profile untouched — and `addPatch`, which leaves a record already
-  in the project alone.
+  same build leaves Mod Organizer's profile untouched — and for `newProject` and `assignFormIds`.
+  `addPatch` leaving a record already in the project alone is the helper's behaviour, so it was
+  checked against the test instance, not in the suite.
 - **Errors must be `McpError`, and say the next step.** A raw `Error` reaching the client becomes an
   opaque "Internal error". `InvalidParams` for a bad argument, with a message that names what to send
   instead — a model reads the message and acts on it.

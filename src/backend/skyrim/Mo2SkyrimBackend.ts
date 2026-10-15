@@ -7,6 +7,7 @@ import type { HealthReport } from '../Backend.js';
 import { readInstance, readModList, type Mo2Instance } from './mo2.js';
 import { activatePlugin, enableMod, refreshIfRunning } from './mo2Profile.js';
 import { compileScripts, hasUncommittedChanges } from './externalTools.js';
+import { HelperError, HelperUnavailableError } from './helperClient.js';
 import {
     ProjectError, assignFormIds, copyTree, createProject, fileHash, newestSourceTime, projectExists,
     projectInfo, projectPaths, readDeployState, readProjectHeader, syncYaml, writeDeployState
@@ -28,7 +29,7 @@ export interface Mo2SkyrimBackendOptions {
 }
 
 /**
- * The backend one server instance talks to: a thin layer over the shared SkyrimEngine, which holds
+ * The backend one server talks to: a thin layer over the shared SkyrimEngine, which holds
  * the MO2 instance and the plugin helper. Per session it only adds the credential check.
  *
  * `connect()` is the credential check and nothing else — it starts the engine in the background but
@@ -84,10 +85,13 @@ export class Mo2SkyrimBackend implements SkyrimBackend {
             ? { running: true, version: engine.helperVersion }
             : { running: false };
         const missing = engine.missingPlugins.length;
+        const failed = !engine.ready && engine.startError !== undefined;
         return {
             // Still starting is not a fault: the instance is readable, and the helper is on its way.
-            ok: missing === 0,
-            summary: !engine.ready
+            ok: !failed && missing === 0,
+            summary: failed
+                ? `The plugin helper could not start: ${engine.startError}`
+                : !engine.ready
                 ? `The instance is readable; the plugin helper is starting, or starts with the first tool call.`
                 : missing > 0
                     ? `${missing} active plugin(s) have no file in the game or any enabled mod: ${engine.missingPlugins.slice(0, 5).join(', ')}.`
@@ -138,12 +142,12 @@ export class Mo2SkyrimBackend implements SkyrimBackend {
             created = true;
         }
         const { plugin } = readProjectHeader(paths);
-        const copied = await this.engine.helper.call<Omit<AddPatchResult, 'project'>>('addOverrides', {
+        const copied = await afterLocalWrites(this.engine.helper.call<Omit<AddPatchResult, 'project'>>('addOverrides', {
             plugin,
             projectPluginDir: paths.plugin,
             records: request.records,
             from: request.from
-        });
+        }));
         return { project: projectInfo(request.project, paths, created), ...copied };
     }
 
@@ -153,12 +157,9 @@ export class Mo2SkyrimBackend implements SkyrimBackend {
         const { plugin, light } = readProjectHeader(paths);
 
         const assignedFormIds = assignFormIds(paths.plugin, plugin, light);
-        const output = path.join(paths.build, plugin);
-        const built = await this.engine.helper.call<{ records: number; masters: string[]; headerVersion: number }>('build', {
-            projectPluginDir: paths.plugin,
-            outputPath: output,
-            headerVersion: this.engine.headerVersion
-        }, BUILD_TIMEOUT_MS);
+        // Every build starts from nothing, so a script deleted from the project leaves no .pex behind.
+        // The plugin is written last: a build that fails on the way leaves no plugin, and deploy refuses.
+        fs.rmSync(paths.build, { recursive: true, force: true });
 
         const instance = readInstance(this.engine.instanceDir);
         const compiled = await compileScripts({
@@ -168,6 +169,13 @@ export class Mo2SkyrimBackend implements SkyrimBackend {
             instance,
             mods: readModList(instance)
         });
+
+        const output = path.join(paths.build, plugin);
+        const built = await afterLocalWrites(this.engine.helper.call<{ records: number; masters: string[]; headerVersion: number }>('build', {
+            projectPluginDir: paths.plugin,
+            outputPath: output,
+            headerVersion: this.engine.headerVersion
+        }, BUILD_TIMEOUT_MS));
 
         return {
             project, plugin, output,
@@ -194,16 +202,26 @@ export class Mo2SkyrimBackend implements SkyrimBackend {
 
         const modFolder = path.join(instance.modsDir, project);
         const deployed = path.join(modFolder, plugin);
+        // A copy in overwrite outranks the mod: it is the one the game loads, and the one to guard.
+        const inOverwrite = path.join(instance.overwriteDir, plugin);
+        const overwriteCopy = fs.existsSync(inOverwrite);
+        const live = overwriteCopy ? inOverwrite : deployed;
         const state = readDeployState(paths);
         if (!state && fs.existsSync(modFolder) && fs.readdirSync(modFolder).some(f => f.toLowerCase() !== 'meta.ini')) {
             throw new ProjectError(
                 `A mod named '${project}' already exists in the instance and was not deployed from this project. ` +
                 `Rename the project, or remove that mod in Mod Organizer first.`);
         }
-        if (state && fs.existsSync(deployed) && fileHash(deployed) !== state.pluginHash) {
+        if (!state && overwriteCopy) {
             throw new ProjectError(
-                `The deployed ${plugin} changed since the last deploy — saved in the Creation Kit or xEdit? ` +
-                `Run pullProject to bring those changes into the project first; deploying now would overwrite them.`);
+                `Mod Organizer's overwrite folder holds a ${plugin}, which would hide this deploy from the game. ` +
+                `If it is this project's work, run pullProject first; otherwise move it out of overwrite in Mod Organizer.`);
+        }
+        if (state && fs.existsSync(live) && fileHash(live) !== state.pluginHash) {
+            throw new ProjectError(
+                `The deployed ${plugin}${overwriteCopy ? ' (the copy in overwrite)' : ''} changed since the last deploy — ` +
+                `saved in the Creation Kit or xEdit? Run pullProject to bring those changes into the project first; ` +
+                `deploying now would overwrite them.`);
         }
 
         // Everything but Mod Organizer's own meta.ini is replaced, so files removed from the project go too.
@@ -213,6 +231,8 @@ export class Mo2SkyrimBackend implements SkyrimBackend {
             }
         }
         const files = copyTree(paths.build, modFolder) + copyTree(paths.assets, modFolder);
+        // Guarded above: an overwrite copy that got this far was pulled, so the project holds its work.
+        if (overwriteCopy) fs.rmSync(inOverwrite);
 
         const modEnabled = enableMod(instance, project);
         const { pluginActive, addedToLoadOrder } = activatePlugin(instance, plugin);
@@ -221,6 +241,7 @@ export class Mo2SkyrimBackend implements SkyrimBackend {
 
         return {
             project, plugin, modFolder, files,
+            ...(overwriteCopy ? { removedFromOverwrite: inOverwrite } : {}),
             profile: { name: instance.profile, modEnabled, pluginActive, addedToLoadOrder },
             modOrganizer
         };
@@ -272,6 +293,19 @@ export class Mo2SkyrimBackend implements SkyrimBackend {
 
 /** Builds and pulls of big plugins take a while; the helper's default timeout is for lookups. */
 const BUILD_TIMEOUT_MS = 600_000;
+
+/**
+ * A helper call made after this tool call already wrote files — a created project, assigned FormIDs.
+ * "The helper was not running" normally means nothing happened, and the server retries; here something
+ * did, and a retry would report it wrongly, so the failure is reported as it is instead.
+ */
+function afterLocalWrites<T>(call: Promise<T>): Promise<T> {
+    return call.catch(error => {
+        if (!(error instanceof HelperUnavailableError)) throw error;
+        throw new HelperError('helperUnavailable',
+            `${error.message} This call had already written to the project; check it before repeating the call.`);
+    });
+}
 
 /**
  * The projects folder's own git rules, written once: build output and deploy state stay out of git,

@@ -6,12 +6,12 @@ import { PROJECT_ROOT, RESOURCE_SCHEME } from './serverInfo.js';
  * Agent skills bundled under skills/, discovered from disk and served the same
  * two ways as the guides: as MCP resources and through the readSkill tool.
  *
- * A "collection" is one directory under skills/ — normally a cloned upstream
- * repository, e.g. skills/Development, or a vendored one like skills/Domain. Inside it, every
- * directory containing a SKILL.md is one skill. The nesting between the
- * collection's own `skills/` folder and the skill differs per collection
- * (Development groups by category, Domain does not), so discovery walks rather
- * than assuming a fixed depth.
+ * A "collection" is one directory under skills/ — here skills/Domain, the
+ * modding skills; a cloned upstream repository works the same way. Inside it,
+ * every directory containing a SKILL.md is one skill. The nesting between the
+ * collection's own `skills/` folder and the skill can differ per collection
+ * (some group skills by category), so discovery walks rather than assuming a
+ * fixed depth.
  *
  * Nothing here is required at runtime: a missing skills/ directory simply means
  * no skills are offered.

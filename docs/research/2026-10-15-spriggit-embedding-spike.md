@@ -16,8 +16,10 @@ user's machine but the .NET runtime — no Spriggit CLI, no SDK, no network?
 - **It does not need to be.** Its serializer is generated: `Mutagen.Bethesda.Serialization.SourceGenerator`
   emits `MutagenYamlConverter` into whatever assembly contains an `ICustomize` class. Copying Spriggit's
   five-line `Customization` (omit last-modified, timestamps, unknown group data, unused condition
-  fields; one file per record) and its `AddNonOpinionatedWriteOptions` write settings reproduces the
-  format. Both are GPL-3.0, which [ADR-0006](../adr/0006-gpl-3.md) allows.
+  fields; one file per record) reproduces the format; it is GPL-3.0, which
+  [ADR-0006](../adr/0006-gpl-3.md) allows. (Spriggit also writes the binary plugin with
+  `AddNonOpinionatedWriteOptions`, exactly as its text says; the helper's build deliberately does not,
+  and lets Mutagen derive the masters from the load order instead — noted 2026-10-15 in review.)
 - **Pins that must move together** — the generator has to match the Mutagen it generates against.
   Spriggit 0.41.0 uses: `Mutagen.Bethesda.Skyrim` / `.Core` **0.54.0**,
   `Mutagen.Bethesda.Serialization` / `.Yaml` / `.SourceGenerator` **1.38.6**, `Noggog.CSharpExt` **4.3.0**.

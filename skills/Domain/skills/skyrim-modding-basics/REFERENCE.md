@@ -211,8 +211,9 @@ program started *through* MO2 sees one virtual `Data` folder layered from the en
 ## The Creation Kit's role here
 
 The Creation Kit (CK) is the official editor. On this server it is used only through what runs
-without its window: `PapyrusCompiler.exe`, and command-line switches such as `-GenerateLips` and
-`-ConvertToESL`. Records are edited in the project, not in the CK.
+without its window — today its Papyrus compiler, which `buildProject` runs. Its command-line switches,
+such as `-GenerateLips` and `-ConvertToESL`, have no tool yet. Records are edited in the project, not
+in the CK.
 
 What still needs the CK's window is done by the user: placing objects in the render window,
 generating and finalising navmesh. Start the CK *through* Mod Organizer so it sees the deployed mod

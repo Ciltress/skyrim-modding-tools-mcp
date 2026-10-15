@@ -85,7 +85,7 @@ export class RecordsHandlers extends BaseHandler {
                         'One record as project text (YAML): by default the version that wins in the load order; ' +
                         'with `plugin`, that plugin\'s version; with `allVersions`, every plugin\'s version, winning ' +
                         'first — compare them to see a conflict. Each version comes with the file path it would ' +
-                        'have in a project. References inside are FormIDs: resolve them with findRecords.',
+                        'have in a project. Links inside are FormIDs: resolve them with findRecords.',
                     inputSchema: {
                         type: 'object',
                         properties: {

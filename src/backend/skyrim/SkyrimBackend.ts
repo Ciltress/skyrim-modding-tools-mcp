@@ -70,6 +70,8 @@ export interface DeployResult {
     plugin: string;
     modFolder: string;
     files: number;
+    /** A copy of the plugin in overwrite, already pulled into the project, that was removed so it no longer hides the mod's. */
+    removedFromOverwrite?: string;
     /** What happened in Mod Organizer's profile. */
     profile: { name: string; modEnabled: boolean; pluginActive: boolean; addedToLoadOrder: boolean };
     /** Whether a running Mod Organizer was told to re-read its profile. */
