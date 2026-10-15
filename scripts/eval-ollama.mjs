@@ -20,10 +20,12 @@
  *
  * Every task is checked against the instance itself: the expected FormIDs and values are read through
  * the server at startup, not written into this file. The full record — every call, its arguments and
- * what came back — goes to --out as JSON; a summary is printed.
+ * what came back — goes to --out as JSON; a summary is printed, with the entry for the log of every
+ * round, docs/research/local-model-evals.md (also saved beside the JSON as .md).
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -493,6 +495,24 @@ try {
 }
 
 const loaded = await ollama('/api/ps').catch(() => ({ models: [] }));
+
+/** The build that was measured: the commit, and whether the working tree differed from it. */
+function measuredBuild() {
+    const git = args => {
+        try {
+            return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+        } catch {
+            return undefined;
+        }
+    };
+    const commit = git(['rev-parse', '--short', 'HEAD']);
+    if (!commit) return 'unknown (no git)';
+    return git(['status', '--porcelain', '--untracked-files=no']) ? `${commit} + uncommitted changes` : commit;
+}
+
+const allTurns = results.flatMap(r => r.turnStats);
+// The session's first turn loads the model; it says nothing about a turn's cost.
+const laterTurns = allTurns.slice(1);
 const report = {
     model: opt.model,
     profile: opt.profile,
@@ -500,6 +520,10 @@ const report = {
     think: THINK ?? 'model default',
     runs: RUNS,
     when: new Date().toISOString(),
+    build: measuredBuild(),
+    secondsPerTurn: laterTurns.length
+        ? Math.round(laterTurns.reduce((sum, t) => sum + t.seconds, 0) / laterTurns.length * 100) / 100
+        : null,
     toolListBytes,
     instructionsChars: instructions.length,
     ollama: loaded.models.find(m => m.name === opt.model || m.model === opt.model) ?? null,
@@ -527,8 +551,19 @@ console.log('');
 console.table(report.summary);
 const passed = results.filter(r => r.success).length;
 console.log(`eval: ${passed}/${results.length} passed. Full record: ${outFile}`);
-if (report.ollama) {
-    // A ratio rather than sizes: for gemma4, Ollama 0.40 reports sizes a tenth of the real ones.
-    console.log(`eval: Ollama ran it with context ${report.ollama.context_length ?? '?'}, ` +
-        `${Math.round((report.ollama.size_vram ?? 0) / (report.ollama.size || 1) * 100)}% on the GPU`);
-}
+// A ratio rather than sizes: for gemma4, Ollama 0.40 reports sizes a tenth of the real ones.
+const onGpu = report.ollama ? `${Math.round((report.ollama.size_vram ?? 0) / (report.ollama.size || 1) * 100)}%` : '?';
+if (report.ollama) console.log(`eval: Ollama ran it with context ${report.ollama.context_length ?? '?'}, ${onGpu} on the GPU`);
+
+// The entry for docs/research/local-model-evals.md, where every round is recorded.
+const entry = [
+    `| ${report.when.slice(0, 10)} | ${report.model} | \`${report.profile}\` | ${report.build} | ${passed}/${results.length} | ` +
+    `${report.secondsPerTurn ?? '?'} s | ${onGpu} |`,
+    '',
+    '| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |',
+    '|---|---|---|---|---|---|---|---|',
+    ...report.summary.map(s => `| ${s.task} | ${s.passed} | ${s.turns} | ${s.calls} | ${s.invalidParams} | ${s.otherErrors} | ` +
+        `${s.maxPromptTokens} | ${s.seconds} |`)
+].join('\n');
+fs.writeFileSync(outFile.replace(/\.json$/, '.md'), `${entry}\n`);
+console.log(`\neval: the entry for docs/research/local-model-evals.md (num_ctx ${NUM_CTX}, think ${report.think}):\n\n${entry}`);

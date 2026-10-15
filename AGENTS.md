@@ -197,6 +197,15 @@ its mod.
 A registered client runs `dist/index.js`, so a change is only visible there after `npm run build`
 **and** a client reconnect. `npm run dev` opens the MCP Inspector against the build.
 
+## Measuring with a local model
+
+`npm run eval:ollama` runs fixed modding tasks with a model served by Ollama through the built server
+and scores them. **Record every round in
+[`docs/research/local-model-evals.md`](docs/research/local-model-evals.md)** — the figures (the script
+prints the entry), the build, what changed before the round, and what the transcripts showed. The
+transcripts are where a model's wasted calls point at the server: a relative path joined to the wrong
+folder, a misspelled type answered with "nothing found". Fix those in the server, for every client.
+
 ## Care with a real backend
 
 This server writes into a mod manager's instance: mod folders, and the selected profile's mod order

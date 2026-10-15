@@ -48,11 +48,19 @@ export interface AddPatchRequest {
     plugin?: string;
 }
 
-/** Every `file` and `files` entry is a full path, ready for a file tool. */
+/** A file in a project: the full path a file tool opens as it stands, and what it holds. */
+export interface ProjectFile {
+    path: string;
+    /** Left out once an answer carries enough text — `textLeftOut` then says so. */
+    text?: string;
+}
+
 export interface AddPatchResult {
     project: ProjectInfo;
-    added: { formId: string; editorId: string | null; type: string; from: string; files: string[] }[];
-    alreadyInProject: { formId: string; file: string }[];
+    added: { formId: string; editorId: string | null; type: string; from: string; files: ProjectFile[] }[];
+    alreadyInProject: { formId: string; files: ProjectFile[] }[];
+    /** Set when some files come without their text. */
+    textLeftOut?: string;
 }
 
 export interface BuildResult {
@@ -84,6 +92,7 @@ export interface PullResult {
     project: string;
     plugin: string;
     source: string;
+    /** Full paths of the project's files, as for addPatch. */
     added: string[];
     changed: string[];
     removed: string[];
@@ -135,8 +144,11 @@ export interface RecordRequest {
 }
 
 export interface RecordFile {
-    /** Path inside a project's plugin folder, e.g. `Weapons/IronSword - 012EB7_Skyrim.esm.yaml`. */
-    path: string;
+    /**
+     * Where the file would sit in a project's plugin folder, e.g. `Weapons/IronSword - 012EB7_Skyrim.esm.yaml`.
+     * Not called `path`: that name is kept for full paths a file tool opens (ProjectFile).
+     */
+    pathInPluginFolder: string;
     text: string;
 }
 

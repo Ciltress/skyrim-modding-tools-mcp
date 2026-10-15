@@ -121,6 +121,15 @@ public sealed class Session : IDisposable
         var limit = p["limit"]?.GetValue<int>() ?? DefaultLimit;
         var types = p["types"]?.AsArray().Select(t => t!.GetValue<string>()).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var plugin = p["plugin"]?.GetValue<string>();
+        // A misspelled type would match nothing, and "no records" sends a model looking elsewhere.
+        foreach (var type in types ?? [])
+        {
+            if (RecordIndex.IsRecordType(type)) continue;
+            var closest = RecordIndex.Closest(type).ToList();
+            throw new HelperException("badRequest",
+                $"'{type}' is not a record type." + (closest.Count > 0 ? $" Did you mean {string.Join(", ", closest)}?" : "") +
+                " Use a signature like WEAP or a type name like Weapon.");
+        }
 
         IEnumerable<RecordIndex.Entry> matches;
         var notFound = new JsonArray();
@@ -143,8 +152,14 @@ public sealed class Session : IDisposable
                 .Where(e => text.Length == 0
                     || e.EditorId?.Contains(text, StringComparison.OrdinalIgnoreCase) == true
                     || e.Name?.Contains(text, StringComparison.OrdinalIgnoreCase) == true)
+                // Exact matches first, then the in-game names people speak in — "steel" finds the Steel
+                // Sword before 1stPersonSteelSword, a static only the editor ID mentions.
                 .OrderBy(e => string.Equals(e.EditorId, text, StringComparison.OrdinalIgnoreCase) ? 0
-                    : string.Equals(e.Name, text, StringComparison.OrdinalIgnoreCase) ? 1 : 2)
+                    : string.Equals(e.Name, text, StringComparison.OrdinalIgnoreCase) ? 1
+                    : e.Name?.Contains(text, StringComparison.OrdinalIgnoreCase) == true ? 2 : 3)
+                // Among equals, the editor ID spelling the text out: SteelSword before the quest's
+                // FFRiften16HarraldSword, both named "Steel Sword".
+                .ThenBy(e => e.EditorId?.Contains(text.Replace(" ", ""), StringComparison.OrdinalIgnoreCase) == true ? 0 : 1)
                 .ThenBy(e => e.EditorId, StringComparer.OrdinalIgnoreCase);
         }
         if (types is { Count: > 0 }) matches = matches.Where(e => types.Contains(e.Signature) || types.Contains(e.Type));

@@ -30,7 +30,7 @@ Workflows and the error model: [`MCP-Tools.md`](./MCP-Tools.md). The vocabulary:
 
 | You want to… | Call |
 | --- | --- |
-| Change a record of another mod or the base game | `addPatch` with the records — then edit the copied files |
+| Change a record of another mod or the base game | `addPatch` with the records — then edit the copied files it answers with |
 | Combine two mods' changes to one record | `readRecord` with `allVersions`, then `addPatch`, and merge both into the copy |
 | Add items to a leveled list | `addPatch` with the list, then add entries to the copy — keep every entry it has |
 | Copy a particular mod's version, not the winning one | `addPatch` with `from` |

@@ -269,6 +269,12 @@ function scriptedHelper() {
                     write(path.join(params.projectPluginDir, file), 'FormKey: 012EB7:Skyrim.esm\nEditorID: IronSword\n');
                     return { added: [{ formId: '012EB7:Skyrim.esm', editorId: 'IronSword', type: 'Weapon', from: 'Skyrim.esm', files: [file] }], alreadyInProject: [] };
                 }
+                case 'readRecord':
+                    return {
+                        formId: '012EB7:Skyrim.esm', editorId: 'IronSword', type: 'Weapon', signature: 'WEAP',
+                        definedIn: 'Skyrim.esm', winner: 'Skyrim.esm', plugins: ['Skyrim.esm'],
+                        versions: [{ plugin: 'Skyrim.esm', winning: true, files: [{ path: 'Weapons/IronSword - 012EB7_Skyrim.esm.yaml', text: 'FormKey: 012EB7:Skyrim.esm\n' }] }]
+                    };
                 case 'build':
                     write(params.outputPath, `plugin built from ${params.projectPluginDir}`);
                     return { records: 1, masters: ['Skyrim.esm'], headerVersion: params.headerVersion };
@@ -382,13 +388,17 @@ describe('the Skyrim backend', () => {
         const copy = calls.find(c => c.method === 'addOverrides')!.params;
         expect(copy).toEqual(expect.objectContaining({ plugin: 'MyPatch.esp', records: ['IronSword'] }));
 
-        // Every file is named by a path a file tool opens as it stands. Given paths relative to the
-        // plugin folder, models joined them to the project folder instead and went looking.
+        // Every file comes with a path a file tool opens as it stands, and its text, so it can be edited
+        // without another call. Given paths relative to the plugin folder, models joined them to the
+        // project folder instead and went looking; given no text, they spent a call reading it.
         const pluginDir = path.join(fixture.projects, 'MyPatch', 'plugin');
-        const swordFile = path.join(pluginDir, 'Weapons', 'IronSword - 012EB7_Skyrim.esm.yaml');
-        expect(patch.added[0].files).toEqual([swordFile]);
+        const sword = {
+            path: path.join(pluginDir, 'Weapons', 'IronSword - 012EB7_Skyrim.esm.yaml'),
+            text: 'FormKey: 012EB7:Skyrim.esm\nEditorID: IronSword\n'
+        };
+        expect(patch.added[0].files).toEqual([sword]);
         const again = await backend.addPatch({ project: 'MyPatch', records: ['IronSword'] });
-        expect(again.alreadyInProject).toEqual([{ formId: '012EB7:Skyrim.esm', file: swordFile }]);
+        expect(again.alreadyInProject).toEqual([{ formId: '012EB7:Skyrim.esm', files: [sword] }]);
 
         // A record written by hand gets its FormID in the build.
         write(path.join(pluginDir, 'Weapons', 'new sword.yaml'), 'EditorID: MyNewSword\n');
@@ -418,12 +428,34 @@ describe('the Skyrim backend', () => {
 
         // Pull brings it back as text, and makes the plugin the project's own again.
         const pulled = await backend.pullProject('MyPatch');
-        expect(pulled.changed).toContain('Weapons/IronSword - 012EB7_Skyrim.esm.yaml');
-        expect(pulled.removed).toContain('Weapons/MyNewSword - 000800_MyPatch.esp.yaml');
+        expect(pulled.changed).toContain(sword.path);
+        expect(pulled.removed).toContain(path.join(pluginDir, 'Weapons', 'MyNewSword - 000800_MyPatch.esp.yaml'));
         expect(fs.readFileSync(path.join(pluginDir, 'Weapons', 'IronSword - 012EB7_Skyrim.esm.yaml'), 'utf8')).toMatch(/Damage: 12/);
 
         // The pulled text is newer than the last build: deploy wants a build first.
         await expect(backend.deployProject('MyPatch')).rejects.toThrow(/changed since its last build/);
+    });
+
+    it('names where a record\'s file would sit by a name that cannot pass for a path to open', async () => {
+        const { backend } = makeBackend();
+
+        const read = await backend.readRecord({ record: 'IronSword' });
+
+        // Called `path`, a model took it for a file to open, next to addPatch's full paths.
+        expect(read.versions[0].files).toEqual([
+            { pathInPluginFolder: 'Weapons/IronSword - 012EB7_Skyrim.esm.yaml', text: 'FormKey: 012EB7:Skyrim.esm\n' }]);
+    });
+
+    it('leaves out text past what one answer should carry, and says where to read it', async () => {
+        const { backend, fixture } = makeBackend();
+        await backend.newProject({ project: 'BigPatch' });
+        const file = path.join(fixture.projects, 'BigPatch', 'plugin', 'Weapons', 'IronSword - 012EB7_Skyrim.esm.yaml');
+        write(file, `FormKey: 012EB7:Skyrim.esm\n${'# padding\n'.repeat(2_000)}`);
+
+        const patch = await backend.addPatch({ project: 'BigPatch', records: ['IronSword'] });
+
+        expect(patch.alreadyInProject).toEqual([{ formId: '012EB7:Skyrim.esm', files: [{ path: file }] }]);
+        expect(patch.textLeftOut).toMatch(/1 file.*read it at its path/i);
     });
 
     it('never deploys over a mod of the same name that it did not deploy', async () => {

@@ -12,9 +12,15 @@ import {
 } from './projects.js';
 import type { SkyrimEngine } from './engine.js';
 import type {
-    AddPatchRequest, AddPatchResult, BuildResult, DeployResult, NewProjectRequest, ProjectInfo, PullResult,
-    RecordQuery, RecordRequest, RecordSearchResult, RecordVersions, SkyrimBackend
+    AddPatchRequest, AddPatchResult, BuildResult, DeployResult, NewProjectRequest, ProjectFile, ProjectInfo, PullResult,
+    RecordQuery, RecordRequest, RecordSearchResult, RecordVersion, RecordVersions, SkyrimBackend
 } from './SkyrimBackend.js';
+
+/** What the helper's addOverrides answers: files relative to the project's plugin folder. */
+interface CopiedRecords {
+    added: { formId: string; editorId: string | null; type: string; from: string; files: string[] }[];
+    alreadyInProject: { formId: string; file: string }[];
+}
 
 export interface SkyrimInstanceBackendOptions {
     engine: SkyrimEngine;
@@ -111,7 +117,18 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
 
     async readRecord(request: RecordRequest): Promise<RecordVersions> {
         await this.engine.ensureFresh();
-        return this.engine.helper.call('readRecord', { ...request });
+        // The helper says `path`, relative to a plugin folder; here that name is kept for full paths.
+        type HelperVersions = Omit<RecordVersions, 'versions'> & {
+            versions: (Omit<RecordVersion, 'files'> & { files: { path: string; text: string }[] })[];
+        };
+        const read = await this.engine.helper.call<HelperVersions>('readRecord', { ...request });
+        return {
+            ...read,
+            versions: read.versions.map(version => ({
+                ...version,
+                files: version.files.map(file => ({ pathInPluginFolder: file.path, text: file.text }))
+            }))
+        };
     }
 
     // ---------------------------------------------------------------- projects
@@ -142,19 +159,37 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             created = true;
         }
         const { plugin } = readProjectHeader(paths);
-        const copied = await afterLocalWrites(this.engine.helper.call<Omit<AddPatchResult, 'project'>>('addOverrides', {
+        const copied = await afterLocalWrites(this.engine.helper.call<CopiedRecords>('addOverrides', {
             plugin,
             projectPluginDir: paths.plugin,
             records: request.records,
             from: request.from
         }));
-        // Full paths: given ones relative to the plugin folder, models joined them to the project folder.
-        const inPlugin = (file: string) => path.resolve(paths.plugin, file);
-        return {
-            project: projectInfo(request.project, paths, created),
-            added: copied.added.map(record => ({ ...record, files: record.files.map(inPlugin) })),
-            alreadyInProject: copied.alreadyInProject.map(record => ({ ...record, file: inPlugin(record.file) }))
+        // Full paths, and the text to edit: given paths relative to the plugin folder, models joined
+        // them to the project folder; given no text, they spent a call reading it. The text stops
+        // short of what the response budget would withhold — a patch of fifty leveled lists is fine.
+        let textBytes = 0;
+        let leftOut = 0;
+        const projectFile = (file: string): ProjectFile => {
+            const full = path.resolve(paths.plugin, file);
+            const text = fs.readFileSync(full, 'utf8');
+            textBytes += Buffer.byteLength(text);
+            if (textBytes > PATCH_TEXT_BYTES) {
+                leftOut++;
+                return { path: full };
+            }
+            return { path: full, text };
         };
+        const result: AddPatchResult = {
+            project: projectInfo(request.project, paths, created),
+            added: copied.added.map(record => ({ ...record, files: record.files.map(projectFile) })),
+            alreadyInProject: copied.alreadyInProject.map(record => ({ formId: record.formId, files: [projectFile(record.file)] }))
+        };
+        if (leftOut > 0) {
+            result.textLeftOut = `The text of ${leftOut} file${leftOut === 1 ? '' : 's'} is left out to keep this answer ` +
+                `small: read ${leftOut === 1 ? 'it at its path' : 'each at its path'} before editing.`;
+        }
+        return result;
     }
 
     async buildProject(project: string): Promise<BuildResult> {
@@ -282,8 +317,12 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
                 pluginHash: fileHash(source),
                 at: new Date().toISOString()
             });
+            const inPlugin = (files: string[]) => files.map(file => path.resolve(paths.plugin, file));
             return {
-                project, plugin, source, ...changes,
+                project, plugin, source,
+                added: inPlugin(changes.added),
+                changed: inPlugin(changes.changed),
+                removed: inPlugin(changes.removed),
                 ...(dirty === undefined
                     ? { warning: 'git could not check the project folder for uncommitted changes, so nothing guarded them.' }
                     : {})
@@ -296,6 +335,12 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
 
 /** Builds and pulls of big plugins take a while; the helper's default timeout is for lookups. */
 const BUILD_TIMEOUT_MS = 600_000;
+
+/**
+ * How much copied text one addPatch answer carries: about ten records, and well inside the smallest
+ * response budget (responseBudget.ts), which would otherwise withhold the whole answer.
+ */
+const PATCH_TEXT_BYTES = 16_000;
 
 /**
  * A helper call made after this tool call already wrote files — a created project, assigned FormIDs.

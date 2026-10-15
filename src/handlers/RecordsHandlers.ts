@@ -37,7 +37,7 @@ export class RecordsHandlers extends BaseHandler {
                         properties: {
                             text: {
                                 type: 'string',
-                                description: 'Case-insensitive text in the editor ID or the in-game name, e.g. "iron sword". Exact matches come first.'
+                                description: 'Case-insensitive text in the editor ID or the in-game name, e.g. "iron sword". Exact matches come first, then in-game names.'
                             },
                             records: {
                                 type: 'array',
@@ -84,8 +84,9 @@ export class RecordsHandlers extends BaseHandler {
                     description:
                         'One record as project text (YAML): by default the version that wins in the load order; ' +
                         'with `plugin`, that plugin\'s version; with `allVersions`, every plugin\'s version, winning ' +
-                        'first — compare them to see a conflict. Each version comes with the file path it would ' +
-                        'have in a project. Links inside are FormIDs: resolve them with findRecords.',
+                        'first — compare them to see a conflict. Each file carries `pathInPluginFolder`, where it ' +
+                        'would sit in a project\'s plugin folder; to change a record, copy it in with addPatch rather ' +
+                        'than writing this text yourself. Links inside are FormIDs: resolve them with findRecords.',
                     inputSchema: {
                         type: 'object',
                         properties: {

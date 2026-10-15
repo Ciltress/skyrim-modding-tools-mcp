@@ -4,7 +4,7 @@ import type { AppBackend } from '../backend/index';
 import { HelperError } from '../backend/skyrim/helperClient';
 import { ProjectError } from '../backend/skyrim/projects';
 import type {
-    AddPatchRequest, AddPatchResult, BuildResult, DeployResult, NewProjectRequest, ProjectInfo, PullResult,
+    AddPatchRequest, AddPatchResult, BuildResult, ProjectFile, DeployResult, NewProjectRequest, ProjectInfo, PullResult,
     RecordQuery, RecordRequest, RecordSearchResult, RecordSummary, RecordVersions
 } from '../backend/skyrim/SkyrimBackend';
 
@@ -87,7 +87,7 @@ export class InMemorySkyrimBackend implements AppBackend {
 
     async readRecord(request: RecordRequest): Promise<RecordVersions> {
         const record = this.resolve(request.record);
-        const file = { path: `Weapons/${record.editorId} - ${record.formId.replace(':', '_')}.yaml`, text: `FormKey: ${record.formId}\n` };
+        const file = { pathInPluginFolder: `Weapons/${record.editorId} - ${record.formId.replace(':', '_')}.yaml`, text: `FormKey: ${record.formId}\n` };
         return {
             formId: record.formId, editorId: record.editorId, type: record.type, signature: record.signature,
             definedIn: record.definedIn, winner: record.winner, plugins: [record.definedIn],
@@ -131,13 +131,17 @@ export class InMemorySkyrimBackend implements AppBackend {
         for (const id of request.records) {
             const record = this.resolve(id);
             if (project.records.has(record.formId)) {
-                result.alreadyInProject.push({ formId: record.formId, file: `${record.formId}.yaml` });
+                result.alreadyInProject.push({ formId: record.formId, files: [this.copiedFile(request.project, record)] });
             } else {
                 project.records.add(record.formId);
-                result.added.push({ formId: record.formId, editorId: record.editorId, type: record.type, from: request.from ?? record.winner, files: [`${record.formId}.yaml`] });
+                result.added.push({ formId: record.formId, editorId: record.editorId, type: record.type, from: request.from ?? record.winner, files: [this.copiedFile(request.project, record)] });
             }
         }
         return { project: this.info(request.project, created), ...result };
+    }
+
+    private copiedFile(project: string, record: RecordSummary): ProjectFile {
+        return { path: `projects/${project}/plugin/Weapons/${record.formId.replace(':', '_')}.yaml`, text: `FormKey: ${record.formId}\n` };
     }
 
     async buildProject(name: string): Promise<BuildResult> {

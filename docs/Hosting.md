@@ -179,11 +179,13 @@ select the usual profile and press Deploy once.
 too small for any agent: set `OLLAMA_CONTEXT_LENGTH` (131072 for 128k), or the client's own context
 setting. Claude Code pointed at Ollama loads every tool up front; `MCP_PROFILE=core` lists fewer.
 
-- **The model has to make real tool calls.** gemma4:26b does: it passed every task of
-  `npm run eval:ollama` — find, read, filter, patch, patch and build — in 30 of 30 runs.
-  qwen2.5-coder:3b does not: it writes the call into its answer as JSON text, which no client acts
-  on, and no profile changes that. Measure a model before relying on it:
-  `npm run eval:ollama -- --model <name>`.
+- **The model has to make real tool calls.** gemma4:26b and gemma4:e4b do: each passed every task
+  of `npm run eval:ollama` — find, read, filter, patch, patch and build — with no failed call. e4b
+  fits a 16 GB card whole and answers about twice as fast; 26b took the shortest route more often.
+  Code-completion models such as qwen2.5-coder:3b do not: they write the call into the answer as
+  text, which no client acts on. Measure a model before relying on it —
+  `npm run eval:ollama -- --model <name>` — and see
+  [`research/local-model-evals.md`](./research/local-model-evals.md) for every model measured so far.
 - **Records are edited with the client's file tools.** Claude Code has its own. A client that only
   connects Ollama to MCP servers — ollmcp, oterm — needs a filesystem server beside this one, allowed
   into the projects folder, e.g. `npx -y @modelcontextprotocol/server-filesystem <projects folder>`.

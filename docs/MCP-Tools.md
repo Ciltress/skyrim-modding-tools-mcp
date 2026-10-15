@@ -71,6 +71,9 @@ arguments, see [`Tool-Reference.md`](./Tool-Reference.md), which is generated fr
 9. **Domain rules.**
    - **Records are changed by editing project text** with your ordinary file tools — read, edit,
      write the YAML files in a project's `plugin/` folder. No tool edits a record.
+   - **A `path` in an answer is a full path**, ready for your file tools; `addPatch` adds the file's
+     text, so you can edit it at once. A path relative to something says so in its name:
+     `readRecord`'s `pathInPluginFolder`.
    - **FormIDs are written `012EB7:Skyrim.esm`**, never as a load-order hex like `00012EB7`. Never
      guess one: find it with `findRecords`, which also turns the FormIDs in project text into names.
    - **A new record's file leaves `FormKey` out.** `buildProject` assigns one and writes it back;
@@ -306,7 +309,7 @@ reference inside it is a FormID: resolve the ones you reason about with `findRec
 
 ```jsonc
 {"tool":"addPatch","args":{"project":"IronSwordBuff","records":["IronSword"]}}   // copies the winning version in
-// edit the file named in added[].files — projects/IronSwordBuff/plugin/Weapons/IronSword - 012EB7_Skyrim.esm.yaml — with your file tools
+// added[].files holds the copy's full path and text: edit it with your file tools
 {"tool":"buildProject","args":{"project":"IronSwordBuff"}}     // checks every link, writes the plugin
 {"tool":"deployProject","args":{"project":"IronSwordBuff"}}    // into the mod manager, at the end of the load order
 ```
@@ -405,6 +408,7 @@ Start with `healthcheck`.
 | "does not offer … calling it again will not help" | The capability gate withheld the tool for this backend | Not a request problem. `healthcheck` lists `withheldForBackend` |
 | `status: "truncated"` | The answer was over the profile's response budget | Do what `nextStep` says; or raise `MCP_MAX_RESPONSE_BYTES` |
 | "No record with editor ID …" / "No record … in the load order" | A guessed or misspelled ID, or a plugin that is not active | Find it with `findRecords`; check the plugin is active in the selected profile |
+| "'WEPN' is not a record type. Did you mean WEAP (Weapon)?" | A misspelled signature or type name in `findRecords`' `types` | Send one the message suggests; a type that exists but has no records answers `total: 0` instead |
 | `buildProject` → "link(s) point at records that exist neither…" | A FormID typed by hand, or a master that is not active | Resolve each with `findRecords` and fix the file |
 | `buildProject` → "cannot be written from the project's text" | A record whose fields Mutagen cannot write | Compare it with a vanilla record of the same type (`readRecord`) and fix the fields |
 | `buildProject` → "no Papyrus compiler" / ".NET Framework 3.5" | The machine lacks what compiles scripts — not a fault in the project | Install what the message names, then build again |
@@ -462,7 +466,8 @@ task against the instance itself, deploys nothing (`deployProject` is listed, bu
 refused), and writes every call with its arguments and answer to a JSON file. `--model`, `--profile`,
 `--runs`, `--tasks` and `--ctx` choose what to measure. Run it after changing what a tool says or
 answers: the transcripts show where a model loses turns — they are how the relative paths
-`addPatch` used to answer with were found.
+`addPatch` used to answer with were found. Every round is recorded in
+[`research/local-model-evals.md`](./research/local-model-evals.md); the script prints its entry.
 
 ---
 

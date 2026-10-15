@@ -493,6 +493,9 @@ L288-303, L17394-17400, L17917; AUR RPC searches.
   deferral (`ENABLE_TOOL_SEARCH`, `_meta["anthropic/alwaysLoad"]`) does not apply behind Ollama.
 
 ### 10.5 Measured on this machine (2026-10-15)
+Rounds 1–2 of the eval, as first written down; every round since, and these in full, are in
+[`local-model-evals.md`](./local-model-evals.md).
+
 `scripts/eval-ollama.mjs` against the test instance; Ollama 0.40.4, RTX 5080 16 GB, 32 GB RAM,
 `OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0`, num_ctx 131072, model defaults otherwise
 (gemma4: thinking on, temperature 1). Three runs per task.

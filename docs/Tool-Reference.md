@@ -51,7 +51,7 @@ _writes · idempotent_
 
 `project`**\*** string · `plugin` string · `light` boolean
 
-**`addPatch`** — Start or extend a patch: copy existing records into a project as overrides, so they can be changed without touching the plugins they come from. Each record is copied from its current winning version — so other mods' changes are kept — or from `from`. Creates the project when it does not exist. Then edit the copied files — their full paths are in `added[].files` — and run buildProject. A record already in the project is reported under `alreadyInProject` and left alone.
+**`addPatch`** — Start or extend a patch: copy existing records into a project as overrides, so they can be changed without touching the plugins they come from. Each record is copied from its current winning version — so other mods' changes are kept — or from `from`. Creates the project when it does not exist. Answers each copied file's full path and text (`added[].files`): edit it with your file tools, then run buildProject. Past about ten records the text is left out (`textLeftOut`) — read those files first. A record already in the project is reported under `alreadyInProject` and left alone.
 
 _writes · idempotent_
 
@@ -69,7 +69,7 @@ _writes · destructive · idempotent_
 
 `project`**\*** string
 
-**`pullProject`** — Bring changes made to a deployed plugin outside the project — placing objects in the Creation Kit, a fix in xEdit — back into the project's text. Refuses while the project folder has uncommitted changes, so what the pull changes can be reviewed with git diff and undone; where git cannot tell (no git, or no repository), it pulls and says so in `warning`. Returns the files added, changed and removed.
+**`pullProject`** — Bring changes made to a deployed plugin outside the project — placing objects in the Creation Kit, a fix in xEdit — back into the project's text. Refuses while the project folder has uncommitted changes, so what the pull changes can be reviewed with git diff and undone; where git cannot tell (no git, or no repository), it pulls and says so in `warning`. Returns the full paths of the files added, changed and removed.
 
 _writes · destructive · idempotent_
 
@@ -85,7 +85,7 @@ _read-only_
 
 `text` string · `records` array · `types` array · `plugin` string · `limit` number, default `25`
 
-**`readRecord`** — One record as project text (YAML): by default the version that wins in the load order; with `plugin`, that plugin's version; with `allVersions`, every plugin's version, winning first — compare them to see a conflict. Each version comes with the file path it would have in a project. Links inside are FormIDs: resolve them with findRecords.
+**`readRecord`** — One record as project text (YAML): by default the version that wins in the load order; with `plugin`, that plugin's version; with `allVersions`, every plugin's version, winning first — compare them to see a conflict. Each file carries `pathInPluginFolder`, where it would sit in a project's plugin folder; to change a record, copy it in with addPatch rather than writing this text yourself. Links inside are FormIDs: resolve them with findRecords.
 
 _read-only_
 

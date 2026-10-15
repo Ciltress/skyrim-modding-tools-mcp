@@ -88,6 +88,40 @@ public sealed class RecordIndex
     public static string Signature(IMajorRecordGetter record) =>
         Signatures.TryGetValue(TypeName(record), out var signature) ? signature : "";
 
+    /// <summary>Whether a filter names a record type: a signature like WEAP, or a type name like Weapon.</summary>
+    public static bool IsRecordType(string name) =>
+        Signatures.Keys.Any(k => k.Equals(name, StringComparison.OrdinalIgnoreCase))
+        || Signatures.Values.Any(s => s.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The real record types closest to a misspelled one, e.g. WEAP (Weapon) for WEPN.</summary>
+    public static IEnumerable<string> Closest(string name) => Signatures
+        .SelectMany(pair => new[] { (Text: pair.Value, Shown: $"{pair.Value} ({pair.Key})"), (Text: pair.Key, Shown: $"{pair.Value} ({pair.Key})") })
+        .Select(c => (c.Shown, Distance: Distance(c.Text.ToUpperInvariant(), name.ToUpperInvariant()),
+            Prefix: c.Text.Zip(name).TakeWhile(p => char.ToUpperInvariant(p.First) == char.ToUpperInvariant(p.Second)).Count()))
+        .Where(c => c.Distance <= Math.Max(2, name.Length / 3))
+        .OrderBy(c => c.Distance)
+        .ThenByDescending(c => c.Prefix)
+        .Select(c => c.Shown)
+        .Distinct()
+        .Take(3);
+
+    private static int Distance(string a, string b)
+    {
+        var row = Enumerable.Range(0, b.Length + 1).ToArray();
+        for (var i = 1; i <= a.Length; i++)
+        {
+            var previous = row[0];
+            row[0] = i;
+            for (var j = 1; j <= b.Length; j++)
+            {
+                var current = row[j];
+                row[j] = Math.Min(Math.Min(row[j] + 1, row[j - 1] + 1), previous + (a[i - 1] == b[j - 1] ? 0 : 1));
+                previous = current;
+            }
+        }
+        return row[b.Length];
+    }
+
     /// <summary>Mutagen class name -> four-letter signature, read from the generated registrations.</summary>
     private static readonly Dictionary<string, string> Signatures = typeof(ISkyrimModGetter).Assembly.GetTypes()
         .Where(t => t.Name.EndsWith("_Registration", StringComparison.Ordinal))
