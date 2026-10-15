@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type { Mo2Instance } from './mo2.js';
+import type { Platform } from './platform.js';
 
 const run = promisify(execFile);
 
@@ -80,28 +81,15 @@ export function activatePlugin(instance: Mo2Instance, plugin: string): { pluginA
 
 // ---------------------------------------------------------------- the running process
 
-/** Full paths of every running ModOrganizer.exe, lower-cased. */
-export async function runningModOrganizers(): Promise<string[]> {
-    try {
-        const { stdout } = await run('powershell.exe', [
-            '-NoProfile', '-NonInteractive', '-Command',
-            "Get-CimInstance Win32_Process -Filter \"Name='ModOrganizer.exe'\" | ForEach-Object { $_.ExecutablePath }"
-        ], { windowsHide: true, timeout: 15_000 });
-        return stdout.split(/\r?\n/).map(line => line.trim().toLowerCase()).filter(Boolean);
-    } catch {
-        return [];
-    }
-}
-
 /**
  * Tells a running Mod Organizer to re-read this instance's profile — only when it is *this*
  * instance's MO2. With none running there is nothing to tell, and `refresh` would start one. With
  * another instance's MO2 running, the command would be forwarded to that one, which never read
  * these files.
  */
-export async function refreshIfRunning(instance: Mo2Instance): Promise<'notRunning' | 'refreshed' | 'otherInstanceRunning'> {
+export async function refreshIfRunning(instance: Mo2Instance, platform: Platform): Promise<'notRunning' | 'refreshed' | 'otherInstanceRunning'> {
     const exe = path.join(instance.instanceDir, 'ModOrganizer.exe');
-    const running = await runningModOrganizers();
+    const running = (await platform.findProcesses('ModOrganizer.exe')).map(process => process.path.toLowerCase());
     if (running.length === 0) return 'notRunning';
     if (!running.includes(path.resolve(exe).toLowerCase())) return 'otherInstanceRunning';
     await run(exe, ['-p', instance.profile, 'refresh'], { windowsHide: true, timeout: 30_000 });

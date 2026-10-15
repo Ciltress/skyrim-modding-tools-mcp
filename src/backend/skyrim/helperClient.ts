@@ -67,7 +67,7 @@ export class HelperClient implements HelperTransport {
         if (!fs.existsSync(this.executable)) {
             throw new HelperMissingError(
                 `The plugin helper is not built: no '${this.executable}'. Run 'npm run build:helper' ` +
-                `(needs the .NET 10 SDK), or set SKYRIM_HELPER_PATH to a built SkyrimHelper.exe.`);
+                `(needs the .NET 10 SDK), or set SKYRIM_HELPER_PATH to a built helper.`);
         }
 
         const child = spawn(this.executable, [], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });

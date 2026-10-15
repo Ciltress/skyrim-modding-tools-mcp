@@ -62,7 +62,10 @@ src/
   backend/skyrim/mo2.ts             reading an MO2 instance: ini, profile, mod order, load order, files
   backend/skyrim/mo2Profile.ts      the profile edits deploy makes, and refreshing a running MO2
   backend/skyrim/projects.ts        a project on disk: paths, FormID assignment, text sync, deploy state
-  backend/skyrim/externalTools.ts   the Papyrus compiler and git
+  backend/skyrim/externalTools.ts   the Papyrus compilers (the Creation Kit's, russo-2025's) and git
+  backend/skyrim/platform.ts        everything that differs by operating system (ADR-0007) — the only
+                                    place that asks; Windows and Linux side by side
+  backend/skyrim/paths.ts           finding files whatever their letter case, on every system
   handlers/BaseHandler.ts  the ToolSpec contract: dispatch, timing, envelope, error mapping
   handlers/index.ts        createHandlers(): the one list served, documented and tested
   handlers/args.ts         shared argument checks, and request errors -> InvalidParams
@@ -73,11 +76,13 @@ src/
   lib/                     logger, guides, skills, profiles, responseBudget, capabilityGate,
                            instructions, serverInfo, http, toolDocs, env — the template's machinery
   __tests__/               vitest suites, all offline; fakes.ts holds the shared doubles
-helper/SkyrimHelper/       the C# plugin helper: Session.cs (the methods), RecordIndex.cs, SpriggitFormat.cs
+helper/SkyrimHelper/       the C# plugin helper: Session.cs (the methods), RecordIndex.cs, SpriggitFormat.cs,
+                           PeVersion.cs (an exe's version, read the same way on Windows and Linux)
 skills/Domain              the modding skills — ours, edit freely
 projects/                  the user's projects (mods as text); created on first use
 scripts/generate-tool-docs.mjs   writes docs/Tool-Reference.md; run after changing any getTools()
 scripts/smoke.mjs                drives the built server over stdio; fails on anything but frames on stdout
+scripts/check-helper.mjs         starts the built helper and checks it answers; CI runs it on both systems
 ```
 
 ## Conventions that matter
@@ -156,11 +161,14 @@ npm test               # vitest, fully offline
 npx tsc --noEmit       # type check only
 npm run docs:tools     # regenerate docs/Tool-Reference.md (after a build)
 npm run smoke          # drive the built server over stdio
+npm run check:helper   # start the built helper once (after build and build:helper)
 ```
 
 Before you call something done: `npx tsc --noEmit` clean, `npm test` green, `npm run build &&
 npm run docs:tools` leaving the reference unchanged, and `npm run smoke` passing. A change to the
-helper also needs `npm run build:helper` and a call through it against a real instance.
+helper also needs `npm run build:helper`, `npm run check:helper`, and a call through it against a
+real instance. CI runs all of it on Windows and Linux; code that differs by system belongs in
+`platform.ts`, and its Linux side is tested on Windows too, against laid-out folders.
 
 `handlerContract.test.ts` holds every tool to the same contract using arguments generated from its
 `inputSchema`, so a new tool is covered as soon as it is listed. If it fails for a legitimate design

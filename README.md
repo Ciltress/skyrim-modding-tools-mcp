@@ -72,8 +72,9 @@ See [`.env.example`](.env.example).
 | --- | --- | --- |
 | `SKYRIM_MO2_INSTANCE` | — (required) | The Mod Organizer instance folder; the server follows its selected profile |
 | `SKYRIM_PROJECTS_DIR` | `./projects` | Where projects live |
-| `SKYRIM_CK_DIR` | the instance's game folder | The Creation Kit, for its Papyrus compiler |
-| `SKYRIM_HELPER_PATH` | `helper/bin/SkyrimHelper.exe` | The built plugin helper |
+| `SKYRIM_CK_DIR` | the instance's game folder | The Creation Kit, for its Papyrus compiler and vanilla script sources |
+| `SKYRIM_PAPYRUS_COMPILER` | the Creation Kit's (Windows); none (Linux) | `PapyrusCompiler.exe`, or russo-2025's `papyrus-compiler`, which runs on Linux |
+| `SKYRIM_HELPER_PATH` | `helper/bin/SkyrimHelper(.exe)` | The built plugin helper |
 | `MCP_PROFILE` | `all` | `core`, `readonly` or `all` — which tools are listed and callable |
 | `MCP_MAX_RESPONSE_BYTES` | per profile | Ceiling on one answer; `0` removes it |
 | `MCP_TRANSPORT` | `stdio` | `http` for Streamable HTTP at `/mcp` — see [`docs/Hosting.md`](docs/Hosting.md) |

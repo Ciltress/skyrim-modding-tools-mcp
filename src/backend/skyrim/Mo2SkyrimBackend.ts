@@ -163,6 +163,8 @@ export class Mo2SkyrimBackend implements SkyrimBackend {
 
         const instance = readInstance(this.engine.instanceDir);
         const compiled = await compileScripts({
+            platform: this.engine.platform,
+            compiler: this.engine.papyrusCompiler,
             creationKitDir: this.engine.creationKitDir,
             scriptsDir: paths.scripts,
             outputDir: path.join(paths.build, 'Scripts'),
@@ -236,7 +238,7 @@ export class Mo2SkyrimBackend implements SkyrimBackend {
 
         const modEnabled = enableMod(instance, project);
         const { pluginActive, addedToLoadOrder } = activatePlugin(instance, plugin);
-        const modOrganizer = await (this.options.refreshModOrganizer ?? refreshIfRunning)(instance);
+        const modOrganizer = await (this.options.refreshModOrganizer ?? (i => refreshIfRunning(i, this.engine.platform)))(instance);
         writeDeployState(paths, { modFolder, plugin, pluginHash: fileHash(deployed), at: new Date().toISOString() });
 
         return {

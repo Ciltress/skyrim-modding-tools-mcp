@@ -1,14 +1,13 @@
 name: CI
 
+# Every push and pull request, on Windows and Linux (docs/adr/0007). Markdown changes run too: the
+# guides and skills are served at runtime, and their tests read the real files.
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
   pull_request:
     paths-ignore:
       - ".vscode/**"
-      - "**/*.md"
 
 permissions: {}
 
@@ -22,17 +21,16 @@ defaults:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-        with:
-          # skills/Development is a submodule, and package.json ships `skills/`.
-          # Without this it is checked out empty, so CI tests a narrower skill
-          # catalogue than the package publishes.
-          submodules: recursive
 
       - name: Setup node
         uses: actions/setup-node@v7
@@ -50,20 +48,27 @@ jobs:
         run: npm run test:types
 
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-        with:
-          submodules: recursive
 
       - name: Setup node
         uses: actions/setup-node@v7
         with:
           node-version: 24.18.0
           cache: "npm"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
 
       - name: Install dependencies
         run: npm ci
@@ -75,3 +80,11 @@ jobs:
       # stdout, which no unit test can see.
       - name: Smoke Test
         run: npm run smoke
+
+      # The plugin helper, built for this system and started once: its protocol, and a
+      # version read from a version resource, which on Linux is the helper's own parser.
+      - name: Build Helper
+        run: npm run build:helper
+
+      - name: Check Helper
+        run: npm run check:helper

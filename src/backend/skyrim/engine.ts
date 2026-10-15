@@ -6,9 +6,19 @@ import {
     type Mo2Instance
 } from './mo2.js';
 import { createLogger } from '../../lib/logger.js';
+import { currentPlatform, type Platform } from './platform.js';
 
 /** The helper protocol this server speaks; a helper announcing another one is a stale build. */
 const HELPER_PROTOCOL = 1;
+
+export interface EngineOptions {
+    /** The operating system's side; currentPlatform() unless a test passes another. */
+    platform?: Platform;
+    /** Where the Creation Kit is; undefined means the instance's game folder, where Steam installs it. */
+    creationKitDir?: string;
+    /** SKYRIM_PAPYRUS_COMPILER. */
+    papyrusCompiler?: string;
+}
 
 /**
  * One MO2 instance and the helper process that reads its plugins — shared by every backend in the
@@ -33,17 +43,22 @@ export class SkyrimEngine {
     /** Active plugins with no file in the game, any enabled mod, or overwrite. */
     missingPlugins: string[] = [];
 
-    /**
-     * @param projectsDir     Where projects live.
-     * @param creationKitDir  Where the Creation Kit and its Papyrus compiler are; undefined means the
-     *                        instance's game folder, which is where Steam installs it.
-     */
+    readonly platform: Platform;
+    /** The Papyrus compiler SKYRIM_PAPYRUS_COMPILER names; undefined means the platform's default. */
+    readonly papyrusCompiler?: string;
+    private readonly creationKitOverride?: string;
+
+    /** @param projectsDir  Where projects live. */
     constructor(
         readonly instanceDir: string,
         readonly helper: HelperTransport,
         readonly projectsDir: string,
-        private readonly creationKitOverride?: string
-    ) { }
+        options: EngineOptions = {}
+    ) {
+        this.platform = options.platform ?? currentPlatform();
+        this.papyrusCompiler = options.papyrusCompiler;
+        this.creationKitOverride = options.creationKitDir;
+    }
 
     get creationKitDir(): string {
         return this.creationKitOverride || readInstance(this.instanceDir).gameDir;
@@ -76,9 +91,10 @@ export class SkyrimEngine {
                     `with 'npm run build:helper'.`);
             }
             this.helperVersion = hello.helper;
-            this.gameVersion = (await this.helper.call<{ version: string }>('gameVersion', {
+            // Null when the exe carries no version: the header then follows the newest game (headerVersion).
+            this.gameVersion = (await this.helper.call<{ version: string | null }>('gameVersion', {
                 exePath: path.join(this.instance.gameDir, 'SkyrimSE.exe')
-            })).version;
+            })).version ?? undefined;
         }
         await this.syncLoadOrder();
     }

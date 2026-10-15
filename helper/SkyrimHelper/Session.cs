@@ -63,8 +63,7 @@ public sealed class Session : IDisposable
     {
         var exe = Required(p, "exePath");
         if (!File.Exists(exe)) throw new HelperException("notFound", $"No game executable at '{exe}'.");
-        var info = FileVersionInfo.GetVersionInfo(exe);
-        return new JsonObject { ["version"] = $"{info.FileMajorPart}.{info.FileMinorPart}.{info.FileBuildPart}.{info.FilePrivatePart}" };
+        return new JsonObject { ["version"] = PeVersion.Read(exe) };
     }
 
     private JsonNode SetLoadOrder(JsonObject p)
