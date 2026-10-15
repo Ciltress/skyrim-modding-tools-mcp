@@ -5,9 +5,9 @@
 > [`src/server.ts`](../src/server.ts). A contradiction between this document and the code is a bug
 > in one of them — fix it, do not work around it.
 
-This server works on one **Mod Organizer 2 instance** of Skyrim Special Edition. It looks records up
-across the active load order, and it builds mods kept as text **projects** into plugins deployed to
-that instance. It exposes those operations as **tools**, and its own documentation and modding
+This server works on one **instance** of Skyrim Special Edition, kept by a **mod manager** — Mod
+Organizer 2, or Amethyst on Linux. It looks records up across the active load order, and it builds
+mods kept as text **projects** into plugins deployed to that instance. It exposes those operations as **tools**, and its own documentation and modding
 **skills** as both **resources** and tools. The vocabulary — mod, plugin, record, FormID, override,
 project, patch — is defined in [`CONTEXT.md`](../CONTEXT.md).
 
@@ -56,7 +56,7 @@ arguments, see [`Tool-Reference.md`](./Tool-Reference.md), which is generated fr
 
 6. **Read the annotations before you write.** Every tool states `readOnlyHint`, `destructiveHint`,
    `idempotentHint` and `openWorldHint`. `deployProject` and `pullProject` are destructive: they
-   replace a mod folder in Mod Organizer, and a project's text. Every write here is idempotent —
+   replace a mod folder in the mod manager, and a project's text. Every write here is idempotent —
    repeating it with the same inputs leaves the same state.
 
 7. **A failed call is a result, not an exception.** You get `isError: true` and a JSON body with
@@ -188,19 +188,22 @@ the domain operations live on the interface that extends it,
 [`SkyrimBackend`](../src/backend/skyrim/SkyrimBackend.ts). [`src/backend/index.ts`](../src/backend/index.ts)
 names the one the server uses — `AppBackend` — and builds it with `createBackend(env, { bearerToken })`.
 
-Behind it sit three parts:
+Behind it sit three parts, and two seams ([ADR-0007](adr/0007-operating-system-and-mod-manager-are-separate-seams.md)):
 
-- **The MO2 reader** ([`mo2.ts`](../src/backend/skyrim/mo2.ts)) rebuilds what a program started
-  outside Mod Organizer cannot see — which file each active plugin really is — from the instance's
-  ini, the selected profile's mod order and load order, and the mods' folders. The few profile
-  changes deploy makes are in [`mo2Profile.ts`](../src/backend/skyrim/mo2Profile.ts).
+- **The mod manager** ([`modManager.ts`](../src/backend/skyrim/modManager.ts)) rebuilds what a program
+  started outside it cannot see — which file each active plugin really is — from the instance's
+  settings, the selected profile's mod order and load order, and the mods' folders, and makes the few
+  profile changes deploy needs. [`mo2Manager.ts`](../src/backend/skyrim/mo2Manager.ts) is Mod
+  Organizer's ([`mo2.ts`](../src/backend/skyrim/mo2.ts) reads, [`mo2Profile.ts`](../src/backend/skyrim/mo2Profile.ts)
+  writes); [`amethyst.ts`](../src/backend/skyrim/amethyst.ts) is Amethyst's. `SKYRIM_MOD_MANAGER`
+  chooses; what differs by operating system is in [`platform.ts`](../src/backend/skyrim/platform.ts).
 - **The plugin helper** ([`helper/`](../helper), [ADR-0003](adr/0003-plugins-through-a-mutagen-helper.md))
   is a .NET process built on Mutagen that does every plugin read and write, and writes project text in
   Spriggit's format. It speaks one JSON object per line on stdio, keeps the load order open between
   calls, and indexes it in the background. [`helperClient.ts`](../src/backend/skyrim/helperClient.ts)
   is its client.
 - **The engine** ([`engine.ts`](../src/backend/skyrim/engine.ts)) owns the helper and keeps its load
-  order in step with Mod Organizer: before each call it compares a fingerprint of the profile's files
+  order in step with the mod manager: before each call it compares a fingerprint of the profile's files
   and hands over a fresh load order when another profile was selected or a mod changed. One engine
   serves every session in the process.
 
@@ -302,8 +305,8 @@ reference inside it is a FormID: resolve the ones you reason about with `findRec
 ```jsonc
 {"tool":"addPatch","args":{"project":"IronSwordBuff","records":["IronSword"]}}   // copies the winning version in
 // edit projects/IronSwordBuff/plugin/Weapons/IronSword - 012EB7_Skyrim.esm.yaml with your file tools
-{"tool":"buildProject","args":{"project":"IronSwordBuff"}}     // checks every reference, writes the plugin
-{"tool":"deployProject","args":{"project":"IronSwordBuff"}}    // into Mod Organizer, at the end of the load order
+{"tool":"buildProject","args":{"project":"IronSwordBuff"}}     // checks every link, writes the plugin
+{"tool":"deployProject","args":{"project":"IronSwordBuff"}}    // into the mod manager, at the end of the load order
 ```
 
 The copy comes from the **winning** version, so what other mods changed in the record is kept. Change
@@ -324,7 +327,8 @@ the record family skills say how.
 
 ### 4.4 Bring Creation Kit work back
 
-After placing objects or generating navmesh in the Creation Kit (started through Mod Organizer):
+After placing objects or generating navmesh in the Creation Kit (started through Mod Organizer, or in
+the game's prefix with Amethyst):
 
 ```jsonc
 {"tool":"pullProject","args":{"project":"FrostBlade"}}     // refuses while the project has uncommitted changes
@@ -409,7 +413,11 @@ Start with `healthcheck`.
 | "The plugin helper is not built" | `helper/bin` is missing | `npm run build:helper` (needs the .NET 10 SDK) |
 | `buildProject` → "needs .NET Framework 3.5" | The Creation Kit's Papyrus compiler is a .NET 2.0 program | Turn on ".NET Framework 3.5" in Windows Features, once. The server checks before starting the compiler, because a missing 3.5 makes Windows open an install dialog for every attempt |
 | The first lookup takes ~10 s, later ones well under 1 s | The helper indexes the load order once after it starts, and again after a deploy or a changed plugin | Nothing to fix; `healthcheck` right after start says the helper is starting |
-| `healthcheck` → active plugins "have no file" | A plugin in the load order whose mod is disabled or gone | Fix the profile in Mod Organizer |
+| `healthcheck` → active plugins "have no file" | A plugin in the load order whose mod is disabled or gone | Fix the profile in the mod manager |
+| `deployProject` → `modManager.status: "deployManually"` | Amethyst is open, so the server did not deploy behind its window — or its deploy command failed | Do what `nextStep` says: Refresh, then Deploy in Amethyst |
+| `healthcheck` → `notes`: another profile "deployed" | Amethyst has a different profile in the game than the one selected | Deploy the selected profile in Amethyst, or select the deployed one |
+| Startup → "Missing required environment variables: SKYRIM_MO2_INSTANCE" | Mod Organizer is the default mod manager | Set the instance — or `SKYRIM_MOD_MANAGER=amethyst` |
+| `buildProject` on Linux → "a Windows program … SKYRIM_PAPYRUS_COMPILER" | The Creation Kit's Papyrus compiler does not run on Linux | Install russo-2025's compiler and name it in `SKYRIM_PAPYRUS_COMPILER` ([Hosting](Hosting.md) §4) |
 | `Unknown tool: X` | Not in the catalogue at all | `tools/list` — the router is derived from it |
 | Duplicate-tool warning on stderr at startup | Two handlers declare the same name | Rename one; the second is ignored |
 | MCP stream breaks / client reports protocol errors | Something wrote to **stdout** | Never `console.log`; use `this.logger`. `npm run smoke` catches it |
@@ -437,6 +445,8 @@ own `inputSchema`, so **a new tool is covered the moment it is listed**.
 | `guides.test.ts`, `skills.test.ts` | Against the real files: every guide exists and has sections, section extraction, the drill-down tools, path traversal refused. |
 | `toolDocs.test.ts` | The generated `Tool-Reference.md` matches what the code renders. |
 | `serverManifest.test.ts` | `server.json` against the code: name, version, every environment variable read is declared and vice versa, required and secret flags. |
+| `platform.test.ts` | The operating system's side: the Linux process table, file names matched without case, both Papyrus compilers' command lines. |
+| `amethyst.test.ts` | Against an Amethyst setup laid out as Amethyst 2.5.4 does (Flatpak config, custom staging, a hardlink deploy with `Data_Core`): finding it, reading the profile, adding only new lines, its deploy command, and deploy and pull through the backend. |
 | `skyrimBackend.test.ts` | Against a real Mod Organizer instance laid out in a temp folder, with a scripted helper: reading the ini, mod priority and the load order; the profile edits deploy makes; FormID assignment; text sync; and the whole patch, build, deploy and pull cycle with each of its refusals. |
 
 `npm run smoke` drives the **built** server over real stdio and fails if anything but protocol frames

@@ -5,7 +5,7 @@ Skyrim Special Edition and Anniversary Edition, game versions 1.5.97 to 1.7.x. L
 
 ## What the game reads
 
-Everything comes from one `Data` folder — under Mod Organizer, a virtual one (see
+Everything comes from one `Data` folder, which the mod manager layers from the enabled mods (see
 [Mod order](#mod-order-files-and-archives)).
 
 | Kind | Where | Notes |
@@ -143,8 +143,10 @@ B's keyword, *vanilla* damage. Neither mod is broken; together they conflict.
 
 ## Mod order, files and archives
 
-Mod Organizer (MO2) never touches the real `Data` folder. Each **mod** is a folder under `mods\`; a
-program started *through* MO2 sees one virtual `Data` folder layered from the enabled mods.
+Each **mod** is a folder under the instance's `mods` folder. **Mod Organizer (MO2)** never touches the
+real `Data` folder: a program started *through* MO2 sees one virtual `Data` layered from the enabled
+mods. **Amethyst** (Linux) links the winning files into the real `Data` when the user deploys a
+profile, and moves the game's own files to `Data_Core` meanwhile.
 
 - **Mod order** (priority) decides **file** conflicts: when two mods ship the same file, the
   higher-priority mod's file is the one the game sees. It has no say over records.
@@ -153,12 +155,14 @@ program started *through* MO2 sees one virtual `Data` folder layered from the en
 - An archive loads when it is named after an active plugin — `MyMod.bsa`, `MyMod - Textures.bsa` —
   or is listed in the game's INI.
 - **Overwrite**: files a program writes *new* under MO2 land in the instance's `overwrite\` folder. An
-  existing file it changes is written back to the mod that holds it.
+  existing file it changes is written back to the mod that holds it. Amethyst moves files that
+  appeared in a deployed `Data` to its `overwrite` folder when it restores.
 - **Profiles** each have their own enabled mods, mod order and load order, and optionally their own
   game INIs and saves.
 - MO2 keeps the profile in memory and writes `modlist.txt`, `plugins.txt` and `loadorder.txt` back on
   exit and before launching a program. An edit made to them while MO2 runs is lost unless MO2 is
-  told to refresh first.
+  told to refresh first. Amethyst re-reads them only on Refresh, and puts a change into the game
+  only on Deploy.
 - A program started *outside* MO2 — this server included — sees only the real game folder, and must
   work out the virtual `Data` from mod order itself.
 
@@ -216,9 +220,10 @@ such as `-GenerateLips` and `-ConvertToESL`, have no tool yet. Records are edite
 in the CK.
 
 What still needs the CK's window is done by the user: placing objects in the render window,
-generating and finalising navmesh. Start the CK *through* Mod Organizer so it sees the deployed mod
-and its masters; afterwards, **pull** the deployed plugin back into the project before the next
-deploy, or the deploy refuses to overwrite the CK's work.
+generating and finalising navmesh. Start the CK *through* Mod Organizer — with Amethyst, in the
+game's Proton prefix while the profile is deployed — so it sees the deployed mod and its masters;
+afterwards, **pull** the deployed plugin back into the project before the next deploy, or the deploy
+refuses to overwrite the CK's work.
 
 ## Sources
 

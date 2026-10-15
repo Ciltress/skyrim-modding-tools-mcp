@@ -69,9 +69,17 @@
           "default": "0"
         },
         {
+          "name": "SKYRIM_MOD_MANAGER",
+          "description": "The mod manager that keeps the mods: mo2 (Mod Organizer 2, on Windows or under Proton) or amethyst (Amethyst Mod Manager on Linux).",
+          "default": "mo2"
+        },
+        {
           "name": "SKYRIM_MO2_INSTANCE",
-          "isRequired": true,
-          "description": "The Mod Organizer 2 instance this server works on: the folder holding ModOrganizer.exe and ModOrganizer.ini. The server follows whichever profile Mod Organizer has selected."
+          "description": "Required with Mod Organizer (SKYRIM_MOD_MANAGER=mo2, the default): the instance folder holding ModOrganizer.exe and ModOrganizer.ini. The server follows whichever profile Mod Organizer has selected."
+        },
+        {
+          "name": "SKYRIM_AMETHYST_DIR",
+          "description": "With Amethyst: its config folder (…/AmethystModManager). Found by itself in the Flatpak's ~/.var/app/io.github.Amethyst.ModManager/config or in ~/.config; set it only for another location."
         },
         {
           "name": "SKYRIM_PROJECTS_DIR",

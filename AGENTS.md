@@ -5,14 +5,16 @@ you want [`docs/MCP-Tools.md`](docs/MCP-Tools.md) instead.
 
 ## What this is
 
-An MCP server for Skyrim Special Edition modding with Mod Organizer 2: it looks records up across an
-instance's load order, and builds mods kept as text projects into plugins deployed to that instance.
+An MCP server for Skyrim Special Edition modding with a mod manager — Mod Organizer 2 on Windows, or
+Amethyst on Linux: it looks records up across an instance's load order, and builds mods kept as text
+projects into plugins deployed to that instance. What differs by operating system and by mod manager
+sits behind two seams ([ADR-0007](docs/adr/0007-operating-system-and-mod-manager-are-separate-seams.md)).
 It started as a copy of a TypeScript MCP server template, whose machinery — one-file tools, profiles,
 the response budget, the capability gate, self-serving docs and skills — it keeps.
 
 Two programs make it up:
 
-- **The server** (TypeScript, `src/`) — the MCP side, the Mod Organizer reader, projects, deploy.
+- **The server** (TypeScript, `src/`) — the MCP side, the mod managers' readers, projects, deploy.
 - **The plugin helper** (C#, `helper/`) — a .NET process built on Mutagen that does every plugin read
   and write ([ADR-0003](docs/adr/0003-plugins-through-a-mutagen-helper.md)). The server talks to it in
   JSON lines over stdio. Build it with `npm run build:helper` (needs the .NET 10 SDK).
@@ -65,6 +67,8 @@ src/
   backend/skyrim/mo2Manager.ts      Mod Organizer 2 as the mod manager, over mo2.ts and mo2Profile.ts
   backend/skyrim/mo2.ts             reading an MO2 instance: ini, profile, mod order, load order, files
   backend/skyrim/mo2Profile.ts      the profile edits deploy makes, and refreshing a running MO2
+  backend/skyrim/amethyst.ts        Amethyst as the mod manager: finding its config, its profile, its
+                                    deploy command
   backend/skyrim/projects.ts        a project on disk: paths, FormID assignment, text sync, deploy state
   backend/skyrim/externalTools.ts   the Papyrus compilers (the Creation Kit's, russo-2025's) and git
   backend/skyrim/platform.ts        everything that differs by operating system (ADR-0007) — the only
@@ -183,8 +187,9 @@ know the backend's own rules — that a lock must be released before activating,
 object is not yet searchable. **Anything that locks, writes, activates or deletes has to be run
 against a real backend once**, with a throwaway object created and deleted in the same session. Then
 encode what you learned as an assertion, so the fake enforces it from then on. Here the real backend
-is a **test instance** — a portable Mod Organizer on a clean game, never someone's playthrough — and
-the throwaway object is a project, deployed and then removed with its mod.
+is a **test instance** — a portable Mod Organizer on a clean game, never someone's playthrough; with
+Amethyst, a throwaway profile — and the throwaway object is a project, deployed and then removed with
+its mod.
 
 ## Testing against a live MCP client
 
@@ -193,8 +198,8 @@ A registered client runs `dist/index.js`, so a change is only visible there afte
 
 ## Care with a real backend
 
-This server writes into a Mod Organizer instance: mod folders, and the selected profile's mod order
-and load order. When working against a real one:
+This server writes into a mod manager's instance: mod folders, and the selected profile's mod order
+and load order — and with Amethyst it runs Amethyst's deploy, which rewrites the game's `Data`. When working against a real one:
 
 - Prefer read-only tools; treat anything not demonstrably read-only as a write.
 - Work on a test instance. A Wabbajack-installed instance deletes every mod it did not install on its

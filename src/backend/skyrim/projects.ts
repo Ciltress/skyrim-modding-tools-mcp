@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { findCaseInsensitive } from './paths.js';
 import type { ProjectInfo } from './SkyrimBackend.js';
 
 /**
@@ -173,22 +174,50 @@ export function newestSourceTime(paths: ProjectPaths): number {
     return newest;
 }
 
-/** Copies a folder's contents into another, creating folders as needed. Returns the number of files. */
-export function copyTree(from: string, to: string): number {
-    if (!fs.existsSync(from)) return 0;
-    let count = 0;
-    for (const entry of fs.readdirSync(from, { withFileTypes: true })) {
-        const source = path.join(from, entry.name);
-        const target = path.join(to, entry.name);
-        if (entry.isDirectory()) {
-            count += copyTree(source, target);
-        } else {
-            fs.mkdirSync(to, { recursive: true });
-            fs.copyFileSync(source, target);
-            count++;
+/**
+ * Makes `target` hold exactly the files of `sources` — a later source wins over an earlier one —
+ * plus whatever `keep` names among its own top-level entries. Returns the number of files.
+ *
+ * A file that is already there is written in place, never deleted and replaced: a mod manager that
+ * deployed it into the game as a hard link (Amethyst) then sees the new content at once, rather than
+ * keeping the old file alive in the game's Data. Names are matched without regard to case, as the
+ * game matches them.
+ */
+export function syncFolder(sources: readonly string[], target: string, keep: (name: string) => boolean): number {
+    const wanted = new Map<string, { relative: string; file: string }>();
+    const walk = (root: string, dir: string) => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) walk(root, full);
+            else {
+                const relative = path.relative(root, full);
+                wanted.set(relative.toLowerCase(), { relative, file: full });
+            }
         }
+    };
+    for (const source of sources) if (fs.existsSync(source)) walk(source, source);
+
+    const prune = (dir: string, prefix: string) => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            const relative = path.join(prefix, entry.name);
+            const full = path.join(dir, entry.name);
+            if (!prefix && keep(entry.name)) continue;
+            if (entry.isDirectory()) {
+                prune(full, relative);
+                if (fs.readdirSync(full).length === 0) fs.rmdirSync(full);
+            } else if (!wanted.has(relative.toLowerCase())) {
+                fs.rmSync(full);
+            }
+        }
+    };
+    if (fs.existsSync(target)) prune(target, '');
+
+    for (const { relative, file } of wanted.values()) {
+        const destination = findCaseInsensitive(target, relative) ?? path.join(target, relative);
+        fs.mkdirSync(path.dirname(destination), { recursive: true });
+        fs.writeFileSync(destination, fs.readFileSync(file));
     }
-    return count;
+    return wanted.size;
 }
 
 /**

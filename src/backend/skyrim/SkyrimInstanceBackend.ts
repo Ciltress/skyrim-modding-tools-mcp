@@ -7,8 +7,8 @@ import type { HealthReport } from '../Backend.js';
 import { compileScripts, hasUncommittedChanges } from './externalTools.js';
 import { HelperError, HelperUnavailableError } from './helperClient.js';
 import {
-    ProjectError, assignFormIds, copyTree, createProject, fileHash, newestSourceTime, projectExists,
-    projectInfo, projectPaths, readDeployState, readProjectHeader, syncYaml, writeDeployState
+    ProjectError, assignFormIds, createProject, fileHash, newestSourceTime, projectExists,
+    projectInfo, projectPaths, readDeployState, readProjectHeader, syncFolder, syncYaml, writeDeployState
 } from './projects.js';
 import type { SkyrimEngine } from './engine.js';
 import type {
@@ -83,6 +83,7 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             : { running: false };
         const missing = engine.missingPlugins.length;
         const failed = !engine.ready && engine.startError !== undefined;
+        const notes = engine.modManager.notes(instance);
         return {
             // Still starting is not a fault: the instance is readable, and the helper is on its way.
             ok: !failed && missing === 0,
@@ -96,6 +97,7 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             modManager: engine.modManager.name,
             instance: engine.modManager.location,
             profile: instance.profile,
+            ...(notes.length > 0 ? { notes } : {}),
             game: { dir: instance.gameDir, edition: instance.edition, version: engine.gameVersion ?? null },
             plugins: { active: engine.activePlugins, missing: engine.missingPlugins },
             helper
@@ -204,7 +206,7 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         const modFolder = path.join(instance.modsDir, project);
         const deployed = path.join(modFolder, plugin);
         // A copy that outranks the mod — Mod Organizer's overwrite — is the one the game loads, and the one to guard.
-        const shadowing = modManager.shadowingCopies(instance, plugin).filter(file => fs.existsSync(file));
+        const shadowing = modManager.shadowingCopies(instance, project, plugin).filter(file => fs.existsSync(file));
         const live = shadowing[0] ?? deployed;
         const state = readDeployState(paths);
         if (!state && fs.existsSync(modFolder) && fs.readdirSync(modFolder).some(f => f.toLowerCase() !== 'meta.ini')) {
@@ -224,13 +226,9 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
                 `first; deploying now would overwrite them.`);
         }
 
-        // Everything but the mod manager's own meta.ini is replaced, so files removed from the project go too.
-        if (fs.existsSync(modFolder)) {
-            for (const entry of fs.readdirSync(modFolder)) {
-                if (entry.toLowerCase() !== 'meta.ini') fs.rmSync(path.join(modFolder, entry), { recursive: true, force: true });
-            }
-        }
-        const files = copyTree(paths.build, modFolder) + copyTree(paths.assets, modFolder);
+        // The mod folder becomes the build plus the assets, so files removed from the project go too —
+        // all but the mod manager's own meta.ini.
+        const files = syncFolder([paths.assets, paths.build], modFolder, name => name.toLowerCase() === 'meta.ini');
         // Guarded above: a shadowing copy that got this far was pulled, so the project holds its work.
         for (const copy of shadowing) fs.rmSync(copy);
 
@@ -255,7 +253,7 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         // The Creation Kit writes a plugin it edits back to its mod, but one it saves anew can land
         // elsewhere — in Mod Organizer, in overwrite. The newest copy is the latest work.
         const deployed = path.join(instance.modsDir, project, plugin);
-        const candidates = [deployed, ...this.engine.modManager.shadowingCopies(instance, plugin)].filter(file => fs.existsSync(file));
+        const candidates = [deployed, ...this.engine.modManager.shadowingCopies(instance, project, plugin)].filter(file => fs.existsSync(file));
         if (candidates.length === 0) {
             throw new ProjectError(`There is no deployed ${plugin} to pull from: deploy the project first.`);
         }

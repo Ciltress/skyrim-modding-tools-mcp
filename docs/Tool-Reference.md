@@ -57,13 +57,13 @@ _writes · idempotent_
 
 `project`**\*** string · `records`**\*** array · `from` string · `plugin` string
 
-**`buildProject`** — Build a project's plugin from its text: gives new records their FormIDs (written back into their files), checks that every link (a FormID in a field) points at a record that exists, compiles the project's Papyrus scripts and writes the plugin with the header this game version needs. Fails with the list of broken links, if any. Does not touch Mod Organizer — deployProject does.
+**`buildProject`** — Build a project's plugin from its text: gives new records their FormIDs (written back into their files), checks that every link (a FormID in a field) points at a record that exists, compiles the project's Papyrus scripts and writes the plugin with the header this game version needs. Fails with the list of broken links, if any. Does not touch the mod manager — deployProject does.
 
 _writes · idempotent_
 
 `project`**\*** string
 
-**`deployProject`** — Put a built project into Mod Organizer: replace its mod folder with the build and the project's assets, enable the mod, and activate the plugin — at the end of the load order when it is new, so it wins over what it patches. A running Mod Organizer is told to re-read its profile. Refuses when the project changed since its build, or when the deployed plugin was changed elsewhere (e.g. in the Creation Kit, which may save it into overwrite) — pull that first; a pulled copy in overwrite is then removed, so it no longer hides the mod's.
+**`deployProject`** — Put a built project into the mod manager (Mod Organizer or Amethyst): make its mod folder the build plus the project's assets, enable the mod, and activate the plugin — at the end of the load order when it is new, so it wins over what it patches. Then a running Mod Organizer re-reads its profile, or Amethyst deploys it into the game; when the user has to act, `modManager.nextStep` says what to do — tell them. Refuses when the project changed since its build, or when the deployed plugin was changed elsewhere (e.g. saved in the Creation Kit) — pull that first; a pulled copy that would hide the mod is then removed.
 
 _writes · destructive · idempotent_
 

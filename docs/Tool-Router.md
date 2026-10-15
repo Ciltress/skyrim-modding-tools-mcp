@@ -41,8 +41,8 @@ Workflows and the error model: [`MCP-Tools.md`](./MCP-Tools.md). The vocabulary:
 | --- | --- |
 | Start a new mod | `newProject` — then write record files into its `plugin/` folder |
 | Add a record (a new sword, spell, NPC…) | Write a YAML file into the project, without `FormKey`; mirror a vanilla record |
-| Turn the text into a plugin | `buildProject` — it also checks every reference |
-| Put the mod into the game | `deployProject` — enables it in Mod Organizer |
+| Turn the text into a plugin | `buildProject` — it also checks every link |
+| Put the mod into the game | `deployProject` — enables it in the mod manager; with Amethyst, also deploys or says to |
 | Bring back what you did in the Creation Kit or xEdit | `pullProject` — commit first, review with `git diff` after |
 
 ## When something went wrong
@@ -74,6 +74,6 @@ Workflows and the error model: [`MCP-Tools.md`](./MCP-Tools.md). The vocabulary:
 | "install the mod" (one you made) | `deployProject` |
 | "save", "export the plugin" | `buildProject`, then `deployProject` |
 | "import from the Creation Kit" | `pullProject` |
-| "profile" | Mod Organizer's profile — the server follows the selected one. The tool set is the *tool profile*, `MCP_PROFILE` |
+| "profile" | The mod manager's profile — the server follows the selected one. The tool set is the *tool profile*, `MCP_PROFILE` |
 | "is it connected?" | `healthcheck`, not a test call to a write tool |
 | "help", "docs", "manual" | `readServerGuide` and `readSkill` — the server documents itself |

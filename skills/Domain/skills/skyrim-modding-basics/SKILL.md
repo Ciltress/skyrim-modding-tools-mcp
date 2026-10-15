@@ -1,6 +1,6 @@
 ---
 name: skyrim-modding-basics
-description: How Skyrim SE mods work - plugins, masters, FormIDs, load order versus mod order, overrides and conflicts, light plugins, archives, game versions and SKSE, Mod Organizer. Read before any authoring or analysis; when a FormID, load-order or conflict question comes up; when a game-version or SKSE mismatch is suspected; or to choose an external tool such as xEdit or the Creation Kit.
+description: How Skyrim SE mods work - plugins, masters, FormIDs, load order versus mod order, overrides and conflicts, light plugins, archives, game versions and SKSE, mod managers (Mod Organizer, Amethyst). Read before any authoring or analysis; when a FormID, load-order or conflict question comes up; when a game-version or SKSE mismatch is suspected; or to choose an external tool such as xEdit or the Creation Kit.
 ---
 
 # Skyrim modding basics
@@ -19,7 +19,8 @@ is in [`REFERENCE.md`](REFERENCE.md).
 4. A plugin can only reference and override records of its **masters**, which must load before it.
 5. **Light plugins** (ESL-flagged) take no slot in the 254-plugin limit and hold at most 4,096 new
    records. A new project is a light plugin until it outgrows that.
-6. Mod Organizer keeps every **mod** in its own folder and shows the game one virtual `Data` folder.
+6. The mod manager — Mod Organizer, or Amethyst on Linux — keeps every **mod** in its own folder
+   and shows the game one `Data` folder layered from them.
    **Mod order** decides which *file* wins; load order decides which *record* wins.
 7. SKSE plugins (`.dll`) are bound to one game version; plugins and Papyrus scripts are not.
 8. Scripts and their variables live in the player's save, so a scripted mod is never safely removed

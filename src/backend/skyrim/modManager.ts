@@ -9,7 +9,7 @@
  * learns that something changed.
  */
 
-export type ModManagerName = 'mo2';
+export type ModManagerName = 'mo2' | 'amethyst';
 
 export type GameRelease = 'SkyrimSE' | 'SkyrimSEGog';
 
@@ -21,7 +21,7 @@ export class InstanceConfigError extends Error { }
 
 /** One mod manager's setup for Skyrim, read from its own files. */
 export interface Instance {
-    /** The instance's own folder: MO2's, with ModOrganizer.ini in it. */
+    /** The instance's own folder: MO2's, with ModOrganizer.ini in it; Amethyst's Skyrim staging folder. */
     instanceDir: string;
     /** The game folder — `SkyrimSE.exe` and `Data` are in it. */
     gameDir: string;
@@ -40,7 +40,7 @@ export interface Instance {
 export interface ModEntry {
     name: string;
     enabled: boolean;
-    /** False for the DLC and Creation Club entries MO2 lists but does not manage (`*`). */
+    /** False for the DLC and Creation Club entries MO2 lists but does not manage (MO2's `*`). */
     managed: boolean;
 }
 
@@ -56,14 +56,16 @@ export interface ProfileChange {
     addedToLoadOrder: boolean;
 }
 
-/** What the mod manager was told after a deploy. */
+/** What the mod manager was told after a deploy, and what the user still has to do in it. */
 export interface ModManagerNotice {
     manager: ModManagerName;
     /**
      * `notRunning`: nothing to tell. `refreshed`: Mod Organizer re-read its profile.
      * `otherInstanceRunning`: another instance's Mod Organizer runs; this one reads the profile when it starts.
+     * `deployed`: Amethyst deployed the profile into the game. `deployManually`: the user has to — `nextStep` says how.
      */
-    status: 'notRunning' | 'refreshed' | 'otherInstanceRunning';
+    status: 'notRunning' | 'refreshed' | 'otherInstanceRunning' | 'deployed' | 'deployManually';
+    nextStep?: string;
 }
 
 export interface ModManager {
@@ -83,12 +85,14 @@ export interface ModManager {
     /** Changes whenever the active load order may have: another profile, a mod or a plugin toggled. */
     fingerprint(): string;
     /**
-     * Copies of a mod's plugin that the game would load instead of the mod's own — Mod Organizer's
-     * overwrite folder. Highest first; they need not exist.
+     * Copies of a mod's plugin that the game would load instead of the mod's own — in the overwrite
+     * folder, or a file saved over a deployed link in the game's Data. Highest first; they need not exist.
      */
-    shadowingCopies(instance: Instance, plugin: string): string[];
+    shadowingCopies(instance: Instance, mod: string, plugin: string): string[];
     /** Enables the mod and activates its plugin in the selected profile. */
     enable(instance: Instance, mod: string, plugin: string): ProfileChange;
-    /** Tells the mod manager what a deploy changed. */
+    /** Tells the mod manager what a deploy changed, or says what the user has to do in it. */
     afterDeploy(instance: Instance): Promise<ModManagerNotice>;
+    /** Remarks for healthcheck — something about the instance the user should know. */
+    notes(instance: Instance): string[];
 }

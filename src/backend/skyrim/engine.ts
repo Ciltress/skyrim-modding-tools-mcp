@@ -142,12 +142,14 @@ export class SkyrimEngine {
         const instance = this.modManager.readInstance();
         const files = this.modManager.resolvePluginFiles(instance, this.modManager.readModList(instance));
         const active = this.modManager.readLoadOrder(instance).filter(plugin => plugin.active);
-        const gameData = path.join(instance.gameDir, 'Data').toLowerCase() + path.sep;
+        // The game's own folders: Data, and Data_Core where Amethyst moves the game's files while deployed.
+        const gameFolders = ['Data', 'Data_Core'].map(folder => path.join(instance.gameDir, folder).toLowerCase() + path.sep);
 
         const plugins = active.map(plugin => {
             const file = files.get(plugin.name.toLowerCase());
-            // Plugins outside the game's Data folder are the editable ones: the helper keeps no handle on them.
-            return { name: plugin.name, path: file, inMemory: !!file && !file.toLowerCase().startsWith(gameData) };
+            // Plugins outside the game's own folders are the editable ones: the helper keeps no handle on them.
+            const own = !!file && gameFolders.some(folder => file.toLowerCase().startsWith(folder));
+            return { name: plugin.name, path: file, inMemory: !!file && !own };
         });
         this.editablePlugins = plugins.filter(p => p.inMemory).map(p => p.path!);
         const fingerprint = this.currentFingerprint();

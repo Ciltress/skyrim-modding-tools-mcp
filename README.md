@@ -1,9 +1,9 @@
 # skyrim-modding-tools-mcp
 
-An MCP server for **Skyrim Special Edition modding** with Mod Organizer 2. It lets an AI agent look
-records up across your whole load order — who defines a sword, which mods change it, and how — and
-**author mods and patches as text**: records are YAML files in a git-versioned project, built into a
-plugin and deployed into Mod Organizer. The Creation Kit stays for what only it can do (placing
+An MCP server for **Skyrim Special Edition modding** with Mod Organizer 2 on Windows, or Amethyst
+Mod Manager on Linux. It lets an AI agent look records up across your whole load order — who defines
+a sword, which mods change it, and how — and **author mods and patches as text**: records are YAML
+files in a git-versioned project, built into a plugin and deployed into the mod manager. The Creation Kit stays for what only it can do (placing
 objects, navmesh); its work is pulled back into the text.
 
 Plugins are read and written by [Mutagen](https://github.com/Mutagen-Modding/Mutagen); the text is
@@ -27,11 +27,15 @@ record family — items and crafting, magic, NPCs, leveled lists.
 
 ## Requirements
 
-- Windows, **Node.js 24**, git (with Git LFS for project assets)
-- **Skyrim Special Edition** 1.5.97 to 1.7.x, managed by **Mod Organizer 2** (2.5)
+- **Node.js 24**, git (with Git LFS for project assets)
+- **Skyrim Special Edition** 1.5.97 to 1.7.x, managed by
+  - **Mod Organizer 2** (2.5) on Windows, or
+  - **Amethyst Mod Manager** (2.5) on Linux — set `SKYRIM_MOD_MANAGER=amethyst`; the setup is in
+    [`docs/Hosting.md`](docs/Hosting.md) §4. Mod Organizer under Proton is not supported yet.
 - The **.NET 10 SDK** to build the plugin helper; the .NET 10 runtime to run it
-- The **Creation Kit** (free on Steam) for compiling Papyrus scripts — optional otherwise. Its
-  compiler needs **.NET Framework 3.5** (Windows Features)
+- For compiling Papyrus scripts (optional otherwise): the **Creation Kit** (free on Steam) for its
+  vanilla script sources, and a compiler — on Windows the Creation Kit's own, which needs
+  **.NET Framework 3.5** (Windows Features); on Linux russo-2025's `papyrus-compiler`
 
 ## Setup
 
@@ -41,7 +45,7 @@ cd skyrim-modding-tools-mcp
 npm install
 npm run build:helper   # the .NET plugin helper -> helper/bin
 npm run build          # the server -> dist/
-copy .env.example .env # then set SKYRIM_MO2_INSTANCE
+copy .env.example .env # then set SKYRIM_MO2_INSTANCE — or SKYRIM_MOD_MANAGER=amethyst
 ```
 
 Register it with a client — Claude Code, Claude Desktop, VS Code:
@@ -70,7 +74,9 @@ See [`.env.example`](.env.example).
 
 | Variable | Default | Effect |
 | --- | --- | --- |
-| `SKYRIM_MO2_INSTANCE` | — (required) | The Mod Organizer instance folder; the server follows its selected profile |
+| `SKYRIM_MOD_MANAGER` | `mo2` | `mo2` (Mod Organizer 2) or `amethyst` (Amethyst Mod Manager, Linux) |
+| `SKYRIM_MO2_INSTANCE` | — (required with `mo2`) | The Mod Organizer instance folder; the server follows its selected profile |
+| `SKYRIM_AMETHYST_DIR` | found by itself | Amethyst's config folder, if it is neither the Flatpak's nor `~/.config`'s |
 | `SKYRIM_PROJECTS_DIR` | `./projects` | Where projects live |
 | `SKYRIM_CK_DIR` | the instance's game folder | The Creation Kit, for its Papyrus compiler and vanilla script sources |
 | `SKYRIM_PAPYRUS_COMPILER` | the Creation Kit's (Windows); none (Linux) | `PapyrusCompiler.exe`, or russo-2025's `papyrus-compiler`, which runs on Linux |

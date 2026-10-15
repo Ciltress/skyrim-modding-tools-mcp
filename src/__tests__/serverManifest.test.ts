@@ -55,7 +55,11 @@ function environmentVariablesReadBySource(): Set<string> {
  * Read by the server but deliberately absent from the manifest. Each entry
  * should carry its reason.
  */
-const DELIBERATELY_UNDECLARED: string[] = [];
+const DELIBERATELY_UNDECLARED: string[] = [
+    // Not this server's settings: the system's and Amethyst's own, read only to find Amethyst's files
+    // exactly where Amethyst looks for them (src/backend/skyrim/amethyst.ts).
+    'XDG_CONFIG_HOME', 'XDG_RUNTIME_DIR', 'MOD_MANAGER_PROFILES_DIR'
+];
 
 describe('server.json', () => {
     it('identifies the package package.json publishes', () => {

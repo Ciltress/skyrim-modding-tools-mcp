@@ -6,7 +6,7 @@ import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 /**
  * Projects: mods authored as text (docs/adr/0004). Records are changed by editing the project's YAML
  * files with ordinary file tools — there is deliberately no tool that edits a record. These tools
- * create the starting points, and move a project between text, plugin and Mod Organizer:
+ * create the starting points, and move a project between text, plugin and the mod manager:
  *
  *   newProject / addPatch  ->  edit plugin/*.yaml  ->  buildProject  ->  deployProject
  *                                        ^                                      |
@@ -15,7 +15,7 @@ import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 
 const PROJECT = {
     type: 'string' as const,
-    description: 'The project\'s name: its folder under the projects folder, and its mod name in Mod Organizer, e.g. "IronSwordBuff".'
+    description: 'The project\'s name: its folder under the projects folder, and its mod name in the mod manager, e.g. "IronSwordBuff".'
 };
 
 export class ProjectsHandlers extends BaseHandler {
@@ -125,7 +125,7 @@ export class ProjectsHandlers extends BaseHandler {
                         'Build a project\'s plugin from its text: gives new records their FormIDs (written back into ' +
                         'their files), checks that every link (a FormID in a field) points at a record that exists, ' +
                         'compiles the project\'s Papyrus scripts and writes the plugin with the header this game ' +
-                        'version needs. Fails with the list of broken links, if any. Does not touch Mod Organizer — ' +
+                        'version needs. Fails with the list of broken links, if any. Does not touch the mod manager — ' +
                         'deployProject does.',
                     inputSchema: { type: 'object', properties: { project: PROJECT }, required: ['project'] }
                 },
@@ -138,18 +138,19 @@ export class ProjectsHandlers extends BaseHandler {
                     annotations: {
                         title: 'Deploy project',
                         readOnlyHint: false,
-                        // Replaces the project's mod folder in Mod Organizer.
+                        // Replaces the project's mod folder in the mod manager.
                         destructiveHint: true,
                         idempotentHint: true,
                         openWorldHint: false
                     },
                     description:
-                        'Put a built project into Mod Organizer: replace its mod folder with the build and the ' +
-                        'project\'s assets, enable the mod, and activate the plugin — at the end of the load order ' +
-                        'when it is new, so it wins over what it patches. A running Mod Organizer is told to re-read ' +
-                        'its profile. Refuses when the project changed since its build, or when the deployed plugin ' +
-                        'was changed elsewhere (e.g. in the Creation Kit, which may save it into overwrite) — pull ' +
-                        'that first; a pulled copy in overwrite is then removed, so it no longer hides the mod\'s.',
+                        'Put a built project into the mod manager (Mod Organizer or Amethyst): make its mod folder ' +
+                        'the build plus the project\'s assets, enable the mod, and activate the plugin — at the end ' +
+                        'of the load order when it is new, so it wins over what it patches. Then a running Mod ' +
+                        'Organizer re-reads its profile, or Amethyst deploys it into the game; when the user has to ' +
+                        'act, `modManager.nextStep` says what to do — tell them. Refuses when the project changed ' +
+                        'since its build, or when the deployed plugin was changed elsewhere (e.g. saved in the ' +
+                        'Creation Kit) — pull that first; a pulled copy that would hide the mod is then removed.',
                     inputSchema: { type: 'object', properties: { project: PROJECT }, required: ['project'] }
                 },
                 onFailure: 'Failed to deploy the project',

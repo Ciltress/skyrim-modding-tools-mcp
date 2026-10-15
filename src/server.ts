@@ -16,7 +16,7 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from 'node:http';
-import { REQUIRED_ENV, createBackend, isPermanent } from './backend/index.js';
+import { createBackend, isPermanent, missingEnv } from './backend/index.js';
 import type { AppBackend, HealthReport } from './backend/index.js';
 import { createHandlers } from './handlers/index.js';
 import type { BaseHandler } from './handlers/index.js';
@@ -131,7 +131,7 @@ export class AppServer extends Server {
 
     // All resolved before super(), so a misconfiguration fails at startup,
     // loudly, rather than on the first tool call.
-    const missing = REQUIRED_ENV.filter((name) => !env[name]);
+    const missing = missingEnv(env);
     if (missing.length > 0) {
       throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
     }

@@ -103,10 +103,78 @@ service. Bearer tokens must not cross a network in clear text.
 
 ## 3. Where it runs
 
-On the Windows machine that holds the Mod Organizer instance, beside the game. It reads the
-instance's files, the game's plugins and the Creation Kit's compiler from disk, and runs the .NET
-plugin helper next to itself — none of which a container can reach. There is therefore no image.
+On the machine that holds the game and the mod manager, beside them. It reads the instance's files,
+the game's plugins and a Papyrus compiler from disk, and runs the .NET plugin helper next to itself
+— none of which a container reaches without bind-mounting all of it at identical paths, and none can
+see a running mod manager. There is therefore no image yet ([ADR-0007](adr/0007-operating-system-and-mod-manager-are-separate-seams.md)).
+
+| System | Mod manager (`SKYRIM_MOD_MANAGER`) | Status |
+| --- | --- | --- |
+| Windows | Mod Organizer 2 (`mo2`, the default) | Verified against a test instance |
+| Linux | Amethyst Mod Manager (`amethyst`) | Built from Amethyst 2.5.4's source and tested against its layout; first live run pending |
+| Linux | Mod Organizer 2 under Proton | **Not supported yet**: its `ModOrganizer.ini` holds Windows paths that need translating |
+
+The server picks the operating system's side by itself and the mod manager from `SKYRIM_MOD_MANAGER`;
+nothing else changes between them — the same tools, the same projects.
 
 HTTP mode is for a client on the same machine that prefers a long-lived server to one it starts
 itself — an editor extension, say. Bind it to `127.0.0.1` (`MCP_HTTP_HOST`) unless it really must
 be reached from elsewhere, and then put TLS in front of it.
+
+## 4. Setting it up on Linux, with Amethyst
+
+Once, on the machine with the game and Amethyst. Package names are Arch's (CachyOS).
+
+1. **Tools**: `sudo pacman -S nodejs npm dotnet-sdk git git-lfs` — Node 24 or newer, and the .NET 10
+   SDK, which brings ICU; the plugin helper does not start without it.
+2. **The server**:
+   ```bash
+   git clone <repository> ~/skyrim-modding-tools-mcp && cd ~/skyrim-modding-tools-mcp
+   npm install && npm run build:helper && npm run build && npm run check:helper
+   ```
+3. **Vanilla script sources**, for projects with Papyrus scripts: install *Skyrim Special Edition:
+   Creation Kit* in Steam, which puts `Scripts.zip` into the game's `Data`. With nothing deployed in
+   Amethyst (Restore), unpack it there: `cd "<game>/Data" && unzip -n Scripts.zip`. Unpacked while a
+   profile is deployed, Amethyst would count the files as the game's runtime output and move them to
+   its overwrite folder at the next restore.
+4. **A Papyrus compiler**: the Creation Kit's is a Windows program. Unpack
+   `papyrus-compiler-ubuntu.tar.gz` from [russo-2025/papyrus-compiler](https://github.com/russo-2025/papyrus-compiler/releases)
+   — say to `~/tools/papyrus-compiler` — and name its executable in `SKYRIM_PAPYRUS_COMPILER`. In rare
+   cases its output differs from the Creation Kit's byte for byte, not in behaviour
+   ([research](research/2026-10-15-linux-mo2-and-platform.md) §7).
+5. **The client** — Claude Code, for one:
+   ```bash
+   claude mcp add skyrim -e SKYRIM_MOD_MANAGER=amethyst \
+     -e SKYRIM_PAPYRUS_COMPILER=$HOME/tools/papyrus-compiler/papyrus-compiler \
+     -- node $HOME/skyrim-modding-tools-mcp/dist/index.js
+   ```
+
+The server finds Amethyst's settings by itself — the Flatpak's under
+`~/.var/app/io.github.Amethyst.ModManager/config/AmethystModManager`, a native install's under
+`~/.config/AmethystModManager` (`SKYRIM_AMETHYST_DIR` for anywhere else) — and follows the profile
+selected in Amethyst. `healthcheck` shows what it found.
+
+**Amethyst open or closed.** `deployProject` writes the mod and its plugin into Amethyst's profile,
+adding only lines Amethyst has not seen, which it keeps. Then:
+
+- with Amethyst **closed**, the server runs Amethyst's own deploy
+  (`flatpak run --command=amethyst-mod-manager-cli io.github.Amethyst.ModManager deploy 489830 <profile>`),
+  which restores and redeploys the whole profile;
+- with Amethyst **open**, the answer asks for **Refresh**, then **Deploy** in Amethyst — deploying
+  behind its window would race it.
+
+A redeploy writes the mod's files in place, so the hard links Amethyst put into `Data` show the new
+plugin at once; a file that is new to the mod needs a Deploy.
+
+**Creation Kit work.** The Creation Kit runs in the game's Proton prefix (Amethyst's Creation Kit
+wizard) and saves into the deployed `Data`. Saved over Amethyst's link, the plugin is a file of its
+own there: `deployProject` refuses to overwrite it, `pullProject` reads it back into the project, and
+the next deploy removes it so it no longer hides the mod's.
+
+**The first run on a setup someone plays** goes into a throwaway Amethyst profile (say `mcp-test`)
+with a throwaway project. Amethyst's deploy switches the game's `Data` to that profile; afterwards,
+select the usual profile and press Deploy once.
+
+**Local models through Ollama.** Below 24 GiB of video memory Ollama defaults to a 4k-token context,
+too small for any agent: set `OLLAMA_CONTEXT_LENGTH` (131072 for 128k). Claude Code pointed at Ollama
+loads every tool up front; `MCP_PROFILE=core` lists fewer.

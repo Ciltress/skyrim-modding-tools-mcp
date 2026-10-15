@@ -40,8 +40,12 @@ export class Mo2Manager implements ModManager {
     }
 
     // A plugin the Creation Kit saves anew lands in overwrite, which outranks every mod.
-    shadowingCopies(instance: Instance, plugin: string): string[] {
+    shadowingCopies(instance: Instance, _mod: string, plugin: string): string[] {
         return [path.join(instance.overwriteDir, plugin)];
+    }
+
+    notes(): string[] {
+        return [];
     }
 
     enable(instance: Instance, mod: string, plugin: string): ProfileChange {

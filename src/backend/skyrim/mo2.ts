@@ -161,8 +161,14 @@ export function readLoadOrder(instance: Instance): PluginEntry[] {
 export function primaryPlugins(gameDir: string): string[] {
     const ccc = path.join(gameDir, 'Skyrim.ccc');
     const creations = fs.existsSync(ccc) ? listLines(fs.readFileSync(ccc, 'utf8')) : [];
-    const dataDir = path.join(gameDir, 'Data');
-    return [...BASE_MASTERS, ...creations].filter(name => fs.existsSync(path.join(dataDir, name)));
+    // Skyrim.ccc and the files on disk need not agree on case (`ccBGSSSE001-Fish.esm`); the game does not care.
+    let present: Set<string>;
+    try {
+        present = new Set(fs.readdirSync(path.join(gameDir, 'Data')).map(name => name.toLowerCase()));
+    } catch {
+        present = new Set();
+    }
+    return [...BASE_MASTERS, ...creations].filter(name => present.has(name.toLowerCase()));
 }
 
 function activeInPluginsTxt(profileDir: string): { names: Set<string>; ordered: string[] } {
@@ -181,10 +187,14 @@ function listLines(text: string): string[] {
 
 /**
  * Where each plugin file really is: the game's Data folder, overridden by enabled mods from lowest
- * to highest priority, overridden by the overwrite folder — the order Mod Organizer layers them in.
- * Keys are lower-case file names.
+ * to highest priority, overridden by the overwrite folder — the order Mod Organizer layers them in,
+ * and Amethyst too. Keys are lower-case file names.
+ *
+ * @param dataDir  The game's own files: its Data folder, unless a mod manager moved them aside.
  */
-export function resolvePluginFiles(instance: Instance, mods: readonly ModEntry[]): Map<string, string> {
+export function resolvePluginFiles(
+    instance: Instance, mods: readonly ModEntry[], dataDir = path.join(instance.gameDir, 'Data')
+): Map<string, string> {
     const files = new Map<string, string>();
     const collect = (dir: string) => {
         let entries: fs.Dirent[];
@@ -200,7 +210,7 @@ export function resolvePluginFiles(instance: Instance, mods: readonly ModEntry[]
         }
     };
 
-    collect(path.join(instance.gameDir, 'Data'));
+    collect(dataDir);
     for (const mod of [...mods].reverse()) {
         if (mod.enabled && mod.managed) collect(path.join(instance.modsDir, mod.name));
     }

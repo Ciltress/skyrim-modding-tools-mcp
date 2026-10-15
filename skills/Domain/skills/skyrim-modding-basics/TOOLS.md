@@ -28,7 +28,8 @@ tool relates to this server. Versions and states are as of October 2026.
 
 | Tool | What it is | Here |
 | --- | --- | --- |
-| **Mod Organizer 2** (MO2) | Keeps every mod in its own folder and shows programs a virtual `Data` folder; profiles with their own load order, INIs and saves. 2.5.2 is the current release. | The instance this server is bound to. |
+| **Mod Organizer 2** (MO2) | Keeps every mod in its own folder and shows programs a virtual `Data` folder; profiles with their own load order, INIs and saves. 2.5.2 is the current release. | An instance this server can be bound to (the default). |
+| **Amethyst Mod Manager** | A native Linux manager in MO2's layout — profiles, `mods`, `overwrite` — that deploys a profile into the real `Data` by hard links, symlinks or a sandboxed view. | An instance this server can be bound to (`SKYRIM_MOD_MANAGER=amethyst`). |
 | **Vortex** | Nexus Mods' own manager; deploys mods into the real `Data` folder by hard links. | Not supported. |
 | **Wabbajack** | Installs complete curated mod setups into an MO2 instance. An update deletes every file the list does not know, except folders whose name starts with `[NoDelete]`. | Warn before changes to a Wabbajack-installed instance: list authors usually void support for modified installs. |
 
