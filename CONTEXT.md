@@ -1,20 +1,28 @@
 # skyrim-modding-tools-mcp
 
-An MCP server that lets an AI agent author and analyse Skyrim Special Edition mods inside one Mod
-Organizer 2 **instance**, shaped so the agent succeeds on the first try from a cold session — with
-whatever client it happens to run in.
+An MCP server that lets an AI agent author and analyse Skyrim Special Edition mods inside one
+**instance** of a **mod manager**, shaped so the agent succeeds on the first try from a cold session —
+with whatever client it happens to run in.
 
 ## Language
 
 ### Skyrim modding
 
+**Mod manager**:
+The program that keeps an instance: Mod Organizer 2 (on Windows, or under Proton on Linux) or
+Amethyst (native on Linux). The server is told which one by configuration, never by the operating
+system.
+_Avoid_: launcher, loader, MO2 (when any mod manager is meant)
+
 **Instance**:
-One Mod Organizer 2 installation — its game folder, its mods, its downloads and its profiles.
-_Avoid_: setup, install, modlist
+One mod manager's setup for Skyrim — its game folder, its mods, its overwrite folder, its downloads
+and its profiles. In Mod Organizer, one installation with its `ModOrganizer.ini`; in Amethyst, its
+Skyrim staging folder and that game's settings.
+_Avoid_: setup, install, modlist, staging (Amethyst's word for the same thing)
 
 **Profile**:
 One of an instance's named setups — which mods are enabled, the mod order, the load order, and
-optionally its own game settings and saves. The server follows whichever one Mod Organizer has
+optionally its own game settings and saves. The server follows whichever one the mod manager has
 selected.
 _Avoid_: preset, configuration, modlist, tool profile
 
@@ -54,7 +62,7 @@ _Avoid_: form, object, entry
 **Reference**:
 A record that places a base record in a cell — one particular chest, one particular Lydia. Changing
 the base record changes every reference to it; changing a reference changes only that one.
-_Avoid_: instance (which means Mod Organizer's), placed object, ref
+_Avoid_: instance (which means a mod manager's), placed object, ref
 
 **FormID**:
 The identity of a record: the plugin that first defined it plus a number local to that plugin. The
@@ -146,9 +154,9 @@ one `AppBackend` per running server: per process in stdio mode, per session in H
 _Avoid_: API, service, upstream, provider
 
 **Binding**:
-The fixed pairing of one running server to exactly one instance, decided at startup and not
-changeable while it runs. The active profile is not part of it: the server follows whichever one Mod
-Organizer has selected. Announced in the `instructions`.
+The fixed pairing of one running server to exactly one instance of one mod manager, decided at
+startup and not changeable while it runs. The active profile is not part of it: the server follows
+whichever one the mod manager has selected. Announced in the `instructions`.
 _Avoid_: connection, target, environment
 
 **Feature**:
@@ -166,7 +174,7 @@ _Avoid_: filtering, feature flag, capability check
 **Tool profile**:
 A named subset of the tools a server lists, chosen by the operator at startup (`MCP_PROFILE`) to fit
 a client tier. A tool outside the active tool profile is not merely hidden — it is not callable.
-_Avoid_: profile (which means Mod Organizer's), preset, mode, config, toolset
+_Avoid_: profile (which means a mod manager's), preset, mode, config, toolset
 
 **Response budget**:
 The ceiling on the size of one tool answer, following the tool profile. An answer over it is replaced by a
