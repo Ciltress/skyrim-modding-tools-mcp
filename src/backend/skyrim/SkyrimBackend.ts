@@ -16,6 +16,12 @@ export interface SkyrimBackend extends Backend {
     buildProject(project: string): Promise<BuildResult>;
     deployProject(project: string): Promise<DeployResult>;
     pullProject(project: string): Promise<PullResult>;
+
+    /** Skyrim SE mods on Nexus Mods. Needs no instance, and no API key. */
+    searchNexus(query: NexusSearchQuery): Promise<NexusSearchResult>;
+    readNexusMod(modId: number): Promise<NexusMod>;
+    /** One file of a Nexus mod into the instance's downloads folder. Needs a premium account's key. */
+    downloadNexusFile(modId: number, fileId: number): Promise<NexusDownload>;
 }
 
 export interface NewProjectRequest {
@@ -156,6 +162,103 @@ export interface RecordVersion {
     plugin: string;
     winning: boolean;
     files: RecordFile[];
+}
+
+/**
+ * The Nexus account behind NEXUS_API_KEY: none set; checked, with its name and standing; refused by
+ * Nexus (`problem`); or not checked, because Nexus could not be asked (`unchecked`). Never the key.
+ */
+export type NexusAccount =
+    | { apiKey: false }
+    | { apiKey: true; name: string; premium: boolean; supporter: boolean }
+    | { apiKey: true; problem: string }
+    | { apiKey: true; unchecked: string };
+
+export type NexusSort = 'endorsements' | 'downloads' | 'updated';
+
+export interface NexusSearchQuery {
+    /** Words in the mod's name, matched in any order. Without it, the catalogue in `sort` order. */
+    text?: string;
+    /** Most endorsed first unless set. */
+    sort?: NexusSort;
+    limit: number;
+}
+
+export interface NexusModSummary {
+    modId: number;
+    name: string;
+    version: string;
+    author: string;
+    category: string;
+    summary: string;
+    endorsements: number;
+    downloads: number;
+    /** `YYYY-MM-DD`. */
+    updated: string;
+    /** The mod's page on Nexus Mods. */
+    url: string;
+    /** Set when Nexus marks the mod as adult content. */
+    adult?: true;
+}
+
+export interface NexusSearchResult {
+    /** Matches before the limit. */
+    total: number;
+    mods: NexusModSummary[];
+}
+
+export interface NexusRequirement {
+    /** Set for a requirement on Nexus Mods. */
+    modId?: number;
+    name: string;
+    notes?: string;
+    url?: string;
+}
+
+/** One download a Nexus mod offers now. */
+export interface NexusFileInfo {
+    fileId: number;
+    name: string;
+    version: string;
+    /** `main`, `update`, `optional` or `miscellaneous`. */
+    category: string;
+    /** The file's name as it downloads. */
+    fileName: string;
+    sizeBytes: number;
+    /** `YYYY-MM-DD`. */
+    uploaded: string;
+    description?: string;
+}
+
+export interface NexusMod extends NexusModSummary {
+    uploader: string;
+    /** The mod page's description as plain text. */
+    description: string;
+    /** Set when the description was cut, saying where the rest is. */
+    descriptionCut?: string;
+    requirements: NexusRequirement[];
+    /** DLCs the mod needs, by name. */
+    dlcRequirements: string[];
+    files: NexusFileInfo[];
+    /** Files the page keeps as old versions, archived or removed, left out of `files`. */
+    olderFiles: number;
+}
+
+/** A Nexus file in the instance's downloads folder. */
+export interface NexusDownload {
+    /** The downloaded file's full path. */
+    path: string;
+    modId: number;
+    fileId: number;
+    modName: string;
+    /** The file's name on the mod page. */
+    name: string;
+    version: string;
+    /** `main`, `update`, `optional`, `miscellaneous`… */
+    category: string;
+    sizeBytes: number;
+    /** Set when the file was there already, with the right size, and was not downloaded again. */
+    alreadyThere?: true;
 }
 
 export interface RecordVersions {

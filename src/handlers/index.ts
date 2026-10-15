@@ -1,13 +1,14 @@
 import type { AppBackend } from '../backend/index.js';
 import type { BaseHandler } from './BaseHandler.js';
 import { DocsHandlers } from './DocsHandlers.js';
+import { NexusHandlers } from './NexusHandlers.js';
 import { ProjectsHandlers } from './ProjectsHandlers.js';
 import { RecordsHandlers } from './RecordsHandlers.js';
 import { SkillsHandlers } from './SkillsHandlers.js';
 
 export { BaseHandler } from './BaseHandler.js';
 export type { ToolSpec } from './BaseHandler.js';
-export { DocsHandlers, ProjectsHandlers, RecordsHandlers, SkillsHandlers };
+export { DocsHandlers, NexusHandlers, ProjectsHandlers, RecordsHandlers, SkillsHandlers };
 
 /**
  * Every handler, in tools/list order — the one list.
@@ -22,6 +23,7 @@ export function createHandlers(backend: AppBackend): BaseHandler[] {
         new DocsHandlers(backend),
         new SkillsHandlers(backend),
         new RecordsHandlers(backend),
-        new ProjectsHandlers(backend)
+        new ProjectsHandlers(backend),
+        new NexusHandlers(backend)
     ];
 }

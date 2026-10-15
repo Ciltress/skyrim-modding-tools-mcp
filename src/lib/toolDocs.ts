@@ -32,7 +32,8 @@ const LABELS: Record<string, string> = {
     DocsHandlers: "This server's own guides",
     SkillsHandlers: 'Bundled skills',
     RecordsHandlers: 'Records in the load order',
-    ProjectsHandlers: 'Projects: authoring and patching'
+    ProjectsHandlers: 'Projects: authoring and patching',
+    NexusHandlers: 'Nexus Mods'
 };
 
 function labelFor(handler: string): string {

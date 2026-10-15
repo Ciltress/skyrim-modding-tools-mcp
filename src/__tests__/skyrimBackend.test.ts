@@ -12,6 +12,7 @@ import { SkyrimInstanceBackend } from '../backend/skyrim/SkyrimInstanceBackend';
 import { Mo2Manager } from '../backend/skyrim/mo2Manager';
 import { InstanceConfigError } from '../backend/skyrim/modManager';
 import { linuxPlatform } from '../backend/skyrim/platform';
+import { NexusCatalogue } from '../backend/skyrim/nexus';
 import { HelperError, HelperMissingError, HelperUnavailableError, type HelperTransport } from '../backend/skyrim/helperClient';
 import { CompilerUnavailableError, ScriptCompileError } from '../backend/skyrim/externalTools';
 import { asRequestError } from '../handlers/args';
@@ -301,13 +302,13 @@ const quiet = linuxPlatform(path.join(os.tmpdir(), 'skyrim-mcp-no-proc'), hostDr
 const asWinePath = (native: string) => /^[a-z]:/i.test(native) ? native : `Z:${native.replace(/\//g, '\\')}`;
 
 /** A backend on the quiet system, with a process table of its own that is empty until a test starts something in it. */
-function makeBackend() {
+function makeBackend(options: { nexus?: NexusCatalogue } = {}) {
     const fixture = makeInstance();
     const procRoot = path.join(fixture.root, 'proc');
     const platform = linuxPlatform(procRoot, hostDrives);
     const { helper, calls } = scriptedHelper();
     const engine = new SkyrimEngine(new Mo2Manager(fixture.instanceDir, platform, { env: {} }), helper, fixture.projects, { platform });
-    const backend = new SkyrimInstanceBackend({ engine });
+    const backend = new SkyrimInstanceBackend({ engine, nexus: options.nexus });
     /** Starts a Windows program in the table, as Wine does: its command line is the program's Windows path. */
     const startProgram = (pid: number, exe: string) => write(path.join(procRoot, String(pid), 'cmdline'), `${asWinePath(exe)}\0`);
     return { fixture, backend, calls, engine, startProgram };
@@ -466,6 +467,29 @@ describe('the Skyrim backend', () => {
 
         expect(patch.alreadyInProject).toEqual([{ formId: '012EB7:Skyrim.esm', files: [{ path: file }] }]);
         expect(patch.textLeftOut).toMatch(/1 file.*read it at its path/i);
+    });
+
+    it('shows the Nexus account in healthcheck, and offers the premium feature only for a premium key', async () => {
+        const validate = (answer: () => Promise<Response>) => new NexusCatalogue({
+            appVersion: '0.1.0', apiKey: 'key', fetch: answer as unknown as typeof fetch
+        });
+        const user = (premium: boolean) => async () => new Response(JSON.stringify({ name: 'SomeModder', is_premium: premium, is_supporter: false }));
+
+        const premium = makeBackend({ nexus: validate(user(true)) }).backend;
+        expect((await premium.health()).nexus).toEqual({ apiKey: true, name: 'SomeModder', premium: true, supporter: false });
+        expect(await premium.capabilities()).toEqual(['nexus-catalogue', 'nexus-premium']);
+
+        const free = makeBackend({ nexus: validate(user(false)) }).backend;
+        expect(await free.capabilities()).toEqual(['nexus-catalogue']);
+
+        const noKey = makeBackend({ nexus: new NexusCatalogue({ appVersion: '0.1.0' }) }).backend;
+        expect((await noKey.health()).nexus).toEqual({ apiKey: false });
+        expect(await noKey.capabilities()).toEqual(['nexus-catalogue']);
+
+        // Nexus could not be asked: the backend cannot say, so nothing is withheld.
+        const offline = makeBackend({ nexus: validate(async () => { throw new TypeError('fetch failed'); }) }).backend;
+        expect(await offline.capabilities()).toBeUndefined();
+        expect((await offline.health()).nexus).toMatchObject({ apiKey: true, unchecked: expect.stringMatching(/could not be reached/) });
     });
 
     it('refuses to deploy while this instance\'s Mod Organizer runs and cannot be told to re-read its profile', async () => {

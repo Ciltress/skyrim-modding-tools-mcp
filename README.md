@@ -20,6 +20,9 @@ Plugins are read and written by [Mutagen](https://github.com/Mutagen-Modding/Mut
 | `buildProject` | Text → plugin: assigns FormIDs to new records, checks every reference, compiles Papyrus scripts |
 | `deployProject` | Build → Mod Organizer: mod folder, enabled, plugin at the end of the load order |
 | `pullProject` | Changes made in the Creation Kit or xEdit → back into the text |
+| `searchNexus` | Find Skyrim SE mods on Nexus Mods by name, or list the most endorsed, downloaded or updated |
+| `readNexusMod` | One Nexus mod page: description, requirements (SKSE, other mods, DLC), the files it offers |
+| `downloadNexusFile` | A file of a Nexus mod into the instance's downloads folder — with a premium account's API key |
 
 Plus `healthcheck`, and the server's own guides (`readServerGuide`) and modding skills (`readSkill`):
 how plugins, FormIDs, load order and conflicts work, the community's tools, and one reference per
@@ -78,6 +81,7 @@ See [`.env.example`](.env.example).
 | `SKYRIM_MO2_INSTANCE` | — (required with `mo2`) | The Mod Organizer instance folder; the server follows its selected profile |
 | `SKYRIM_WINE_PREFIX` | found by itself for MO2-LINT | Mod Organizer under Proton: the Wine prefix it runs in, to read its ini's Windows paths |
 | `SKYRIM_AMETHYST_DIR` | found by itself | Amethyst's config folder, if it is neither the Flatpak's nor `~/.config`'s |
+| `NEXUS_API_KEY` | none | Your personal Nexus Mods API key; `healthcheck` shows its account. Searching and reading Nexus need none; `downloadNexusFile` needs a premium account's |
 | `SKYRIM_PROJECTS_DIR` | `./projects` | Where projects live |
 | `SKYRIM_CK_DIR` | the instance's game folder | The Creation Kit, for its Papyrus compiler and vanilla script sources |
 | `SKYRIM_PAPYRUS_COMPILER` | the Creation Kit's (Windows); none (Linux) | `PapyrusCompiler.exe`, or russo-2025's `papyrus-compiler`, which runs on Linux |

@@ -11,10 +11,13 @@ import {
     projectInfo, projectPaths, readDeployState, readProjectHeader, syncFolder, syncYaml, writeDeployState
 } from './projects.js';
 import type { SkyrimEngine } from './engine.js';
+import { NexusCatalogue } from './nexus.js';
 import type {
-    AddPatchRequest, AddPatchResult, BuildResult, DeployResult, NewProjectRequest, ProjectFile, ProjectInfo, PullResult,
-    RecordQuery, RecordRequest, RecordSearchResult, RecordVersion, RecordVersions, SkyrimBackend
+    AddPatchRequest, AddPatchResult, BuildResult, DeployResult, NewProjectRequest, NexusAccount, NexusDownload, NexusMod, NexusSearchQuery,
+    NexusSearchResult, ProjectFile, ProjectInfo, PullResult, RecordQuery, RecordRequest, RecordSearchResult, RecordVersion,
+    RecordVersions, SkyrimBackend
 } from './SkyrimBackend.js';
+import { SERVER_INFO } from '../../lib/serverInfo.js';
 
 /** What the helper's addOverrides answers: files relative to the project's plugin folder. */
 interface CopiedRecords {
@@ -28,6 +31,8 @@ export interface SkyrimInstanceBackendOptions {
     credential?: string;
     /** Tokens HTTP callers may present. Undefined in stdio mode, where nothing is checked. */
     acceptedCredentials?: readonly string[];
+    /** The Nexus Mods catalogue. Replaced in tests; by default the real one. */
+    nexus?: NexusCatalogue;
 }
 
 /**
@@ -42,8 +47,11 @@ export interface SkyrimInstanceBackendOptions {
  */
 export class SkyrimInstanceBackend implements SkyrimBackend {
     private accepted = false;
+    private readonly nexus: NexusCatalogue;
 
-    constructor(private readonly options: SkyrimInstanceBackendOptions) { }
+    constructor(private readonly options: SkyrimInstanceBackendOptions) {
+        this.nexus = options.nexus ?? new NexusCatalogue({ appVersion: SERVER_INFO.version });
+    }
 
     private get engine(): SkyrimEngine {
         return this.options.engine;
@@ -71,17 +79,41 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         return error instanceof SessionExpiredError;
     }
 
-    /** Nothing is gated yet: every tool works against any instance this server can open. */
+    /**
+     * `nexus-catalogue` always — searching and reading Nexus need no key — and `nexus-premium` when
+     * NEXUS_API_KEY belongs to a premium account. Undefined when Nexus could not be asked: then the
+     * backend cannot say, and nothing is withheld.
+     */
     async capabilities(): Promise<readonly string[] | undefined> {
-        return undefined;
+        const account = await this.nexus.account();
+        if ('unchecked' in account) return undefined;
+        return ['nexus-catalogue', ...('premium' in account && account.premium ? ['nexus-premium'] : [])];
+    }
+
+    /** The Nexus account, waiting no longer than healthcheck can afford; a slow check finishes in the background. */
+    private async nexusAccount(waitMs = 3000): Promise<NexusAccount> {
+        let timer: NodeJS.Timeout | undefined;
+        const late = new Promise<NexusAccount>(resolve => {
+            timer = setTimeout(() => resolve({
+                apiKey: true, unchecked: `Nexus Mods did not answer within ${waitMs / 1000} s; the key is checked again next time.`
+            }), waitMs);
+            timer.unref();
+        });
+        try {
+            return await Promise.race([this.nexus.account(), late]);
+        } finally {
+            clearTimeout(timer);
+        }
     }
 
     async health(): Promise<HealthReport> {
+        // Nexus is optional: an account problem is reported, never counted against the instance's health.
+        const nexus = await this.nexusAccount();
         let instance;
         try {
             instance = this.engine.modManager.readInstance();
         } catch (error) {
-            return { ok: false, summary: (error as Error).message };
+            return { ok: false, summary: (error as Error).message, nexus };
         }
         const engine = this.engine;
         const helper = engine.ready
@@ -106,7 +138,8 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             ...(notes.length > 0 ? { notes } : {}),
             game: { dir: instance.gameDir, edition: instance.edition, version: engine.gameVersion ?? null },
             plugins: { active: engine.activePlugins, missing: engine.missingPlugins },
-            helper
+            helper,
+            nexus
         };
     }
 
@@ -334,6 +367,19 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         } finally {
             fs.rmSync(scratch, { recursive: true, force: true });
         }
+    }
+
+    // Nexus needs neither the instance nor the helper: these answer whatever state the engine is in.
+    async searchNexus(query: NexusSearchQuery): Promise<NexusSearchResult> {
+        return this.nexus.searchMods(query);
+    }
+
+    async readNexusMod(modId: number): Promise<NexusMod> {
+        return this.nexus.readMod(modId);
+    }
+
+    async downloadNexusFile(modId: number, fileId: number): Promise<NexusDownload> {
+        return this.nexus.downloadFile(modId, fileId, this.engine.modManager.readInstance().downloadsDir);
     }
 }
 

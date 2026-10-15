@@ -17,7 +17,8 @@
 export function serverInstructions(target: string): string {
     return [
         'This server authors and analyses Skyrim Special Edition mods: it looks records up across the ' +
-        'load order, and builds mods kept as text projects into plugins deployed to the mod manager (Mod Organizer or Amethyst). ' +
+        'load order, builds mods kept as text projects into plugins deployed to the mod manager (Mod Organizer or Amethyst), ' +
+        'and finds mods on Nexus Mods. ' +
         'Records are changed by editing the project\'s YAML files with your ordinary file tools.',
         `It is bound to ${target} and cannot be switched to another at runtime.`,
         'Before modding, read the skill skyrim-modding-basics (readSkill).',

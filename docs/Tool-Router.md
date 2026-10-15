@@ -45,6 +45,17 @@ Workflows and the error model: [`MCP-Tools.md`](./MCP-Tools.md). The vocabulary:
 | Put the mod into the game | `deployProject` — enables it in the mod manager; with Amethyst, also deploys or says to |
 | Bring back what you did in the Creation Kit or xEdit | `pullProject` — commit first, review with `git diff` after |
 
+## Mods on Nexus Mods
+
+| You want to… | Call |
+| --- | --- |
+| Find a mod on Nexus by name | `searchNexus` with `text` — words of the name, in any order |
+| See what is popular, or new | `searchNexus` without `text`, `sort: "downloads"` or `"updated"` |
+| Check what a mod needs before installing it — SKSE, Address Library, other mods | `readNexusMod` with its `modId` → `requirements`, `dlcRequirements` |
+| Choose which file of a mod to get | `readNexusMod` → `files`: the main file, optional files, updates, with versions |
+| Download a mod's file | `downloadNexusFile` with `modId` and `fileId` — needs a premium account's `NEXUS_API_KEY`; without one, the user downloads it on the page |
+| Know whether the Nexus key is premium | `healthcheck` → `health.nexus` |
+
 ## When something went wrong
 
 | You want to… | Call |
@@ -76,4 +87,5 @@ Workflows and the error model: [`MCP-Tools.md`](./MCP-Tools.md). The vocabulary:
 | "import from the Creation Kit" | `pullProject` |
 | "profile" | The mod manager's profile — the server follows the selected one. The tool set is the *tool profile*, `MCP_PROFILE` |
 | "is it connected?" | `healthcheck`, not a test call to a write tool |
+| "Nexus ID", "the mod's link" | `modId`: the number in the page's address, `…/skyrimspecialedition/mods/12604` |
 | "help", "docs", "manual" | `readServerGuide` and `readSkill` — the server documents itself |

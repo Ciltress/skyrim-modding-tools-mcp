@@ -1,10 +1,11 @@
 import path from 'node:path';
 import { parseList } from '../lib/env.js';
-import { PROJECT_ROOT } from '../lib/serverInfo.js';
+import { PROJECT_ROOT, SERVER_INFO } from '../lib/serverInfo.js';
 import { AmethystManager, findAmethyst } from './skyrim/amethyst.js';
 import { SkyrimEngine } from './skyrim/engine.js';
 import { HelperClient } from './skyrim/helperClient.js';
 import { Mo2Manager } from './skyrim/mo2Manager.js';
+import { NexusCatalogue } from './skyrim/nexus.js';
 import type { ModManager, ModManagerName } from './skyrim/modManager.js';
 import { SkyrimInstanceBackend } from './skyrim/SkyrimInstanceBackend.js';
 import { currentPlatform, type Platform } from './skyrim/platform.js';
@@ -68,6 +69,9 @@ function createModManager(env: NodeJS.ProcessEnv, platform: Platform): ModManage
 /** One engine per process — one helper, one load order — shared by every HTTP session. */
 let sharedEngine: SkyrimEngine | undefined;
 
+/** One Nexus catalogue per process too, so the key is checked once, not once per session. */
+let sharedNexus: { apiKey: string | undefined; catalogue: NexusCatalogue } | undefined;
+
 /** Builds the backend for one server: per process, or per session in HTTP mode. Starts nothing: the helper starts on connect(). */
 export function createBackend(env: NodeJS.ProcessEnv = process.env, options: BackendOptions = {}): AppBackend {
     // The one place the server asks which operating system it runs on (docs/adr/0007).
@@ -88,8 +92,13 @@ export function createBackend(env: NodeJS.ProcessEnv = process.env, options: Bac
             }
         );
     }
+    const apiKey = env.NEXUS_API_KEY?.trim() || undefined;
+    if (!sharedNexus || sharedNexus.apiKey !== apiKey) {
+        sharedNexus = { apiKey, catalogue: new NexusCatalogue({ appVersion: SERVER_INFO.version, apiKey }) };
+    }
     return new SkyrimInstanceBackend({
         engine: sharedEngine!,
+        nexus: sharedNexus.catalogue,
         credential: options.bearerToken,
         // Only HTTP sessions present a credential, so only they are checked.
         acceptedCredentials: options.bearerToken !== undefined

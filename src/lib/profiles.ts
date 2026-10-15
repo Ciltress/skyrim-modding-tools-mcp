@@ -33,6 +33,9 @@ const READ = ['findRecords', 'readRecord'] as const;
  */
 const CORE_WRITE = ['addPatch', 'buildProject', 'deployProject'] as const;
 
+/** The Nexus Mods catalogue, read. */
+const NEXUS_READ = ['searchNexus', 'readNexusMod'] as const;
+
 /** Reading beyond the basics. Empty until the analysis wave. */
 const ANALYSIS = [] as const;
 
@@ -53,7 +56,7 @@ export const PROFILES: Record<ProfileName, ProfileDefinition> = {
         description:
             'Reading, never changing. The write tools are absent rather than discouraged, so this ' +
             'profile cannot modify anything — profiles.test.ts holds every member to readOnlyHint.',
-        tools: [...READ, ...ANALYSIS, ...GUIDANCE]
+        tools: [...READ, ...NEXUS_READ, ...ANALYSIS, ...GUIDANCE]
     },
     all: {
         description:

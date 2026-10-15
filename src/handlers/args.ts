@@ -1,5 +1,6 @@
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { HelperError } from '../backend/skyrim/helperClient.js';
+import { NexusError } from '../backend/skyrim/nexus.js';
 import { ProjectError } from '../backend/skyrim/projects.js';
 import { ScriptCompileError } from '../backend/skyrim/externalTools.js';
 import type { ToolDefinition, ToolProperty } from '../types/tools.js';
@@ -85,6 +86,22 @@ export function optionalBoolean(args: any, name: string): boolean | undefined {
     return value;
 }
 
+export function requirePositiveInteger(args: any, name: string, hint = ''): number {
+    const value = args?.[name];
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+        throw new McpError(ErrorCode.InvalidParams, `'${name}' must be a whole number from 1 up.${hint ? ` ${hint}` : ''}`);
+    }
+    return value;
+}
+
+export function optionalChoice<T extends string>(args: any, name: string, choices: readonly T[]): T | undefined {
+    const value = args?.[name];
+    if (value === undefined || value === null || value === '') return undefined;
+    const match = typeof value === 'string' ? choices.find(choice => choice === value.trim().toLowerCase()) : undefined;
+    if (!match) throw new McpError(ErrorCode.InvalidParams, `'${name}' must be one of ${choices.join(', ')}.`);
+    return match;
+}
+
 export function limitArg(args: any, fallback: number, max: number): number {
     const value = args?.limit;
     if (value === undefined || value === null) return fallback;
@@ -95,11 +112,11 @@ export function limitArg(args: any, fallback: number, max: number): number {
 }
 
 /**
- * Failures that are about the request — a record that does not exist, a malformed FormID, a link to
- * nothing, project text the plugin cannot be written from, a project in the wrong state, a script
- * that does not compile — become `InvalidParams`, so the client sees something to fix rather than a
- * server fault. What is missing on the machine — a compiler, a writable disk — is not the request's
- * fault and passes through to BaseHandler's mapping, as does everything else.
+ * Failures that are about the request — a record or Nexus mod that does not exist, a malformed FormID,
+ * a link to nothing, project text the plugin cannot be written from, a project in the wrong state, a
+ * script that does not compile — become `InvalidParams`, so the client sees something to fix rather
+ * than a server fault. What is missing on the machine — a compiler, a writable disk, a way to Nexus —
+ * is not the request's fault and passes through to BaseHandler's mapping, as does everything else.
  */
 const REQUEST_ERRORS = new Set(['notFound', 'badRequest', 'danglingLinks', 'writeFailed']);
 
@@ -109,6 +126,7 @@ export async function asRequestError<T>(work: Promise<T> | T): Promise<T> {
     } catch (error) {
         const aboutTheRequest =
             (error instanceof HelperError && REQUEST_ERRORS.has(error.code)) ||
+            (error instanceof NexusError && error.code === 'notFound') ||
             error instanceof ProjectError ||
             error instanceof ScriptCompileError;
         if (aboutTheRequest) throw new McpError(ErrorCode.InvalidParams, (error as Error).message);

@@ -3,7 +3,7 @@
 <!-- GENERATED FILE - do not edit by hand.
      Run `npm run build && npm run docs:tools` after changing any getTools(). -->
 
-Every tool this server can expose: **9 tools across 4 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
+Every tool this server can expose: **12 tools across 5 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
 
 **How many you can actually call is smaller.** The active `MCP_PROFILE` decides what is
 listed, and the server withholds anything the connected backend does not support.
@@ -25,6 +25,7 @@ what needs a human, not a permission system: nothing here is enforced.
 ## Families
 
 - [Bundled skills](#bundled-skills) — 1 tool
+- [Nexus Mods](#nexus-mods) — 3 tools
 - [Projects: authoring and patching](#projects-authoring-and-patching) — 5 tools
 - [Records in the load order](#records-in-the-load-order) — 2 tools
 - [This server's own guides](#this-servers-own-guides) — 1 tool
@@ -40,6 +41,30 @@ From `src/handlers/SkillsHandlers.ts`.
 _read-only_
 
 `collection` string · `skill` string · `file` string
+
+## Nexus Mods
+
+From `src/handlers/NexusHandlers.ts`.
+
+**`searchNexus`** — Search Nexus Mods for Skyrim Special Edition mods by words in their name, matched in any order — most endorsed first; without `text`, the catalogue in `sort` order. Each row has the mod's number (`modId`), version, author, summary and page. Read one with readNexusMod. `total` counts matches before the limit.
+
+_read-only · reaches outside this backend_
+
+`text` string · `sort` string, one of endorsements/downloads/updated · `limit` number, default `10`
+
+**`readNexusMod`** — One Nexus Mods page for Skyrim Special Edition: its description as text, what it requires — SKSE, other mods, DLC — and the files it offers now (main, update, optional, miscellaneous), each with its fileId, version and size. Check the requirements before recommending or installing a mod: one that lacks them crashes the game or does nothing.
+
+_read-only · reaches outside this backend_
+
+`modId`**\*** number
+
+**`downloadNexusFile`** — Download one file of a Nexus mod into the instance's downloads folder, through Nexus's API — listed only when NEXUS_API_KEY belongs to a premium account. Take modId and fileId from readNexusMod's files: usually the main file, plus the optional files the user wants. Recorded beside it the way Mod Organizer records its own downloads; a file already there with the right size is not downloaded again. Answers its full path.
+
+_writes · idempotent · reaches outside this backend_
+
+Needs the backend feature `nexus-premium`; withheld where it is missing.
+
+`modId`**\*** number · `fileId`**\*** number
 
 ## Projects: authoring and patching
 

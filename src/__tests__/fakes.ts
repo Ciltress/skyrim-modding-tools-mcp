@@ -2,10 +2,12 @@ import { SessionExpiredError } from '../backend/Backend';
 import type { HealthReport } from '../backend/Backend';
 import type { AppBackend } from '../backend/index';
 import { HelperError } from '../backend/skyrim/helperClient';
+import { NexusError } from '../backend/skyrim/nexus';
 import { ProjectError } from '../backend/skyrim/projects';
 import type {
-    AddPatchRequest, AddPatchResult, BuildResult, ProjectFile, DeployResult, NewProjectRequest, ProjectInfo, PullResult,
-    RecordQuery, RecordRequest, RecordSearchResult, RecordSummary, RecordVersions
+    AddPatchRequest, AddPatchResult, BuildResult, ProjectFile, DeployResult, NewProjectRequest, NexusDownload, NexusMod, NexusModSummary,
+    NexusSearchQuery, NexusSearchResult, ProjectInfo, PullResult, RecordQuery, RecordRequest, RecordSearchResult,
+    RecordSummary, RecordVersions
 } from '../backend/skyrim/SkyrimBackend';
 
 /**
@@ -169,7 +171,32 @@ export class InMemorySkyrimBackend implements AppBackend {
         if (!project.deployed) throw new ProjectError(`There is no deployed ${project.plugin} to pull from: deploy the project first.`);
         return { project: name, plugin: project.plugin, source: `mods/${name}/${project.plugin}`, added: [], changed: [], removed: [] };
     }
+
+    async searchNexus(query: NexusSearchQuery): Promise<NexusSearchResult> {
+        const mods = [NEXUS_MOD].filter(mod => !query.text || mod.name.toLowerCase().includes(query.text.toLowerCase()));
+        return { total: mods.length, mods: mods.slice(0, query.limit) };
+    }
+
+    /** Mod 1 exists — the number the contract suite generates — and nothing else. */
+    async readNexusMod(modId: number): Promise<NexusMod> {
+        if (modId !== NEXUS_MOD.modId) throw new NexusError('notFound', `No Nexus mod ${modId} for Skyrim Special Edition. Find it with searchNexus.`);
+        return { ...NEXUS_MOD, uploader: 'someone', description: 'A sample mod.', requirements: [], dlcRequirements: [], files: [], olderFiles: 0 };
+    }
+
+    /** File 1 of mod 1, and nothing else. */
+    async downloadNexusFile(modId: number, fileId: number): Promise<NexusDownload> {
+        if (modId !== NEXUS_MOD.modId || fileId !== 1) throw new NexusError('notFound', `Nexus mod ${modId} has no file ${fileId}. Take modId and fileId from readNexusMod's files.`);
+        return {
+            path: 'downloads/Sample Mod-1-1-0.zip', modId, fileId, modName: NEXUS_MOD.name, name: 'Sample Mod', version: '1.0',
+            category: 'main', sizeBytes: 1024
+        };
+    }
 }
+
+const NEXUS_MOD: NexusModSummary = {
+    modId: 1, name: 'Sample Mod', version: '1.0', author: 'someone', category: 'Gameplay', summary: 'A sample.',
+    endorsements: 0, downloads: 0, updated: '2026-10-15', url: 'https://www.nexusmods.com/skyrimspecialedition/mods/1'
+};
 
 /** Members of the backend that are its lifecycle rather than its domain. */
 const LIFECYCLE = new Set([
@@ -216,7 +243,8 @@ export interface FakeBackendOptions {
 }
 
 const DOMAIN_METHODS = [
-    'findRecords', 'readRecord', 'newProject', 'addPatch', 'buildProject', 'deployProject', 'pullProject'
+    'findRecords', 'readRecord', 'newProject', 'addPatch', 'buildProject', 'deployProject', 'pullProject',
+    'searchNexus', 'readNexusMod', 'downloadNexusFile'
 ] as const;
 
 /**

@@ -27,8 +27,8 @@ export interface GatedFeature {
 }
 
 /**
- * The optional features a backend may or may not offer. None yet: every tool so far works against
- * any instance this server can open. The Nexus tools will need some — an API key, a premium account.
+ * The optional features a backend may or may not offer. Downloading through Nexus's API needs a
+ * premium account's key in NEXUS_API_KEY; everything else works against any instance.
  *
  * Which tools need one is declared by the tools themselves, through
  * `ToolDefinition.needsFeature`, never as a list of names here — a renamed tool
@@ -36,7 +36,9 @@ export interface GatedFeature {
  * that cannot serve it. capabilityGate.test.ts checks every `needsFeature` names
  * a feature listed here, so a typo cannot un-gate a tool either.
  */
-export const GATED_FEATURES: readonly GatedFeature[] = [];
+export const GATED_FEATURES: readonly GatedFeature[] = [
+    { id: 'nexus-premium', label: 'a Nexus Mods premium account (its personal API key in NEXUS_API_KEY)' }
+];
 
 export interface GateResult {
     /** Tool name -> why it is not offered here. */

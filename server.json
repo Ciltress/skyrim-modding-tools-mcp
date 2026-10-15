@@ -102,6 +102,11 @@
           "description": "The built plugin helper (SkyrimHelper.exe on Windows, SkyrimHelper on Linux). Defaults to helper/bin beside the server, where npm run build:helper puts it."
         },
         {
+          "name": "NEXUS_API_KEY",
+          "isSecret": true,
+          "description": "Your personal Nexus Mods API key (nexusmods.com/settings/api-keys). Searching and reading Nexus need none; downloadNexusFile needs a premium account's, and healthcheck shows the account it belongs to. Never share it: Nexus allows personal keys for personal use only."
+        },
+        {
           "name": "SKYRIM_ACCEPTED_TOKENS",
           "isSecret": true,
           "description": "HTTP mode only: the bearer tokens callers may present, comma-separated. Unset, HTTP mode accepts nobody."

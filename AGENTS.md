@@ -71,6 +71,8 @@ src/
   backend/skyrim/amethyst.ts        Amethyst as the mod manager: finding its config, its profile, its
                                     deploy command
   backend/skyrim/projects.ts        a project on disk: paths, FormID assignment, text sync, deploy state
+  backend/skyrim/nexus.ts           Nexus Mods: the catalogue over GraphQL, the account and downloads over
+                                    v1 with NEXUS_API_KEY, BBCode as text
   backend/skyrim/externalTools.ts   the Papyrus compilers (the Creation Kit's, russo-2025's) and git
   backend/skyrim/platform.ts        everything that differs by operating system (ADR-0007) — the only
                                     place that asks; Windows and Linux side by side
@@ -80,6 +82,7 @@ src/
   handlers/args.ts         shared argument checks, and request errors -> InvalidParams
   handlers/RecordsHandlers.ts       findRecords, readRecord
   handlers/ProjectsHandlers.ts      newProject, addPatch, buildProject, deployProject, pullProject
+  handlers/NexusHandlers.ts         searchNexus, readNexusMod, downloadNexusFile
   handlers/DocsHandlers.ts, SkillsHandlers.ts   readServerGuide and readSkill
   types/tools.ts           ToolDefinition / ToolProperty / ToolAnnotations — the inputSchema contract
   lib/                     logger, guides, skills, profiles, responseBudget, capabilityGate,

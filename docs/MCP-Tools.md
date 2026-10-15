@@ -136,7 +136,7 @@ nothing is enforced, and a client must not trust annotations from a server it do
 | `readOnlyHint` | The call changes nothing in the backend. A check that sends data but persists nothing is read-only; anything that executes caller-supplied code is not. |
 | `destructiveHint` | The call overwrites or removes something that was already there: `deployProject` (the mod folder), `pullProject` (the project's text). Adding something new is **not** destructive — `addPatch` never overwrites a file, and `buildProject` replaces only its own previous output. |
 | `idempotentHint` | Repeating the call really does leave the same state: `addPatch` (a record already in the project is left alone), `newProject` (an existing project is returned as it is), `deployProject` of the same build. A write that appends to a history every time never qualifies. |
-| `openWorldHint` | The call reaches past the backend this server is bound to: sending, publishing, pushing to an external remote. `false` everywhere else. |
+| `openWorldHint` | The call reaches past the instance this server is bound to, into an outside service: reading Nexus Mods (`searchNexus`, `readNexusMod`), sending, publishing, pushing to an external remote. `false` everywhere else. |
 
 **Every tool states all four flags**, read-only ones included, where they are always
 `destructiveHint: false` and `idempotentHint: true`. The specification defines those two as
@@ -342,15 +342,31 @@ the game's prefix with Amethyst):
 {"tool":"deployProject","args":{"project":"FrostBlade"}}
 ```
 
-### 4.5 Find out what you are connected to
+### 4.5 Find a mod on Nexus and check what it needs
+
+```jsonc
+{"tool":"searchNexus","args":{"text":"address library"}}   // most endorsed first; modId, version, author, page
+{"tool":"readNexusMod","args":{"modId":32444}}             // description as text, requirements, the files it offers now
+{"tool":"downloadNexusFile","args":{"modId":32444,"fileId":795954}}   // into the instance's downloads folder
+```
+
+Searching and reading need no API key. Recommend a mod only with its `requirements` checked against
+what the instance has — an SKSE plugin without SKSE does nothing, and one built for another game
+version crashes it. `downloadNexusFile` is listed only when `NEXUS_API_KEY` belongs to a premium
+account (`health.nexus` says whether it does); it writes the file and Mod Organizer's `<file>.meta`
+record beside it.
+
+### 4.6 Find out what you are connected to
 
 ```jsonc
 {"tool":"healthcheck","args":{}}
 ```
 
 `boundTo` names the backend, `health` says whether it answers, `tools.profile` and `tools.listed`
-say what you can call, and `tools.withheldForBackend` names anything gated. It never connects to the
-backend, so it answers when nothing else does.
+say what you can call, and `tools.withheldForBackend` names anything gated. `health.nexus` is the
+Nexus account behind `NEXUS_API_KEY` — its name and whether it is premium, `apiKey: false` without a
+key — and never counts against `health.ok`. It never connects to the backend, so it answers when
+nothing else does; the account check waits at most 3 s for Nexus.
 
 ---
 
@@ -425,6 +441,12 @@ Start with `healthcheck`.
 | "ModOrganizer.ini names 'D:\…', on a drive of the Wine prefix this server could not find" | Mod Organizer under Proton uses a drive other than `Z:`, and no prefix was named or found | Set `SKYRIM_WINE_PREFIX` to the prefix Mod Organizer runs in ([Hosting](Hosting.md) §5) |
 | `healthcheck` → `notes`: another profile "deployed" | Amethyst has a different profile in the game than the one selected | Deploy the selected profile in Amethyst, or select the deployed one |
 | Startup → "Missing required environment variables: SKYRIM_MO2_INSTANCE" | Mod Organizer is the default mod manager | Set the instance — or `SKYRIM_MOD_MANAGER=amethyst` |
+| `searchNexus` / `readNexusMod` → "Nexus Mods could not be reached" | No internet connection from this machine, or Nexus is down | Check the connection; the instance's tools work without it |
+| `searchNexus` / `readNexusMod` → "Nexus Mods answered HTTP 429" | Nexus's rate limit | Wait, then ask again — fewer calls, a narrower `text` |
+| `healthcheck` → `health.nexus.problem`: "Nexus Mods refused the key in NEXUS_API_KEY" | A mistyped, revoked or regenerated personal API key | Copy the key from nexusmods.com/settings/api-keys into `NEXUS_API_KEY`, restart the server |
+| `downloadNexusFile` not listed; `tools.withheldForBackend` names it | `NEXUS_API_KEY` is unset, refused, or not a premium account's — Nexus gives download links through its API to premium accounts only | Set a premium account's key and restart; otherwise the user downloads the file on the mod page |
+| `downloadNexusFile` → "came out N of M bytes" | The download broke off; nothing was kept | Call it again |
+| `readNexusMod` → "No Nexus mod N for Skyrim Special Edition" | A guessed number, or a mod of another game (Skyrim LE, VR) | `searchNexus` for it; `modId` is the number in the page's address |
 | `buildProject` on Linux → "a Windows program … SKYRIM_PAPYRUS_COMPILER" | The Creation Kit's Papyrus compiler does not run on Linux | Install russo-2025's compiler and name it in `SKYRIM_PAPYRUS_COMPILER` ([Hosting](Hosting.md) §4) |
 | `Unknown tool: X` | Not in the catalogue at all | `tools/list` — the router is derived from it |
 | Duplicate-tool warning on stderr at startup | Two handlers declare the same name | Rename one; the second is ignored |
@@ -454,6 +476,7 @@ own `inputSchema`, so **a new tool is covered the moment it is listed**.
 | `toolDocs.test.ts` | The generated `Tool-Reference.md` matches what the code renders. |
 | `serverManifest.test.ts` | `server.json` against the code: name, version, every environment variable read is declared and vice versa, required and secret flags. |
 | `platform.test.ts` | The operating system's side: the Linux process table, file names matched without case, both Papyrus compilers' command lines. |
+| `nexus.test.ts` | The Nexus Mods catalogue against trimmed copies of real GraphQL answers: the search's filter and order, a mod page's description as text (BBCode), requirements and current files, a long description cut, an unknown mod, Nexus unreachable or refusing. The account behind `NEXUS_API_KEY` (never the key or e-mail in the answer; checked once, again after a failed check), and downloads: the file and its `.meta`, the key sent to the API but never to the CDN, a file already there kept, a short download leaving nothing, no key or no premium account said in words. |
 | `mo2Proton.test.ts` | Mod Organizer under Proton, against an MO2-LINT-style setup: the ini's Windows paths read through the Wine prefix, finding the prefix (`SKYRIM_WINE_PREFIX`, MO2-LINT's `state.json`), the deploy refused while this instance's Mod Organizer runs, `refresh` never started, the `healthcheck` notes. A real `dosdevices` folder only on Linux, since Windows forbids its `c:` names. |
 | `amethyst.test.ts` | Against an Amethyst setup laid out as Amethyst 2.5.4 does (Flatpak config, custom staging, a hardlink deploy with `Data_Core`): finding it, reading the profile, adding only new lines, its deploy command, and deploy and pull through the backend. |
 | `skyrimBackend.test.ts` | Against a real Mod Organizer instance laid out in a temp folder, with a scripted helper: reading the ini, mod priority and the load order; the profile edits deploy makes; FormID assignment; text sync; and the whole patch, build, deploy and pull cycle with each of its refusals. |
