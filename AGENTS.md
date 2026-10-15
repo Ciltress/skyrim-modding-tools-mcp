@@ -65,7 +65,8 @@ src/
   backend/skyrim/helperClient.ts    the helper's JSON-lines client
   backend/skyrim/modManager.ts      the ModManager seam (ADR-0007) and the types every manager shares
   backend/skyrim/mo2Manager.ts      Mod Organizer 2 as the mod manager, over mo2.ts and mo2Profile.ts
-  backend/skyrim/mo2.ts             reading an MO2 instance: ini, profile, mod order, load order, files
+  backend/skyrim/mo2.ts             reading an MO2 instance: ini, profile, mod order, load order, files;
+                                    under Proton, the Wine prefix its ini's paths are read through
   backend/skyrim/mo2Profile.ts      the profile edits deploy makes, and refreshing a running MO2
   backend/skyrim/amethyst.ts        Amethyst as the mod manager: finding its config, its profile, its
                                     deploy command

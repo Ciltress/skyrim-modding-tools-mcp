@@ -266,6 +266,8 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
                 `deploy — saved in the Creation Kit or xEdit? Run pullProject to bring those changes into the project ` +
                 `first; deploying now would overwrite them.`);
         }
+        const refusal = await modManager.deployRefusal(instance);
+        if (refusal) throw new ProjectError(refusal);
 
         // The mod folder becomes the build plus the assets, so files removed from the project go too —
         // all but the mod manager's own meta.ini.

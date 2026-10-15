@@ -62,7 +62,7 @@ export interface BackendOptions {
 function createModManager(env: NodeJS.ProcessEnv, platform: Platform): ModManager {
     return modManagerName(env) === 'amethyst'
         ? new AmethystManager(findAmethyst(env))
-        : new Mo2Manager(String(env.SKYRIM_MO2_INSTANCE ?? ''), platform);
+        : new Mo2Manager(String(env.SKYRIM_MO2_INSTANCE ?? ''), platform, { env });
 }
 
 /** One engine per process — one helper, one load order — shared by every HTTP session. */

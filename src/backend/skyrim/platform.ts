@@ -16,12 +16,22 @@ export interface Platform {
     readonly name: 'windows' | 'linux';
     /** The helper's executable as `npm run build:helper` names it on this system. */
     readonly helperFileName: string;
+    /**
+     * Whether a Windows program can be started from here — `ModOrganizer.exe refresh`, say. Under Wine it
+     * would have to be started inside the prefix with the same Proton, which is not done yet.
+     */
+    readonly runsWindowsPrograms: boolean;
     /** Running processes whose executable is named `fileName`, compared without regard to case. */
     findProcesses(fileName: string): Promise<RunningProcess[]>;
     /** The Creation Kit's Papyrus compiler under `creationKitDir`, if this system can run it at all. */
     creationKitCompiler(creationKitDir: string): string | undefined;
     /** Why the Creation Kit's compiler cannot run right now, or undefined when it can. */
     creationKitCompilerProblem(): Promise<string | undefined>;
+    /**
+     * How this system opens the paths a Windows program wrote — Mod Organizer into its ini — given the
+     * Wine prefix it runs in, if one is known. Undefined for a path on a drive this system cannot find.
+     */
+    windowsPaths(prefix: string | undefined): (windowsPath: string) => string | undefined;
 }
 
 export interface RunningProcess {
@@ -53,6 +63,7 @@ export function windowsPlatform(): Platform {
     return {
         name: 'windows',
         helperFileName: 'SkyrimHelper.exe',
+        runsWindowsPrograms: true,
 
         async findProcesses(fileName) {
             if (!/^[\w .-]+$/.test(fileName)) return [];
@@ -81,17 +92,44 @@ export function windowsPlatform(): Platform {
                 ? undefined
                 : `The Creation Kit's Papyrus compiler needs .NET Framework 3.5, which is not installed. Turn it on in ` +
                   `Windows Features (".NET Framework 3.5 (includes .NET 2.0 and 3.0)"), then build again.`;
+        },
+
+        windowsPaths() {
+            return windowsPath => windowsPath;
         }
     };
 }
 
 // ---------------------------------------------------------------- Linux
 
-/** @param procRoot  Where the process table is mounted; replaced in tests. */
-export function linuxPlatform(procRoot = '/proc'): Platform {
+/** Where a drive letter of a Wine prefix leads: given the prefix and the lower-case letter, a folder or undefined. */
+export type WineDrives = (prefix: string | undefined, letter: string) => string | undefined;
+
+/**
+ * A drive's link in the prefix's `dosdevices` folder (`c:` → `../drive_c`, `z:` → `/`), followed
+ * without resolving the rest of the path, so it keeps the spelling the user knows. Without a prefix
+ * only Z: is known, as Wine and Proton set it up: the root.
+ */
+export const dosDevices: WineDrives = (prefix, letter) => {
+    if (!prefix) return letter === 'z' ? '/' : undefined;
+    const link = path.join(prefix, 'dosdevices', `${letter}:`);
+    try {
+        return path.resolve(path.dirname(link), fs.readlinkSync(link));
+    } catch {
+        return undefined;
+    }
+};
+
+/**
+ * @param procRoot  Where the process table is mounted; replaced in tests.
+ * @param drives    Where a Wine prefix's drive letters lead; replaced in tests, because Windows forbids
+ *                  the `:` in `dosdevices/c:`.
+ */
+export function linuxPlatform(procRoot = '/proc', drives: WineDrives = dosDevices): Platform {
     return {
         name: 'linux',
         helperFileName: 'SkyrimHelper',
+        runsWindowsPrograms: false,
 
         async findProcesses(fileName) {
             const wanted = fileName.toLowerCase();
@@ -123,6 +161,16 @@ export function linuxPlatform(procRoot = '/proc'): Platform {
         async creationKitCompilerProblem() {
             return `The Creation Kit's Papyrus compiler is a Windows program. On Linux, set SKYRIM_PAPYRUS_COMPILER to ` +
                 `russo-2025's papyrus-compiler (https://github.com/russo-2025/papyrus-compiler/releases).`;
+        },
+
+        // Mod Organizer reads `\` and `/` alike; a path with no drive letter is one of this system's already.
+        windowsPaths(prefix) {
+            return windowsPath => {
+                const drive = /^([a-z]):(?=[\\/]|$)/i.exec(windowsPath);
+                if (!drive) return windowsPath.replace(/\\/g, '/');
+                const root = drives(prefix, drive[1].toLowerCase());
+                return root === undefined ? undefined : path.join(root, ...windowsPath.slice(2).split(/[\\/]+/).filter(Boolean));
+            };
         }
     };
 }

@@ -62,7 +62,8 @@ export interface ModManagerNotice {
     /**
      * `notRunning`: nothing to tell. `refreshed`: Mod Organizer re-read its profile.
      * `otherInstanceRunning`: another instance's Mod Organizer runs; this one reads the profile when it starts.
-     * `deployed`: Amethyst deployed the profile into the game. `deployManually`: the user has to — `nextStep` says how.
+     * `deployed`: Amethyst deployed the profile into the game. `deployManually`: the user has to finish it in
+     * the mod manager — `nextStep` says how.
      */
     status: 'notRunning' | 'refreshed' | 'otherInstanceRunning' | 'deployed' | 'deployManually';
     nextStep?: string;
@@ -89,6 +90,11 @@ export interface ModManager {
      * folder, or a file saved over a deployed link in the game's Data. Highest first; they need not exist.
      */
     shadowingCopies(instance: Instance, mod: string, plugin: string): string[];
+    /**
+     * Why a deploy must not write into the instance now — with what the user has to do first — or
+     * undefined when it may. Asked before a deploy writes anything.
+     */
+    deployRefusal(instance: Instance): Promise<string | undefined>;
     /** Enables the mod and activates its plugin in the selected profile. */
     enable(instance: Instance, mod: string, plugin: string): ProfileChange;
     /** Tells the mod manager what a deploy changed, or says what the user has to do in it. */

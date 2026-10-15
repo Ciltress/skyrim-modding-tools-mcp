@@ -52,11 +52,65 @@ export function decodeQtValue(raw: string): string {
 
 // ---------------------------------------------------------------- instance
 
+/** Turns a path as Mod Organizer wrote it into one this system opens; undefined when it cannot. */
+export type IniPaths = (windowsPath: string) => string | undefined;
+
+/**
+ * The Wine prefix Mod Organizer runs in, under Proton: SKYRIM_WINE_PREFIX, else the one MO2-LINT set
+ * this instance up in. Undefined when none is known — then only paths on Z:, the root, can be read.
+ */
+export function winePrefix(instanceDir: string, env: NodeJS.ProcessEnv, home: string): string | undefined {
+    if (!env.SKYRIM_WINE_PREFIX) return mo2LintPrefix(instanceDir, home);
+    // Proton keeps the prefix in a `pfx` folder inside the game's compatdata folder; either may be named.
+    const named = path.resolve(env.SKYRIM_WINE_PREFIX);
+    return fs.existsSync(path.join(named, 'pfx')) ? path.join(named, 'pfx') : named;
+}
+
+interface Mo2LintInstance {
+    instance_path?: unknown;
+    game_path?: unknown;
+    launcher_ids?: { steam?: unknown };
+}
+
+/**
+ * MO2-LINT lists the instances it installed in ~/.config/mo2-lint/state.json, each with its game's
+ * folder and Steam app id, and sets Mod Organizer up in the game's own Proton prefix — which Steam
+ * keeps in the game's library: `<library>/steamapps/common/<game>` → `<library>/steamapps/compatdata/<app id>/pfx`.
+ * The file holds the user's Nexus API key too; nothing but `instances` is read.
+ */
+function mo2LintPrefix(instanceDir: string, home: string): string | undefined {
+    let instances: Mo2LintInstance[];
+    try {
+        const state = JSON.parse(fs.readFileSync(path.join(home, '.config', 'mo2-lint', 'state.json'), 'utf8'));
+        instances = Array.isArray(state?.instances) ? state.instances : [];
+    } catch {
+        return undefined;
+    }
+    const wanted = canonical(instanceDir);
+    const entry = instances.find(instance => typeof instance?.instance_path === 'string' && canonical(instance.instance_path) === wanted);
+    const appId = entry?.launcher_ids?.steam;
+    if (typeof entry?.game_path !== 'string' || !appId) return undefined;
+    const prefix = path.resolve(entry.game_path, '..', '..', 'compatdata', String(appId), 'pfx');
+    return fs.existsSync(prefix) ? prefix : undefined;
+}
+
+/** A path by its real path where it exists — so a link to the instance is the instance. */
+export function canonical(file: string): string {
+    try {
+        return fs.realpathSync(file);
+    } catch {
+        return path.resolve(file);
+    }
+}
+
 /**
  * Reads the instance's ModOrganizer.ini. Throws InstanceConfigError with what to fix when the folder is
  * not an MO2 instance, manages another game, or points at a game folder that is not there.
+ *
+ * @param iniPaths  How the ini's paths are opened here: as they stand on Windows; under Proton, through
+ *                  the Wine prefix's drives.
  */
-export function readInstance(instanceDir: string): Instance {
+export function readInstance(instanceDir: string, iniPaths: IniPaths = windowsPath => windowsPath): Instance {
     const iniPath = path.join(instanceDir, 'ModOrganizer.ini');
     if (!fs.existsSync(iniPath)) {
         throw new InstanceConfigError(
@@ -73,7 +127,21 @@ export function readInstance(instanceDir: string): Instance {
             `This MO2 instance manages '${gameName || 'no game'}', not Skyrim Special Edition. Point ` +
             `SKYRIM_MO2_INSTANCE at a Skyrim SE instance.`);
     }
-    const gameDir = general.get('gamePath') ?? '';
+    const native = (windowsPath: string): string => {
+        const mapped = iniPaths(windowsPath);
+        if (mapped === undefined) {
+            throw new InstanceConfigError(
+                `ModOrganizer.ini names '${windowsPath}', on a drive of the Wine prefix this server could not find. Set ` +
+                `SKYRIM_WINE_PREFIX to the prefix Mod Organizer runs in — the folder with dosdevices in it.`);
+        }
+        return mapped;
+    };
+    const directorySetting = (key: string, base: string, fallback: string): string => {
+        const value = settings.get(key);
+        return value ? path.normalize(native(value).replace(/%BASE_DIR%/gi, base)) : fallback;
+    };
+
+    const gameDir = native(general.get('gamePath') ?? '');
     if (!gameDir || !fs.existsSync(path.join(gameDir, 'SkyrimSE.exe'))) {
         throw new InstanceConfigError(
             `The instance's game folder '${gameDir}' has no SkyrimSE.exe. Fix the game path in Mod ` +
@@ -81,8 +149,8 @@ export function readInstance(instanceDir: string): Instance {
     }
 
     const edition = general.get('game_edition') ?? 'Steam';
-    const baseDir = directorySetting(settings, 'base_directory', instanceDir, instanceDir);
-    const profilesDir = directorySetting(settings, 'profiles_directory', baseDir, path.join(baseDir, 'profiles'));
+    const baseDir = directorySetting('base_directory', instanceDir, instanceDir);
+    const profilesDir = directorySetting('profiles_directory', baseDir, path.join(baseDir, 'profiles'));
     const profile = general.get('selected_profile') || 'Default';
     const profileDir = path.join(profilesDir, profile);
     if (!fs.existsSync(profileDir)) {
@@ -98,15 +166,10 @@ export function readInstance(instanceDir: string): Instance {
         release: /gog/i.test(edition) ? 'SkyrimSEGog' : 'SkyrimSE',
         profile,
         profileDir,
-        modsDir: directorySetting(settings, 'mod_directory', baseDir, path.join(baseDir, 'mods')),
-        overwriteDir: directorySetting(settings, 'overwrite_directory', baseDir, path.join(baseDir, 'overwrite')),
-        downloadsDir: directorySetting(settings, 'download_directory', baseDir, path.join(baseDir, 'downloads'))
+        modsDir: directorySetting('mod_directory', baseDir, path.join(baseDir, 'mods')),
+        overwriteDir: directorySetting('overwrite_directory', baseDir, path.join(baseDir, 'overwrite')),
+        downloadsDir: directorySetting('download_directory', baseDir, path.join(baseDir, 'downloads'))
     };
-}
-
-function directorySetting(settings: Map<string, string>, key: string, baseDir: string, fallback: string): string {
-    const value = settings.get(key);
-    return value ? path.normalize(value.replace(/%BASE_DIR%/gi, baseDir)) : fallback;
 }
 
 // ---------------------------------------------------------------- mod order
@@ -222,7 +285,7 @@ export function resolvePluginFiles(
  * A cheap fingerprint of everything the active load order depends on. When it changes — another
  * profile selected, a mod enabled, plugins reordered — the load order has to be read again.
  */
-export function loadOrderFingerprint(instanceDir: string): string {
+export function loadOrderFingerprint(instanceDir: string, iniPaths?: IniPaths): string {
     const stamp = (file: string) => {
         try {
             return String(fs.statSync(file).mtimeMs);
@@ -232,7 +295,7 @@ export function loadOrderFingerprint(instanceDir: string): string {
     };
     let profileDir = '';
     try {
-        profileDir = readInstance(instanceDir).profileDir;
+        profileDir = readInstance(instanceDir, iniPaths).profileDir;
     } catch {
         // An unreadable instance gives a fingerprint of its own, and the next read reports why.
     }

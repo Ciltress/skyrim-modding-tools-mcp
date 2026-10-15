@@ -88,9 +88,11 @@ describe('the Papyrus command', () => {
     const windowsLike: Platform = {
         name: 'windows',
         helperFileName: 'SkyrimHelper.exe',
+        runsWindowsPrograms: true,
         findProcesses: async () => [],
         creationKitCompiler: dir => path.join(dir, 'Papyrus Compiler', 'PapyrusCompiler.exe'),
-        creationKitCompilerProblem: async () => undefined
+        creationKitCompilerProblem: async () => undefined,
+        windowsPaths: () => windowsPath => windowsPath
     };
 
     it('speaks the Creation Kit compiler\'s command line, with imports found whatever their case', async () => {

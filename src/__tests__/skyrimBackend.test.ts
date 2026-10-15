@@ -291,16 +291,26 @@ function scriptedHelper() {
 
 /**
  * The same system on every machine that runs the suite: no Mod Organizer running (no process table)
- * and no Creation Kit compiler — the Linux side, whatever the suite runs on.
+ * and no Creation Kit compiler — the Linux side, whatever the suite runs on. Its Wine drives are the
+ * machine's own, so the fixture's paths — `C:\…` where the suite runs on Windows — read as they stand.
  */
-const quiet = linuxPlatform(path.join(os.tmpdir(), 'skyrim-mcp-no-proc'));
+const hostDrives = (_prefix: string | undefined, letter: string) => letter === 'z' ? '/' : `${letter.toUpperCase()}:\\`;
+const quiet = linuxPlatform(path.join(os.tmpdir(), 'skyrim-mcp-no-proc'), hostDrives);
 
+/** A Windows program's path as Wine shows it in a command line: on the machine's own drive, or on Z:, the root. */
+const asWinePath = (native: string) => /^[a-z]:/i.test(native) ? native : `Z:${native.replace(/\//g, '\\')}`;
+
+/** A backend on the quiet system, with a process table of its own that is empty until a test starts something in it. */
 function makeBackend() {
     const fixture = makeInstance();
+    const procRoot = path.join(fixture.root, 'proc');
+    const platform = linuxPlatform(procRoot, hostDrives);
     const { helper, calls } = scriptedHelper();
-    const engine = new SkyrimEngine(new Mo2Manager(fixture.instanceDir, quiet), helper, fixture.projects, { platform: quiet });
+    const engine = new SkyrimEngine(new Mo2Manager(fixture.instanceDir, platform, { env: {} }), helper, fixture.projects, { platform });
     const backend = new SkyrimInstanceBackend({ engine });
-    return { fixture, backend, calls, engine };
+    /** Starts a Windows program in the table, as Wine does: its command line is the program's Windows path. */
+    const startProgram = (pid: number, exe: string) => write(path.join(procRoot, String(pid), 'cmdline'), `${asWinePath(exe)}\0`);
+    return { fixture, backend, calls, engine, startProgram };
 }
 
 /** Moves the clock of a folder's files and folders back, so a build made "now" is newer than the sources. */
@@ -456,6 +466,33 @@ describe('the Skyrim backend', () => {
 
         expect(patch.alreadyInProject).toEqual([{ formId: '012EB7:Skyrim.esm', files: [{ path: file }] }]);
         expect(patch.textLeftOut).toMatch(/1 file.*read it at its path/i);
+    });
+
+    it('refuses to deploy while this instance\'s Mod Organizer runs and cannot be told to re-read its profile', async () => {
+        const { backend, fixture, startProgram } = makeBackend();
+        await backend.newProject({ project: 'Quiet' });
+        age(path.join(fixture.projects, 'Quiet'));
+        await backend.buildProject('Quiet');
+        const modList = fs.readFileSync(path.join(fixture.profile, 'modlist.txt'), 'utf8');
+        startProgram(4242, path.join(fixture.instanceDir, 'ModOrganizer.exe'));
+
+        // Mod Organizer would write its own profile over the deploy's when it exits: nothing is written.
+        await expect(backend.deployProject('Quiet')).rejects.toThrow(/Mod Organizer .*is running.*[Cc]lose it/);
+        expect(fs.existsSync(path.join(fixture.instanceDir, 'mods', 'Quiet'))).toBe(false);
+        expect(fs.readFileSync(path.join(fixture.profile, 'modlist.txt'), 'utf8')).toBe(modList);
+
+        fs.rmSync(path.join(fixture.root, 'proc', '4242'), { recursive: true });
+        await expect(backend.deployProject('Quiet')).resolves.toMatchObject({ modManager: { status: 'notRunning' } });
+    });
+
+    it('deploys while another instance\'s Mod Organizer runs: this one reads the profile when it starts', async () => {
+        const { backend, fixture, startProgram } = makeBackend();
+        await backend.newProject({ project: 'Elsewhere' });
+        age(path.join(fixture.projects, 'Elsewhere'));
+        await backend.buildProject('Elsewhere');
+        startProgram(4243, path.join(fixture.root, 'other-mo2', 'ModOrganizer.exe'));
+
+        await expect(backend.deployProject('Elsewhere')).resolves.toMatchObject({ modManager: { status: 'otherInstanceRunning' } });
     });
 
     it('never deploys over a mod of the same name that it did not deploy', async () => {

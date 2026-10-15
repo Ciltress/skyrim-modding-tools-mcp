@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { canonical, type IniPaths } from './mo2.js';
 import type { Instance } from './modManager.js';
 import type { Platform } from './platform.js';
 
@@ -82,16 +83,30 @@ export function activatePlugin(instance: Instance, plugin: string): { pluginActi
 // ---------------------------------------------------------------- the running process
 
 /**
+ * Whose Mod Organizer runs: this instance's, another's, or none. A process names its program by its
+ * path — under Wine, the Windows path, opened here the way the instance's ini paths are.
+ */
+export async function runningMo2(instance: Instance, platform: Platform, iniPaths: IniPaths): Promise<'none' | 'this' | 'other'> {
+    const running = await platform.findProcesses('ModOrganizer.exe');
+    if (running.length === 0) return 'none';
+    const exe = canonical(path.join(instance.instanceDir, 'ModOrganizer.exe')).toLowerCase();
+    const isThis = running.some(process => {
+        const native = iniPaths(process.path);
+        return native !== undefined && canonical(native).toLowerCase() === exe;
+    });
+    return isThis ? 'this' : 'other';
+}
+
+/**
  * Tells a running Mod Organizer to re-read this instance's profile — only when it is *this*
  * instance's MO2. With none running there is nothing to tell, and `refresh` would start one. With
  * another instance's MO2 running, the command would be forwarded to that one, which never read
  * these files.
  */
-export async function refreshIfRunning(instance: Instance, platform: Platform): Promise<'notRunning' | 'refreshed' | 'otherInstanceRunning'> {
-    const exe = path.join(instance.instanceDir, 'ModOrganizer.exe');
-    const running = (await platform.findProcesses('ModOrganizer.exe')).map(process => process.path.toLowerCase());
-    if (running.length === 0) return 'notRunning';
-    if (!running.includes(path.resolve(exe).toLowerCase())) return 'otherInstanceRunning';
-    await run(exe, ['-p', instance.profile, 'refresh'], { windowsHide: true, timeout: 30_000 });
+export async function refreshIfRunning(instance: Instance, platform: Platform, iniPaths: IniPaths): Promise<'notRunning' | 'refreshed' | 'otherInstanceRunning'> {
+    const running = await runningMo2(instance, platform, iniPaths);
+    if (running === 'none') return 'notRunning';
+    if (running === 'other') return 'otherInstanceRunning';
+    await run(path.join(instance.instanceDir, 'ModOrganizer.exe'), ['-p', instance.profile, 'refresh'], { windowsHide: true, timeout: 30_000 });
     return 'refreshed';
 }

@@ -230,6 +230,11 @@ export class AmethystManager implements ModManager {
         return { modEnabled, pluginActive, addedToLoadOrder };
     }
 
+    // A deploy adds only lines Amethyst has not seen, which it keeps, open or not.
+    async deployRefusal(): Promise<string | undefined> {
+        return undefined;
+    }
+
     /**
      * With Amethyst's window closed, its own `deploy` command puts the profile into the game. With it
      * open, running that would race the window, so the user is asked to: Refresh re-reads what this

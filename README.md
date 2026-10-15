@@ -31,7 +31,7 @@ record family — items and crafting, magic, NPCs, leveled lists.
 - **Skyrim Special Edition** 1.5.97 to 1.7.x, managed by
   - **Mod Organizer 2** (2.5) on Windows, or
   - **Amethyst Mod Manager** (2.5) on Linux — set `SKYRIM_MOD_MANAGER=amethyst`; the setup is in
-    [`docs/Hosting.md`](docs/Hosting.md) §4. Mod Organizer under Proton is not supported yet.
+    [`docs/Hosting.md`](docs/Hosting.md) §4. Mod Organizer under Proton is experimental (§5).
 - The **.NET 10 SDK** to build the plugin helper; the .NET 10 runtime to run it
 - For compiling Papyrus scripts (optional otherwise): the **Creation Kit** (free on Steam) for its
   vanilla script sources, and a compiler — on Windows the Creation Kit's own, which needs
@@ -76,6 +76,7 @@ See [`.env.example`](.env.example).
 | --- | --- | --- |
 | `SKYRIM_MOD_MANAGER` | `mo2` | `mo2` (Mod Organizer 2) or `amethyst` (Amethyst Mod Manager, Linux) |
 | `SKYRIM_MO2_INSTANCE` | — (required with `mo2`) | The Mod Organizer instance folder; the server follows its selected profile |
+| `SKYRIM_WINE_PREFIX` | found by itself for MO2-LINT | Mod Organizer under Proton: the Wine prefix it runs in, to read its ini's Windows paths |
 | `SKYRIM_AMETHYST_DIR` | found by itself | Amethyst's config folder, if it is neither the Flatpak's nor `~/.config`'s |
 | `SKYRIM_PROJECTS_DIR` | `./projects` | Where projects live |
 | `SKYRIM_CK_DIR` | the instance's game folder | The Creation Kit, for its Papyrus compiler and vanilla script sources |

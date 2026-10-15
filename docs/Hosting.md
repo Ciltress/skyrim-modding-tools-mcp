@@ -112,7 +112,7 @@ see a running mod manager. There is therefore no image yet ([ADR-0007](adr/0007-
 | --- | --- | --- |
 | Windows | Mod Organizer 2 (`mo2`, the default) | Verified against a test instance |
 | Linux | Amethyst Mod Manager (`amethyst`) | Built from Amethyst 2.5.4's source and tested against its layout; first live run pending |
-| Linux | Mod Organizer 2 under Proton | **Not supported yet**: its `ModOrganizer.ini` holds Windows paths that need translating |
+| Linux | Mod Organizer 2 under Proton (`mo2`) | **Experimental**: built from the sources of MO2-LINT, Wine and Proton, tested against laid-out folders, never run on a real setup — see §5 |
 
 The server picks the operating system's side by itself and the mod manager from `SKYRIM_MOD_MANAGER`;
 nothing else changes between them — the same tools, the same projects.
@@ -194,3 +194,34 @@ setting. Claude Code pointed at Ollama loads every tool up front; `MCP_PROFILE=c
   looks like, not a misconfiguration. It generates about 50 tokens/s at a 128k context and 62 at 32k,
   and a tool-using turn takes about 3 s. `OLLAMA_FLASH_ATTENTION=1` and `OLLAMA_KV_CACHE_TYPE=q8_0`
   are worth setting. Loading it takes 30–40 s, and a client asking for another context size reloads it.
+
+## 5. Setting it up on Linux, with Mod Organizer under Proton
+
+**Experimental.** Built from the sources of MO2-LINT, Wine and Proton
+([research](research/2026-10-15-linux-mo2-and-platform.md) §2–4) and tested against laid-out folders;
+nobody has run it on a real setup yet, and `healthcheck` says so in its `notes`.
+
+Steps 1–4 of §4 apply as they stand: the tools, the server, the vanilla script sources (Mod Organizer
+leaves the game's `Data` alone, so unpack `Scripts.zip` there at any time), and a Papyrus compiler.
+Then the client, with the instance folder as Linux spells it:
+
+```bash
+claude mcp add skyrim -e SKYRIM_MO2_INSTANCE="$HOME/Games/mo2-lint/mo2-skyrim_se-steam" \
+  -e SKYRIM_PAPYRUS_COMPILER=$HOME/tools/papyrus-compiler/papyrus-compiler \
+  -- node $HOME/skyrim-modding-tools-mcp/dist/index.js
+```
+
+**The Wine prefix.** Mod Organizer writes Windows paths into `ModOrganizer.ini` — `Z:\home\…`, or
+`D:\…` for a second drive. The server follows each drive letter's link in the `dosdevices` folder of
+the prefix Mod Organizer runs in. It takes the prefix from `SKYRIM_WINE_PREFIX` (the `pfx` folder, or
+the `compatdata/489830` folder that holds it); else, for an instance MO2-LINT installed, the game's own
+Proton prefix, found through `~/.config/mo2-lint/state.json`. With neither, only paths on `Z:` are
+read, as the root — enough when everything lives under `/`. Jackify and Steam Tinker Launch run Mod
+Organizer in a prefix of their own: name it in `SKYRIM_WINE_PREFIX`.
+
+**Close Mod Organizer before deploying.** Mod Organizer holds the profile in memory and writes it back
+when it exits. On Windows the server tells a running Mod Organizer to re-read it; under Proton it
+cannot yet, so `deployProject` refuses while this instance's Mod Organizer runs. Another instance's
+does not matter.
+
+**The first run** goes into a copy of the instance, or a profile nobody plays, with a throwaway project.
