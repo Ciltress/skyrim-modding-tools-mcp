@@ -27,7 +27,8 @@ export interface GatedFeature {
 }
 
 /**
- * TEMPLATE: the optional features a backend may or may not offer.
+ * The optional features a backend may or may not offer. None yet: every tool so far works against
+ * any instance this server can open. The Nexus tools will need some — an API key, a premium account.
  *
  * Which tools need one is declared by the tools themselves, through
  * `ToolDefinition.needsFeature`, never as a list of names here — a renamed tool
@@ -35,9 +36,7 @@ export interface GatedFeature {
  * that cannot serve it. capabilityGate.test.ts checks every `needsFeature` names
  * a feature listed here, so a typo cannot un-gate a tool either.
  */
-export const GATED_FEATURES: readonly GatedFeature[] = [
-    { id: 'tags', label: 'tag indexing' }
-];
+export const GATED_FEATURES: readonly GatedFeature[] = [];
 
 export interface GateResult {
     /** Tool name -> why it is not offered here. */

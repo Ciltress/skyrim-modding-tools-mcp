@@ -1,17 +1,17 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.your-org/mcp-template",
-  "description": "Template MCP server: profiles, a response budget, self-serving docs and skills, stdio and HTTP",
+  "name": "io.github.ciltress/skyrim-modding-tools-mcp",
+  "description": "Skyrim SE modding: look up records in a Mod Organizer load order, author mods and patches as text",
   "version": "0.1.0",
   "repository": {
-    "url": "https://github.com/your-org/mcp-template",
+    "url": "https://github.com/Ciltress/skyrim-modding-tools-mcp",
     "source": "github"
   },
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
-      "identifier": "mcp-template",
+      "identifier": "skyrim-modding-tools-mcp",
       "version": "0.1.0",
       "transport": {
         "type": "stdio"
@@ -20,7 +20,11 @@
         {
           "name": "MCP_PROFILE",
           "description": "Which tools are listed and callable: core (the smallest set that can read and change something, for small local models), readonly (never writes), or all. A tool outside the profile cannot be called.",
-          "choices": ["core", "readonly", "all"],
+          "choices": [
+            "core",
+            "readonly",
+            "all"
+          ],
           "default": "all"
         },
         {
@@ -35,7 +39,10 @@
         {
           "name": "MCP_TRANSPORT",
           "description": "stdio (the default) for one client that starts this process, or http to serve Streamable HTTP at /mcp for many, each with its own bearer token.",
-          "choices": ["stdio", "http"],
+          "choices": [
+            "stdio",
+            "http"
+          ],
           "default": "stdio"
         },
         {
@@ -62,9 +69,26 @@
           "default": "0"
         },
         {
-          "name": "EXAMPLE_ACCEPTED_TOKENS",
-          "description": "Example backend only: the bearer tokens HTTP callers may present, comma-separated. Unset, HTTP mode accepts nobody. Replace with your backend's own credential handling.",
-          "isSecret": true
+          "name": "SKYRIM_MO2_INSTANCE",
+          "isRequired": true,
+          "description": "The Mod Organizer 2 instance this server works on: the folder holding ModOrganizer.exe and ModOrganizer.ini. The server follows whichever profile Mod Organizer has selected."
+        },
+        {
+          "name": "SKYRIM_PROJECTS_DIR",
+          "description": "Where projects (mods authored as text) live. Relative paths resolve against the server package. Defaults to the projects folder beside it."
+        },
+        {
+          "name": "SKYRIM_CK_DIR",
+          "description": "The Creation Kit folder, for its Papyrus compiler and vanilla script sources. Defaults to the instance game folder, where Steam installs it."
+        },
+        {
+          "name": "SKYRIM_HELPER_PATH",
+          "description": "The built plugin helper (SkyrimHelper.exe). Defaults to helper/bin beside the server, where npm run build:helper puts it."
+        },
+        {
+          "name": "SKYRIM_ACCEPTED_TOKENS",
+          "isSecret": true,
+          "description": "HTTP mode only: the bearer tokens callers may present, comma-separated. Unset, HTTP mode accepts nobody."
         }
       ]
     }

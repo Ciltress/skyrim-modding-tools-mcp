@@ -175,7 +175,7 @@ describe('readServerGuide', () => {
         expect(payload.guide).toBe('tools');
         expect(payload.section.number).toBe('4.1');
         expect(payload.content).toMatch(/^### 4\.1 /);
-        expect(payload.content).toContain('searchNotes');
+        expect(payload.content).toContain('findRecords');
     });
 
     it('finds a section by title as well as by number', async () => {

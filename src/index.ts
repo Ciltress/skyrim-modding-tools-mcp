@@ -8,7 +8,7 @@
  * (stdio by default, or Streamable HTTP when `MCP_TRANSPORT=http`) — and a
  * module that does that cannot be imported by a test.
  *
- * The path does not move: package.json `main` and `bin`, the Dockerfile, `npm
+ * The path does not move: package.json `main` and `bin`, `npm
  * start` and every registered MCP client all run dist/index.js.
  */
 

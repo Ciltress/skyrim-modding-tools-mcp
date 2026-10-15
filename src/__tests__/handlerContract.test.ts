@@ -15,7 +15,7 @@ import { SAMPLE, recordingBackend } from './fakes';
  * are asserted uniformly — driven by each tool's own inputSchema, which means a
  * newly added tool is covered the moment it is listed, with no fixture to write.
  *
- * Behaviour belongs in the suites next door (notesHandlers.test.ts). If a tool
+ * Behaviour belongs in the suites next door (skyrimBackend.test.ts). If a tool
  * fails one of these for a legitimate design decision, encode the exception
  * below with a comment — do not weaken the assertion.
  */
@@ -110,15 +110,21 @@ describe('every tool declares its annotations', () => {
     });
 
     it('marks the tools that write, and only those', () => {
-        // TEMPLATE: a sample from each end, so the suite fails loudly if a family
-        // is annotated by pattern-matching on names rather than on what it does.
+        // A sample from each end, so the suite fails loudly if a family is
+        // annotated by pattern-matching on names rather than on what it does.
         const byName = new Map(catalogue.map(c => [c.tool.name, c.tool]));
         const writes = (name: string) => byName.get(name)?.annotations?.readOnlyHint === false;
+        const destroys = (name: string) => byName.get(name)?.annotations?.destructiveHint === true;
 
-        for (const name of ['createNote', 'updateNote', 'deleteNote'])
+        for (const name of ['newProject', 'addPatch', 'buildProject', 'deployProject', 'pullProject'])
             expect(`${name} writes: ${writes(name)}`).toBe(`${name} writes: true`);
-        for (const name of ['searchNotes', 'readNote', 'listTags', 'readServerGuide'])
+        for (const name of ['findRecords', 'readRecord', 'readServerGuide'])
             expect(`${name} writes: ${writes(name)}`).toBe(`${name} writes: false`);
+        // Replacing a mod in Mod Organizer, and rewriting a project's text, overwrite what was there;
+        // adding records to a patch never does.
+        for (const name of ['deployProject', 'pullProject'])
+            expect(`${name} destroys: ${destroys(name)}`).toBe(`${name} destroys: true`);
+        expect(`addPatch destroys: ${destroys('addPatch')}`).toBe('addPatch destroys: false');
     });
 });
 
@@ -221,28 +227,31 @@ describe('every tool survives being called with no arguments', () => {
 
 describe('argument mapping', () => {
     /**
-     * TEMPLATE: spot checks that pin the arguments handed to the backend. These
-     * are the mappings a refactor silently breaks, because the wrapper keeps
-     * compiling and the envelope keeps looking right.
+     * Spot checks that pin the arguments handed to the backend. These are the
+     * mappings a refactor silently breaks, because the wrapper keeps compiling
+     * and the envelope keeps looking right.
      */
     const mappings: { tool: string; args: any; method: string; expected: any[] }[] = [
         {
-            tool: 'searchNotes',
-            args: { text: 'x', tag: 'y', limit: 5, offset: 2 },
-            method: 'searchNotes',
-            expected: [{ text: 'x', tag: 'y', limit: 5, offset: 2 }]
+            tool: 'findRecords',
+            args: { text: ' iron ', types: ['WEAP'], plugin: 'Skyrim.esm', limit: 5 },
+            method: 'findRecords',
+            expected: [{ text: 'iron', records: undefined, types: ['WEAP'], plugin: 'Skyrim.esm', limit: 5 }]
         },
         {
             // Defaults are the handler's job, so the backend never sees a missing limit.
-            tool: 'searchNotes', args: {}, method: 'searchNotes',
-            expected: [{ text: undefined, tag: undefined, limit: 20, offset: 0 }]
+            tool: 'findRecords', args: {}, method: 'findRecords',
+            expected: [{ text: undefined, records: undefined, types: undefined, plugin: undefined, limit: 25 }]
         },
-        { tool: 'readNote', args: { id: ` ${SAMPLE} ` }, method: 'getNote', expected: [SAMPLE] },
-        { tool: 'deleteNote', args: { id: SAMPLE }, method: 'deleteNote', expected: [SAMPLE] },
         {
-            tool: 'updateNote', args: { id: SAMPLE, body: 'new' }, method: 'updateNote',
-            expected: [SAMPLE, { title: undefined, body: 'new', tags: undefined }]
-        }
+            tool: 'readRecord', args: { record: ` ${SAMPLE} `, allVersions: true }, method: 'readRecord',
+            expected: [{ record: SAMPLE, plugin: undefined, allVersions: true }]
+        },
+        {
+            tool: 'addPatch', args: { project: SAMPLE, records: [' IronSword '] }, method: 'addPatch',
+            expected: [{ project: SAMPLE, records: ['IronSword'], from: undefined, plugin: undefined }]
+        },
+        { tool: 'deployProject', args: { project: SAMPLE }, method: 'deployProject', expected: [SAMPLE] }
     ];
 
     it.each(mappings.map(m => [`${m.tool} -> ${m.method}`, m] as const))('%s', async (_label, mapping) => {

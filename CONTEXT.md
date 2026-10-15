@@ -86,6 +86,11 @@ A mod we author, kept as text in git — one file per record, plus its scripts a
 built into a plugin. The project, not the plugin, is the source of truth.
 _Avoid_: source, workspace, repo
 
+**Patch**:
+A project whose overrides change records of other mods — loading after them, so the change wins
+without touching their plugins. It starts from each record's current winning version.
+_Avoid_: fix, compatibility plugin, merge
+
 **Build**:
 Turning a project into a plugin, compiled scripts and collected assets, inside the project.
 _Avoid_: compile, export, pack

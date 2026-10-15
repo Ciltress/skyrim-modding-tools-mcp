@@ -16,8 +16,11 @@
  */
 export function serverInstructions(target: string): string {
     return [
-        // TEMPLATE: one sentence on what this server is for.
-        `This server is bound to ${target} and cannot be switched to another at runtime.`,
+        'This server authors and analyses Skyrim Special Edition mods: it looks records up across the ' +
+        'load order, and builds mods kept as text projects into plugins deployed to Mod Organizer. ' +
+        'Records are changed by editing the project\'s YAML files with your ordinary file tools.',
+        `It is bound to ${target} and cannot be switched to another at runtime.`,
+        'Before modding, read the skill skyrim-modding-basics (readSkill).',
         'If you know the job but not the tool, call readServerGuide with {"guide":"router"}; with no ' +
         'arguments it lists every guide and its sections. healthcheck reports what this server is bound ' +
         'to, the active tool profile, and anything withheld.',

@@ -25,12 +25,14 @@ export interface ToolFamily {
 }
 
 /**
- * TEMPLATE: names that de-camelising alone gets wrong or leaves unhelpful.
+ * Names that de-camelising alone gets wrong or leaves unhelpful.
  * Anything not listed falls back to the split-and-capitalise below.
  */
 const LABELS: Record<string, string> = {
     DocsHandlers: "This server's own guides",
-    SkillsHandlers: 'Bundled skills'
+    SkillsHandlers: 'Bundled skills',
+    RecordsHandlers: 'Records in the load order',
+    ProjectsHandlers: 'Projects: authoring and patching'
 };
 
 function labelFor(handler: string): string {

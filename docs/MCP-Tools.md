@@ -5,12 +5,11 @@
 > [`src/server.ts`](../src/server.ts). A contradiction between this document and the code is a bug
 > in one of them — fix it, do not work around it.
 
-<!-- TEMPLATE: replace "notes" with your domain in section 1 rule 9 and sections 4 and 6, and keep the rest:
-     sections 2, 3, 5, 7 and 8 describe the template's machinery, which your server inherits. -->
-
-This server is an MCP wrapper around a **backend** — in the template, a small in-memory notes store
-standing in for whatever your server will wrap. It exposes the backend's operations as **tools**, and
-its own documentation and agent skills as both **resources** and tools.
+This server works on one **Mod Organizer 2 instance** of Skyrim Special Edition. It looks records up
+across the active load order, and it builds mods kept as text **projects** into plugins deployed to
+that instance. It exposes those operations as **tools**, and its own documentation and modding
+**skills** as both **resources** and tools. The vocabulary — mod, plugin, record, FormID, override,
+project, patch — is defined in [`CONTEXT.md`](../CONTEXT.md).
 
 For *which tool does what*, start with [`Tool-Router.md`](./Tool-Router.md). For every tool's
 arguments, see [`Tool-Reference.md`](./Tool-Reference.md), which is generated from the code.
@@ -42,8 +41,9 @@ arguments, see [`Tool-Reference.md`](./Tool-Reference.md), which is generated fr
    `healthcheck` names the active profile.
 
 3. **Some tools may be withheld for this backend.** A tool that needs an optional backend feature
-   (`listTags` needs tag indexing) is withheld where the backend lacks it. Calling it anyway answers
-   that the backend does not offer it — a property of the backend, so retrying will not help.
+   is withheld where the backend lacks it. None does yet; the Nexus tools will (an API key, a premium
+   account). Calling a withheld tool answers that the backend does not offer it — a property of the
+   backend, so retrying will not help.
 
 4. **An answer can be withheld for being too large.** Over the profile's response ceiling you get
    valid JSON with `status:"truncated"`, the original `bytes`, the `budget`, a 2,000-byte `preview`
@@ -55,8 +55,9 @@ arguments, see [`Tool-Reference.md`](./Tool-Reference.md), which is generated fr
    and answer `InvalidParams` with a message that says what to send instead.
 
 6. **Read the annotations before you write.** Every tool states `readOnlyHint`, `destructiveHint`,
-   `idempotentHint` and `openWorldHint`. A tool that is not idempotent — `createNote` — does
-   something new every time it is called; search before you create.
+   `idempotentHint` and `openWorldHint`. `deployProject` and `pullProject` are destructive: they
+   replace a mod folder in Mod Organizer, and a project's text. Every write here is idempotent —
+   repeating it with the same inputs leaves the same state.
 
 7. **A failed call is a result, not an exception.** You get `isError: true` and a JSON body with
    `error` and `code`. The message is written to tell you the next step; read it before retrying.
@@ -65,15 +66,26 @@ arguments, see [`Tool-Reference.md`](./Tool-Reference.md), which is generated fr
    on stdout that is not a protocol frame corrupts the stream for every tool at once.
    [`src/lib/logger.ts`](../src/lib/logger.ts) writes every level to **stderr** for that reason.
 
-9. **Domain rules.** <!-- TEMPLATE: the rules specific to your backend. --> Note ids come from
-   `searchNotes`; never guess one. `updateNote` replaces the fields you pass, and `tags` replaces the
-   whole list.
+9. **Domain rules.**
+   - **Records are changed by editing project text** with your ordinary file tools — read, edit,
+     write the YAML files in a project's `plugin/` folder. No tool edits a record.
+   - **FormIDs are written `012EB7:Skyrim.esm`**, never as a load-order hex like `00012EB7`. Never
+     guess one: find it with `findRecords`, which also turns the FormIDs in project text into names.
+   - **A new record's file leaves `FormKey` out.** `buildProject` assigns one and writes it back;
+     after that it never changes.
+   - **Change other mods through a patch** (`addPatch`), never in their plugins: an override copied
+     from the winning version keeps every other mod's changes, and survives their updates.
+   - **Build, deploy and pull are explicit steps.** Deploy refuses a stale build and refuses to
+     overwrite a plugin the Creation Kit changed; pull refuses while the project has uncommitted
+     changes. Each refusal names the step to take first.
+   - Read the `skyrim-modding-basics` skill before modding, and the record family's skill before
+     touching one of its records.
 
 | profile | listed | for |
 | --- | --- | --- |
-| `core` | 7 | the smallest set that can find, read and change something — small local models |
-| `readonly` | 6 | reading only; the write tools are absent, not discouraged |
-| `all` | 9 | the default; right for clients that fetch tool schemas on demand |
+| `core` | 8 | look up, patch, build, deploy — small local models |
+| `readonly` | 5 | looking records up only; the write tools are absent, not discouraged |
+| `all` | 10 | the default; right for clients that fetch tool schemas on demand |
 
 Counts include `healthcheck`, which every profile lists.
 
@@ -117,8 +129,8 @@ nothing is enforced, and a client must not trust annotations from a server it do
 | Flag | True when |
 | --- | --- |
 | `readOnlyHint` | The call changes nothing in the backend. A check that sends data but persists nothing is read-only; anything that executes caller-supplied code is not. |
-| `destructiveHint` | The call overwrites or removes something that was already there: `updateNote`, `deleteNote`. Creating something new is **not** destructive — `createNote` is `false`. |
-| `idempotentHint` | Repeating the call really does leave the same state: `updateNote` (a repeat changes nothing, not even `updatedAt`), `deleteNote`. A write that appends to a history every time never qualifies. |
+| `destructiveHint` | The call overwrites or removes something that was already there: `deployProject` (the mod folder), `pullProject` (the project's text). Adding something new is **not** destructive — `addPatch` never overwrites a file, and `buildProject` replaces only its own previous output. |
+| `idempotentHint` | Repeating the call really does leave the same state: `addPatch` (a record already in the project is left alone), `newProject` (an existing project is returned as it is), `deployProject` of the same build. A write that appends to a history every time never qualifies. |
 | `openWorldHint` | The call reaches past the backend this server is bound to: sending, publishing, pushing to an external remote. `false` everywhere else. |
 
 **Every tool states all four flags**, read-only ones included, where they are always
@@ -172,9 +184,30 @@ duplicate name is refused at startup with a warning on stderr (the first handler
 ### 2.5 The backend seam
 
 [`src/backend/Backend.ts`](../src/backend/Backend.ts) declares the lifecycle every backend has;
-the domain operations live on the interface that extends it ([`notes.ts`](../src/backend/notes.ts)
-in the template). [`src/backend/index.ts`](../src/backend/index.ts) names the one the server uses —
-`AppBackend` — and builds it with `createBackend(env, { bearerToken })`.
+the domain operations live on the interface that extends it,
+[`SkyrimBackend`](../src/backend/skyrim/SkyrimBackend.ts). [`src/backend/index.ts`](../src/backend/index.ts)
+names the one the server uses — `AppBackend` — and builds it with `createBackend(env, { bearerToken })`.
+
+Behind it sit three parts:
+
+- **The MO2 reader** ([`mo2.ts`](../src/backend/skyrim/mo2.ts)) rebuilds what a program started
+  outside Mod Organizer cannot see — which file each active plugin really is — from the instance's
+  ini, the selected profile's mod order and load order, and the mods' folders. The few profile
+  changes deploy makes are in [`mo2Profile.ts`](../src/backend/skyrim/mo2Profile.ts).
+- **The plugin helper** ([`helper/`](../helper), [ADR-0003](adr/0003-plugins-through-a-mutagen-helper.md))
+  is a .NET process built on Mutagen that does every plugin read and write, and writes project text in
+  Spriggit's format. It speaks one JSON object per line on stdio, keeps the load order open between
+  calls, and indexes it in the background. [`helperClient.ts`](../src/backend/skyrim/helperClient.ts)
+  is its client.
+- **The engine** ([`engine.ts`](../src/backend/skyrim/engine.ts)) owns the helper and keeps its load
+  order in step with Mod Organizer: before each call it compares a fingerprint of the profile's files
+  and hands over a fresh load order when another profile was selected or a mod changed. One engine
+  serves every session in the process.
+
+`connect()` is the credential check and nothing more: it starts the engine in the background without
+waiting. An instance that cannot be read or a helper that is not built is not a refused credential, so
+it surfaces on the first tool call and in `healthcheck` with its own cause, and is checked again on
+every call.
 
 | Member | Used for |
 | --- | --- |
@@ -253,31 +286,54 @@ the question entirely.
 
 ## 4. Golden paths
 
-<!-- TEMPLATE: one subsection per workflow an agent will actually run, as copy-pasteable calls. -->
-
-### 4.1 Find and read a note
+### 4.1 Find a record and see who changes it
 
 ```jsonc
-{"tool":"searchNotes","args":{"text":"release"}}          // summaries with previews, newest first
-{"tool":"readNote","args":{"id":"note-3"}}                 // the whole note
+{"tool":"findRecords","args":{"text":"iron sword","types":["WEAP"]}}     // who defines it, who wins, how many override it
+{"tool":"readRecord","args":{"record":"IronSword","allVersions":true}}   // every plugin's version, winning first
+{"tool":"findRecords","args":{"records":["01E718:Skyrim.esm","013989:Skyrim.esm"]}} // what the FormIDs in it are
 ```
 
-`searchNotes` returns `total` before the limit was applied; when `more` is true, continue with
-`offset` set to `nextOffset`, or narrow with `text` or `tag`. `listTags` shows which tags exist.
+`readRecord` answers in project text, so a version can be mirrored or copied as it stands. Every
+reference inside it is a FormID: resolve the ones you reason about with `findRecords` and `records`.
 
-### 4.2 Change a note safely
+### 4.2 Patch another mod's records
 
 ```jsonc
-{"tool":"searchNotes","args":{"text":"shopping"}}          // 1. does it exist already?
-{"tool":"readNote","args":{"id":"note-7"}}                 // 2. read before you replace
-{"tool":"updateNote","args":{"id":"note-7","tags":["home","weekly"]}}
+{"tool":"addPatch","args":{"project":"IronSwordBuff","records":["IronSword"]}}   // copies the winning version in
+// edit projects/IronSwordBuff/plugin/Weapons/IronSword - 012EB7_Skyrim.esm.yaml with your file tools
+{"tool":"buildProject","args":{"project":"IronSwordBuff"}}     // checks every reference, writes the plugin
+{"tool":"deployProject","args":{"project":"IronSwordBuff"}}    // into Mod Organizer, at the end of the load order
 ```
 
-`updateNote` replaces only the fields you pass, but `tags` replaces the whole list. It answers
-`changed:false` when the note already had those values, and is safe to repeat. Only when the search
-finds nothing, `createNote` — which is *not* idempotent: two calls make two notes.
+The copy comes from the **winning** version, so what other mods changed in the record is kept. Change
+only the fields you mean to change; the rest of the override must stay as copied. To add to a leveled
+list, keep every entry and add yours.
 
-### 4.3 Find out what you are connected to
+### 4.3 Make a new mod
+
+```jsonc
+{"tool":"newProject","args":{"project":"FrostBlade"}}
+// write projects/FrostBlade/plugin/Weapons/FrostBlade.yaml — no FormKey line; mirror a vanilla weapon read with readRecord
+{"tool":"buildProject","args":{"project":"FrostBlade"}}        // assigns 000800:FrostBlade.esp, renames the file
+{"tool":"deployProject","args":{"project":"FrostBlade"}}
+```
+
+A new item nothing places is unobtainable: add it to a leveled list, a container or a recipe too —
+the record family skills say how.
+
+### 4.4 Bring Creation Kit work back
+
+After placing objects or generating navmesh in the Creation Kit (started through Mod Organizer):
+
+```jsonc
+{"tool":"pullProject","args":{"project":"FrostBlade"}}     // refuses while the project has uncommitted changes
+// review with git diff; commit
+{"tool":"buildProject","args":{"project":"FrostBlade"}}
+{"tool":"deployProject","args":{"project":"FrostBlade"}}
+```
+
+### 4.5 Find out what you are connected to
 
 ```jsonc
 {"tool":"healthcheck","args":{}}
@@ -297,7 +353,7 @@ Handlers return the MCP shape directly and `serializeResult()` passes it through
 **one** level of JSON:
 
 ```jsonc
-{ "content": [ { "type": "text", "text": "{\"status\":\"success\",\"note\":{…}}" } ] }
+{ "content": [ { "type": "text", "text": "{\"status\":\"success\",\"total\":1,\"records\":[…]}" } ] }
 ```
 
 Parse `content[0].text` once. The envelope is compact, never pretty-printed: indentation costs
@@ -342,7 +398,15 @@ Start with `healthcheck`.
 | "exists but is not in the active profile" | The tool is outside `MCP_PROFILE` | Use a listed tool, or start the server with a larger profile |
 | "does not offer … calling it again will not help" | The capability gate withheld the tool for this backend | Not a request problem. `healthcheck` lists `withheldForBackend` |
 | `status: "truncated"` | The answer was over the profile's response budget | Do what `nextStep` says; or raise `MCP_MAX_RESPONSE_BYTES` |
-| "There is no note …" <!-- TEMPLATE --> | An id that does not exist, or was guessed | Find ids with `searchNotes` |
+| "No record with editor ID …" / "No record … in the load order" | A guessed or misspelled ID, or a plugin that is not active | Find it with `findRecords`; check the plugin is active in the selected profile |
+| `buildProject` → "reference(s) point at records that exist neither…" | A FormID typed by hand, or a master that is not active | Resolve each with `findRecords` and fix the file |
+| `deployProject` → "changed since the last deploy" | The deployed plugin was saved in the Creation Kit or xEdit | `pullProject`, review, commit, then build and deploy |
+| `deployProject` → "changed since its last build" | Project text is newer than the build | `buildProject` first |
+| `pullProject` → "uncommitted changes" | The project folder has uncommitted work | Commit it, so the pull shows on its own in `git diff` |
+| "The plugin helper is not built" | `helper/bin` is missing | `npm run build:helper` (needs the .NET 10 SDK) |
+| `buildProject` → "needs .NET Framework 3.5" | The Creation Kit's Papyrus compiler is a .NET 2.0 program | Turn on ".NET Framework 3.5" in Windows Features, once. The server checks before starting the compiler, because a missing 3.5 makes Windows open an install dialog for every attempt |
+| The first lookup takes ~10 s, later ones well under 1 s | The helper indexes the load order once after it starts, and again after a deploy or a changed plugin | Nothing to fix; `healthcheck` right after start says the helper is starting |
+| `healthcheck` → active plugins "have no file" | A plugin in the load order whose mod is disabled or gone | Fix the profile in Mod Organizer |
 | `Unknown tool: X` | Not in the catalogue at all | `tools/list` — the router is derived from it |
 | Duplicate-tool warning on stderr at startup | Two handlers declare the same name | Rename one; the second is ignored |
 | MCP stream breaks / client reports protocol errors | Something wrote to **stdout** | Never `console.log`; use `this.logger`. `npm run smoke` catches it |
@@ -370,7 +434,7 @@ own `inputSchema`, so **a new tool is covered the moment it is listed**.
 | `guides.test.ts`, `skills.test.ts` | Against the real files: every guide exists and has sections, section extraction, the drill-down tools, path traversal refused. |
 | `toolDocs.test.ts` | The generated `Tool-Reference.md` matches what the code renders. |
 | `serverManifest.test.ts` | `server.json` against the code: name, version, every environment variable read is declared and vice versa, required and secret flags. |
-| `notesHandlers.test.ts` | <!-- TEMPLATE --> What the example tools actually do, including the idempotency their annotations claim. |
+| `skyrimBackend.test.ts` | Against a real Mod Organizer instance laid out in a temp folder, with a scripted helper: reading the ini, mod priority and the load order; the profile edits deploy makes; FormID assignment; text sync; and the whole patch, build, deploy and pull cycle with each of its refusals. |
 
 `npm run smoke` drives the **built** server over real stdio and fails if anything but protocol frames
 reaches stdout.
@@ -386,25 +450,27 @@ A one-file change. Add a `ToolSpec` to the handler's `toolSpecs()`:
 ```ts
 {
   definition: {
-    name: 'archiveNote',
+    name: 'listMasters',
     annotations: {
-      title: 'Archive note',
-      readOnlyHint: false,
-      destructiveHint: false,   // it hides, it does not remove
-      idempotentHint: true,     // archiving an archived note changes nothing
+      title: 'List masters',
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
       openWorldHint: false
     },
     description: 'One sentence an agent can select on: what it needs, what it returns, what it changes.',
     inputSchema: {
       type: 'object',
       properties: {
-        id: { type: 'string', description: 'The note to archive. Find ids with searchNotes.' }
+        plugin: { type: 'string', description: 'A plugin file name, e.g. "Dawnguard.esm".' }
       },
-      required: ['id']
+      required: ['plugin']
     }
   },
-  onFailure: 'Failed to archive the note',
-  run: args => this.archiveNote(args)    // returns plain data; throw McpError(InvalidParams) for bad input
+  onFailure: 'Failed to list the masters',
+  // Returns plain data. A bad argument throws McpError(InvalidParams); asRequestError turns the
+  // backend's own "that is about your request" failures into the same.
+  run: args => asRequestError(this.backend.listMasters(requireString(args, 'plugin')))
 }
 ```
 

@@ -5,40 +5,20 @@ you want [`docs/MCP-Tools.md`](docs/MCP-Tools.md) instead.
 
 ## What this is
 
-A template for a TypeScript MCP server, extracted from a production server and stripped of its
-domain. It runs as is — against an in-memory **notes** store that stands in for a real backend — so
-every pattern below has a working, tested instance. Each new server starts as a copy of it.
+An MCP server for Skyrim Special Edition modding with Mod Organizer 2: it looks records up across an
+instance's load order, and builds mods kept as text projects into plugins deployed to that instance.
+It started as a copy of a TypeScript MCP server template, whose machinery — one-file tools, profiles,
+the response budget, the capability gate, self-serving docs and skills — it keeps.
 
-## Starting a new server from this template
+Two programs make it up:
 
-Work through these in order; each is greppable as `TEMPLATE:` in the code and the docs.
+- **The server** (TypeScript, `src/`) — the MCP side, the Mod Organizer reader, projects, deploy.
+- **The plugin helper** (C#, `helper/`) — a .NET process built on Mutagen that does every plugin read
+  and write ([ADR-0003](docs/adr/0003-plugins-through-a-mutagen-helper.md)). The server talks to it in
+  JSON lines over stdio. Build it with `npm run build:helper` (needs the .NET 10 SDK).
 
-1. **Name it.** `name`, `description`, `author`, `bin` and `mcpName` in `package.json`; `name`,
-   `description`, `repository` and the package entry in `server.json`; the copyright line in
-   `LICENSE`, if the new server has a different owner. The server's announced name, version and resource URI scheme all derive from
-   `package.json` — nothing else to change.
-2. **Replace the backend.** Write your client in `src/backend/` as an interface that extends
-   `Backend` (lifecycle) with your domain operations, plus an implementation. Point `AppBackend` and
-   `createBackend()` in `src/backend/index.ts` at it, and list the variables it cannot start without in
-   `REQUIRED_ENV`. Keep the two rules in `Backend.ts`: construction never touches the network, and a
-   refused credential throws `PermanentBackendError`.
-3. **Replace the tools.** Swap `NotesHandlers` for your own handler families in `createHandlers()`
-   (`src/handlers/index.ts`). Then update `src/lib/profiles.ts` (who gets which tools),
-   `GATED_FEATURES` in `src/lib/capabilityGate.ts`, and `LABELS` in `src/lib/toolDocs.ts`.
-4. **Replace the tests that are about notes.** `src/__tests__/fakes.ts` (keep what each fake
-   promises), `notesHandlers.test.ts` (one behavioural suite per family), and the `TEMPLATE:` spot
-   checks in `handlerContract`, `toolDefinitions`, `profiles` and `responseBudget`. The generic suites
-   need no changes.
-5. **Rewrite the domain parts of the docs.** `docs/Tool-Router.md` (rows in your users' words),
-   `docs/MCP-Tools.md` §1 rule 9, §4 and §6, `CONTEXT.md`, `README.md`. Then
-   `npm run build && npm run docs:tools`.
-6. **Replace the skills.** `skills/Domain` with skills for your domain; keep or `git rm` the
-   `skills/Development` submodule.
-7. **Rename the backend's variables.** `EXAMPLE_*` → your prefix, in code, `server.json` and
-   `.env.example` together — `serverManifest.test.ts` fails until all three agree.
-
-Done when `grep -rn "TEMPLATE" --exclude-dir=node_modules .` finds nothing you have not decided to
-keep, and the checks under [Working on this repo](#working-on-this-repo) pass.
+The vocabulary is in [`CONTEXT.md`](CONTEXT.md); use its words — *mod*, *plugin*, *record*,
+*FormID*, *instance*, *project*, *patch* — in code, docs and messages alike.
 
 ## Read these first
 
@@ -47,9 +27,9 @@ keep, and the checks under [Working on this repo](#working-on-this-repo) pass.
 | **[`docs/Tool-Router.md`](docs/Tool-Router.md)** | Intent to tool, hand-written. The cheapest useful thing to read. |
 | **[`docs/Tool-Reference.md`](docs/Tool-Reference.md)** | Every tool with its arguments, **generated** from `getTools()` by `npm run docs:tools`. Never edit it by hand. |
 | **[`docs/MCP-Tools.md`](docs/MCP-Tools.md)** | The rules a generator cannot produce: the architecture, profiles, the response budget, the gate, the error model, troubleshooting, the test-suite map, how to extend. **Start here** for how the server behaves. |
-| **[`docs/Hosting.md`](docs/Hosting.md)** | stdio vs. Streamable HTTP, the per-session bearer token, the origin/host allow-lists, the rate limit, Docker. Read it before touching `runHttp()` or `src/lib/http.ts`. |
-| **[`docs/Development-Skills.md`](docs/Development-Skills.md)** | The bundled general engineering skills, and which fit this repo. |
-| **[`CONTEXT.md`](CONTEXT.md)**, **[`docs/adr`](docs/adr)** | The vocabulary, and the two design decisions everything else follows from. |
+| **[`docs/Hosting.md`](docs/Hosting.md)** | stdio vs. Streamable HTTP, the per-session bearer token, the origin/host allow-lists, the rate limit, where it runs. Read it before touching `runHttp()` or `src/lib/http.ts`. |
+| **[`CONTEXT.md`](CONTEXT.md)**, **[`docs/adr`](docs/adr)** | The vocabulary, and the design decisions everything else follows from. |
+| **[`docs/research`](docs/research)** | What was found out before deciding: engines, Nexus, Mod Organizer's file formats, the Spriggit spike. |
 
 They are kept accurate deliberately — treat a contradiction between a doc and the code as a bug in one
 of them, and fix it rather than working around it.
@@ -63,10 +43,8 @@ the tests.
 The skill collections under [`skills/`](skills/) are served the same way, discovered from disk by
 [`src/lib/skills.ts`](src/lib/skills.ts) and exposed by `readSkill`:
 
-- **`skills/Domain` is vendored** — ordinary files in this repository. Edit freely.
-- **`skills/Development` is a git submodule** of `mattpocock/skills`. **Do not edit it**: the changes
-  belong to that repository and are lost on the next update. A plain `git clone` leaves it empty — use
-  `--recurse-submodules`.
+- **`skills/Domain`** holds the modding skills — ours, edit freely. They are knowledge an agent using
+  the server reads before modding; keep them accurate to the game, and to the project text format.
 
 ## Layout
 
@@ -76,27 +54,28 @@ src/
   server.ts                the MCP server: routing from getTools(), connect/retry/latch, the gate,
                            serializeResult, healthcheck, resources, stdio vs. Streamable HTTP
   backend/Backend.ts       the lifecycle every backend has, and the two rules it keeps
-  backend/notes.ts         TEMPLATE: the example domain, an in-memory notes store
   backend/index.ts         AppBackend, createBackend(), REQUIRED_ENV — the one place naming the backend
+  backend/skyrim/SkyrimBackend.ts   the domain operations and their types
+  backend/skyrim/Mo2SkyrimBackend.ts the backend: credential check, records, projects, deploy, pull
+  backend/skyrim/engine.ts          the shared helper process and its load order, kept in step with MO2
+  backend/skyrim/helperClient.ts    the helper's JSON-lines client
+  backend/skyrim/mo2.ts             reading an MO2 instance: ini, profile, mod order, load order, files
+  backend/skyrim/mo2Profile.ts      the profile edits deploy makes, and refreshing a running MO2
+  backend/skyrim/projects.ts        a project on disk: paths, FormID assignment, text sync, deploy state
+  backend/skyrim/externalTools.ts   the Papyrus compiler and git
   handlers/BaseHandler.ts  the ToolSpec contract: dispatch, timing, envelope, error mapping
   handlers/index.ts        createHandlers(): the one list served, documented and tested
+  handlers/args.ts         shared argument checks, and request errors -> InvalidParams
+  handlers/RecordsHandlers.ts       findRecords, readRecord
+  handlers/ProjectsHandlers.ts      newProject, addPatch, buildProject, deployProject, pullProject
   handlers/DocsHandlers.ts, SkillsHandlers.ts   readServerGuide and readSkill
-  handlers/NotesHandlers.ts                     TEMPLATE: the example tool family
   types/tools.ts           ToolDefinition / ToolProperty / ToolAnnotations — the inputSchema contract
-  lib/logger.ts            structured logging; every level goes to stderr
-  lib/guides.ts            the guide registry served as resources and by readServerGuide
-  lib/skills.ts            filesystem discovery of skills/, served as resources and by readSkill
-  lib/profiles.ts          which tools MCP_PROFILE lists, and therefore routes
-  lib/responseBudget.ts    the ceiling on one answer, enforced in serializeResult
-  lib/capabilityGate.ts    tools withheld because the backend lacks a feature they need
-  lib/instructions.ts      the MCP instructions announced at initialize
-  lib/serverInfo.ts        name, version and resource scheme, read from package.json
-  lib/http.ts              Streamable HTTP plumbing: origin/host policy, rate limit, body reader
-  lib/toolDocs.ts          renders docs/Tool-Reference.md from the tool definitions
-  lib/env.ts               parsing helpers for list and flag variables
+  lib/                     logger, guides, skills, profiles, responseBudget, capabilityGate,
+                           instructions, serverInfo, http, toolDocs, env — the template's machinery
   __tests__/               vitest suites, all offline; fakes.ts holds the shared doubles
-skills/Domain              vendored domain skills — ours, edit freely
-skills/Development         git submodule of mattpocock/skills — do NOT edit
+helper/SkyrimHelper/       the C# plugin helper: Session.cs (the methods), RecordIndex.cs, SpriggitFormat.cs
+skills/Domain              the modding skills — ours, edit freely
+projects/                  the user's projects (mods as text); created on first use
 scripts/generate-tool-docs.mjs   writes docs/Tool-Reference.md; run after changing any getTools()
 scripts/smoke.mjs                drives the built server over stdio; fails on anything but frames on stdout
 ```
@@ -130,8 +109,9 @@ scripts/smoke.mjs                drives the built server over stdio; fails on an
   [§2.2 of `docs/MCP-Tools.md`](docs/MCP-Tools.md); `handlerContract.test.ts` fails on a tool missing
   any of them, and `server.test.ts` checks the same on the wire.
 - **Make every annotation true.** `idempotentHint: true` is a claim a test can check: repeat the call
-  and compare the state. `notesHandlers.test.ts` does it for `updateNote`, whose store does not even
-  move `updatedAt` on a no-op — that is what made the claim honest.
+  and compare the state. `skyrimBackend.test.ts` does it for `deployProject` — a second deploy of the
+  same build leaves Mod Organizer's profile untouched — and `addPatch`, which leaves a record already
+  in the project alone.
 - **Errors must be `McpError`, and say the next step.** A raw `Error` reaching the client becomes an
   opaque "Internal error". `InvalidParams` for a bad argument, with a message that names what to send
   instead — a model reads the message and acts on it.
@@ -169,6 +149,7 @@ scripts/smoke.mjs                drives the built server over stdio; fails on an
 
 ```bash
 npm install
+npm run build:helper   # dotnet publish helper/SkyrimHelper -> helper/bin (needs the .NET 10 SDK)
 npm run build          # tsc -> dist/
 npm test               # vitest, fully offline
 npx tsc --noEmit       # type check only
@@ -177,7 +158,8 @@ npm run smoke          # drive the built server over stdio
 ```
 
 Before you call something done: `npx tsc --noEmit` clean, `npm test` green, `npm run build &&
-npm run docs:tools` leaving the reference unchanged, and `npm run smoke` passing.
+npm run docs:tools` leaving the reference unchanged, and `npm run smoke` passing. A change to the
+helper also needs `npm run build:helper` and a call through it against a real instance.
 
 `handlerContract.test.ts` holds every tool to the same contract using arguments generated from its
 `inputSchema`, so a new tool is covered as soon as it is listed. If it fails for a legitimate design
@@ -187,7 +169,9 @@ decision, encode the exception there with a comment — do not weaken the assert
 know the backend's own rules — that a lock must be released before activating, that a freshly created
 object is not yet searchable. **Anything that locks, writes, activates or deletes has to be run
 against a real backend once**, with a throwaway object created and deleted in the same session. Then
-encode what you learned as an assertion, so the fake enforces it from then on.
+encode what you learned as an assertion, so the fake enforces it from then on. Here the real backend
+is a **test instance** — a portable Mod Organizer on a clean game, never someone's playthrough — and
+the throwaway object is a project, deployed and then removed with its mod.
 
 ## Testing against a live MCP client
 
@@ -196,8 +180,11 @@ A registered client runs `dist/index.js`, so a change is only visible there afte
 
 ## Care with a real backend
 
-This server writes. When working against a real one:
+This server writes into a Mod Organizer instance: mod folders, and the selected profile's mod order
+and load order. When working against a real one:
 
 - Prefer read-only tools; treat anything not demonstrably read-only as a write.
-- Release what you lock, including after a failure.
-- Ask before writing to data you do not own.
+- Work on a test instance. A Wabbajack-installed instance deletes every mod it did not install on its
+  next update, and its authors usually void support for modified installs.
+- Change other people's mods only through patches, never in their plugins.
+- Ask before deploying into an instance you do not own, or a profile someone plays.

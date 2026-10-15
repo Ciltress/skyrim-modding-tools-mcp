@@ -9,3 +9,12 @@ node_modules
 *.pfx
 *.pem
 *.key
+
+# The plugin helper's build output: npm run build:helper rebuilds it.
+helper/bin/
+helper/*/bin/
+helper/*/obj/
+
+# What a project build produces, and what was deployed last.
+projects/*/build/
+projects/*/.deploy.json

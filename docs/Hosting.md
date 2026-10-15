@@ -1,4 +1,4 @@
-# Hosting: stdio, Streamable HTTP and Docker
+# Hosting: stdio and Streamable HTTP
 
 How to run this server, for whoever operates it. The code is [`src/server.ts`](../src/server.ts)
 (`run()` and `runHttp()`) and [`src/lib/http.ts`](../src/lib/http.ts).
@@ -25,10 +25,10 @@ stream for every tool at once — so the logger writes to stderr, dotenv is load
 ```json
 {
   "mcpServers": {
-    "my-server": {
+    "skyrim": {
       "command": "node",
-      "args": ["C:/path/to/mcp-template/dist/index.js"],
-      "env": { "MCP_PROFILE": "all" }
+      "args": ["C:/path/to/skyrim-modding-tools-mcp/dist/index.js"],
+      "env": { "SKYRIM_MO2_INSTANCE": "G:/Modding/SkyrimSE-Test" }
     }
   }
 }
@@ -64,13 +64,10 @@ once get two independent sessions, never one shared credential.
 | `MCP_HTTP_ALLOWED_HOSTS` | `Host` values answered to, comma-separated. Empty (default) accepts any. |
 | `MCP_HTTP_RATE_LIMIT` | Requests per minute per session. `0` (default) is off. |
 
-<!-- TEMPLATE: how your backend validates the token. The example backend accepts the tokens named in
-     EXAMPLE_ACCEPTED_TOKENS and refuses everything when it is unset; a real backend forwards the token
-     to the API it wraps, which is the authority on whether it is valid. -->
-
-The example backend accepts exactly the tokens listed in `EXAMPLE_ACCEPTED_TOKENS`, and **nobody** when
-it is unset. A real backend should forward the caller's token to the API it wraps and let that API
-decide — the server holds no credential of its own in HTTP mode.
+The server accepts exactly the tokens listed in `SKYRIM_ACCEPTED_TOKENS`, and **nobody** when it is
+unset. There is no remote API behind it to ask: the backend is a Mod Organizer instance on this
+machine, so the token list is the whole authority. Every session shares one plugin helper and one
+load order — the instance is one instance, whoever asks.
 
 ## 2. The gates in front of a session
 
@@ -104,27 +101,12 @@ none, is refused with `401`. Only a digest of the token is kept.
 Terminate TLS in front of the server — a reverse proxy or an ingress — as for any internal HTTP
 service. Bearer tokens must not cross a network in clear text.
 
-## 3. Docker
+## 3. Where it runs
 
-```bash
-docker build -t mcp-template .
+On the Windows machine that holds the Mod Organizer instance, beside the game. It reads the
+instance's files, the game's plugins and the Creation Kit's compiler from disk, and runs the .NET
+plugin helper next to itself — none of which a container can reach. There is therefore no image.
 
-# stdio: the client runs the container and talks to it over stdin/stdout
-docker run -i --rm mcp-template
-
-# HTTP: a long-lived service
-docker run --rm -p 3000:3000 \
-  -e MCP_TRANSPORT=http \
-  -e MCP_HTTP_ALLOWED_HOSTS=mcp.example.com \
-  -e EXAMPLE_ACCEPTED_TOKENS=change-me \
-  mcp-template
-```
-
-[`docker-compose.yml`](../docker-compose.yml) runs the HTTP form. The image copies `docs/`, `skills/`
-and `AGENTS.md` beside `dist/` on purpose: guides and skills are read from disk at runtime, and an
-image without them answers every `readServerGuide`, `readSkill` and resource read with a
-file-not-found while looking perfectly healthy otherwise. `skills/Development` is a git submodule —
-build from a `--recurse-submodules` clone or the image ships without it.
-
-Configuration belongs in `docker run --env-file` or the client's `env` block, never in a layer:
-`.dockerignore` keeps `.env` and key material out of the build context.
+HTTP mode is for a client on the same machine that prefers a long-lived server to one it starts
+itself — an editor extension, say. Bind it to `127.0.0.1` (`MCP_HTTP_HOST`) unless it really must
+be reached from elsewhere, and then put TLS in front of it.

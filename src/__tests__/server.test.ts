@@ -19,11 +19,20 @@ import type { FakeBackendOptions } from './fakes';
  */
 
 /** Gating off unless a test is about it, so connect counts mean what they say. */
-const BASE_ENV: NodeJS.ProcessEnv = { MCP_GATE: 'off' };
+const BASE_ENV: NodeJS.ProcessEnv = { MCP_GATE: 'off', SKYRIM_MO2_INSTANCE: 'test-instance' };
 
 /** Every tool the handlers offer, plus healthcheck. */
 const TOTAL_TOOLS = createHandlers(undefined as unknown as AppBackend)
     .reduce((n, h) => n + h.getTools().length, 0) + 1;
+
+/**
+ * The first tool that needs a backend feature. The gate's end-to-end tests run against it, and are
+ * skipped while no tool needs one — they come back by themselves with the first gated tool.
+ */
+const GATED = createHandlers(undefined as unknown as AppBackend)
+    .flatMap(h => h.getTools())
+    .find(t => t.needsFeature);
+const gatedIt = GATED ? it : it.skip;
 
 async function connect(env: NodeJS.ProcessEnv = {}, options: FakeBackendOptions = {}) {
     const fake = fakeBackend(options);
@@ -53,7 +62,7 @@ describe('initialize', () => {
     it('says what it is bound to and where the help is, before anything is called', async () => {
         const { client } = await connect();
         const instructions = client.getInstructions() ?? '';
-        expect(instructions).toContain('the fake notes store');
+        expect(instructions).toContain('the fake Mod Organizer instance');
         expect(instructions).toContain('readServerGuide');
     });
 });
@@ -71,7 +80,7 @@ describe('tools/list', () => {
         const names = (await client.listTools()).tools.map(t => t.name);
 
         expect(names).toContain('healthcheck');
-        expect(names).not.toContain('deleteNote');
+        expect(names).not.toContain('pullProject');
         expect(names.length).toBe(PROFILES.core.tools!.length + 1);
     });
 
@@ -96,7 +105,7 @@ describe('resources', () => {
         const uris = (await client.listResources()).resources.map(r => r.uri);
 
         for (const guide of GUIDES) expect(uris).toContain(guideUri(guide.id));
-        expect(uris.some(uri => uri.endsWith('/skills/domain/notes-workflow'))).toBe(true);
+        expect(uris.some(uri => uri.endsWith('/skills/domain/skyrim-modding-basics'))).toBe(true);
     });
 
     it('reads a guide as markdown', async () => {
@@ -117,7 +126,7 @@ describe('routing', () => {
         // Without this a model that knows the tool exists is told it does not,
         // and retries.
         const { client } = await connect({ MCP_PROFILE: 'readonly' });
-        const payload = payloadOf(await call(client, 'createNote', { title: 'x' }));
+        const payload = payloadOf(await call(client, 'addPatch', { project: 'x', records: ['sample'] }));
 
         expect(payload.error).toMatch(/exists but is not in the active profile 'readonly'/);
         expect(payload.error).toMatch(/MCP_PROFILE=all/);
@@ -132,22 +141,22 @@ describe('routing', () => {
         // Filtering only tools/list would leave every tool callable by a client
         // that guessed a name.
         const { client, calls } = await connect({ MCP_PROFILE: 'readonly' });
-        await call(client, 'deleteNote', { id: 'sample' });
-        expect(calls).not.toContain('deleteNote');
+        await call(client, 'deployProject', { project: 'sample' });
+        expect(calls).not.toContain('deployProject');
     });
 
     it('answers a tool call with exactly one level of JSON', async () => {
         const { client } = await connect();
-        const payload = payloadOf(await call(client, 'readNote', { id: 'sample' }));
+        const payload = payloadOf(await call(client, 'readRecord', { record: 'sample' }));
         expect(payload.status).toBe('success');
-        expect(payload.note.id).toBe('sample');
+        expect(payload.editorId).toBe('sample');
     });
 
     it('keeps the message of an argument error, with its code', async () => {
         const { client } = await connect();
-        const result = await call(client, 'readNote', { id: 'missing' });
+        const result = await call(client, 'readRecord', { record: 'missing' });
         expect(result.isError).toBe(true);
-        expect(payloadOf(result).error).toMatch(/no note 'missing'/);
+        expect(payloadOf(result).error).toMatch(/No record with editor ID 'missing'/);
         expect(payloadOf(result).code).toBe(-32602);
     });
 });
@@ -155,17 +164,17 @@ describe('routing', () => {
 describe('the capability gate', () => {
     const without = { capabilities: async () => ['something-else'] };
 
-    it('withholds the tools a backend cannot serve', async () => {
+    gatedIt('withholds the tools a backend cannot serve', async () => {
         const { client } = await connect({ MCP_GATE: 'on' }, without);
         const names = (await client.listTools()).tools.map(t => t.name);
 
-        expect(names).not.toContain('listTags');
-        expect(names).toContain('searchNotes');
+        expect(names).not.toContain(GATED!.name);
+        expect(names).toContain('findRecords');
     });
 
-    it('lists everything when the backend does offer the feature', async () => {
-        const { client } = await connect({ MCP_GATE: 'on' });
-        expect((await client.listTools()).tools.map(t => t.name)).toContain('listTags');
+    gatedIt('lists everything when the backend does offer the feature', async () => {
+        const { client } = await connect({ MCP_GATE: 'on' }, { capabilities: async () => [GATED!.needsFeature!] });
+        expect((await client.listTools()).tools.map(t => t.name)).toContain(GATED!.name);
     });
 
     it.each([
@@ -178,7 +187,7 @@ describe('the capability gate', () => {
         const { client } = await connect({ MCP_GATE: 'on' }, { capabilities });
         const names = (await client.listTools()).tools.map(t => t.name);
 
-        expect(names).toContain('listTags');
+        if (GATED) expect(names).toContain(GATED.name);
         expect(names.length).toBe(TOTAL_TOOLS);
     });
 
@@ -187,7 +196,7 @@ describe('the capability gate', () => {
 
         await client.listTools();
         await client.listTools();
-        await call(client, 'searchNotes');
+        await call(client, 'findRecords');
 
         expect(capabilityReads()).toBe(1);
     });
@@ -198,9 +207,9 @@ describe('the capability gate', () => {
         expect(capabilityReads()).toBe(0);
     });
 
-    it('explains a withheld tool instead of letting it fail obscurely', async () => {
+    gatedIt('explains a withheld tool instead of letting it fail obscurely', async () => {
         const { client } = await connect({ MCP_GATE: 'on' }, without);
-        const payload = payloadOf(await call(client, 'listTags'));
+        const payload = payloadOf(await call(client, GATED!.name));
 
         expect(payload.error).toMatch(/does not offer/);
         // The message has to stop a retry, not merely report a failure.
@@ -213,14 +222,14 @@ describe('session handling', () => {
         const { client, connects } = await connect();
         expect(connects()).toBe(0);
 
-        await call(client, 'searchNotes');
+        await call(client, 'findRecords');
         expect(connects()).toBe(1);
     });
 
     it('does not reconnect a session that is still good', async () => {
         const { client, connects } = await connect();
-        await call(client, 'searchNotes');
-        await call(client, 'searchNotes');
+        await call(client, 'findRecords');
+        await call(client, 'findRecords');
         expect(connects()).toBe(1);
     });
 
@@ -229,10 +238,10 @@ describe('session handling', () => {
             failWith: { error: new SessionExpiredError('session expired'), times: 1 }
         });
 
-        const result = await call(client, 'searchNotes');
+        const result = await call(client, 'findRecords');
 
         expect(connects()).toBe(2);
-        expect(calls.filter(c => c === 'searchNotes').length).toBe(2);
+        expect(calls.filter(c => c === 'findRecords').length).toBe(2);
         expect(result.isError).toBeFalsy();
     });
 
@@ -240,13 +249,13 @@ describe('session handling', () => {
         // Retrying is safe only for errors that mean the backend refused the
         // request before running it. Anything else could be applied twice.
         const { client, connects, calls } = await connect({}, {
-            failWith: { error: new Error('conflict: note was changed by someone else'), times: 1 }
+            failWith: { error: new Error('conflict: the plugin was changed by someone else'), times: 1 }
         });
 
-        const result = await call(client, 'searchNotes');
+        const result = await call(client, 'findRecords');
 
         expect(connects()).toBe(1);
-        expect(calls.filter(c => c === 'searchNotes').length).toBe(1);
+        expect(calls.filter(c => c === 'findRecords').length).toBe(1);
         expect(result.isError).toBe(true);
     });
 
@@ -255,9 +264,9 @@ describe('session handling', () => {
             failWith: { error: new SessionExpiredError('session expired'), times: 5 }
         });
 
-        const result = await call(client, 'searchNotes');
+        const result = await call(client, 'findRecords');
 
-        expect(calls.filter(c => c === 'searchNotes').length).toBe(2);
+        expect(calls.filter(c => c === 'findRecords').length).toBe(2);
         expect(result.isError).toBe(true);
     });
 });
@@ -275,7 +284,7 @@ describe('a credential the backend has refused', () => {
             connectError: new PermanentBackendError('the backend rejected the password')
         });
 
-        for (let i = 0; i < 5; i++) await call(client, 'searchNotes');
+        for (let i = 0; i < 5; i++) await call(client, 'findRecords');
 
         // Five tool calls, one connect attempt. Without the latch this is five
         // failed logons and a locked account.
@@ -286,15 +295,15 @@ describe('a credential the backend has refused', () => {
         const { client } = await connect({}, {
             connectError: new PermanentBackendError('the backend rejected the password')
         });
-        await call(client, 'searchNotes');
-        expect(payloadOf(await call(client, 'searchNotes')).error).toMatch(/rejected the password/);
+        await call(client, 'findRecords');
+        expect(payloadOf(await call(client, 'findRecords')).error).toMatch(/rejected the password/);
     });
 
     it('keeps retrying a failure that is not permanent', async () => {
         // An unreachable backend costs nothing to retry, and reconnecting is the
         // whole point of the self-healing path.
         const { client, connects } = await connect({}, { connectError: new Error('ECONNREFUSED') });
-        for (let i = 0; i < 3; i++) await call(client, 'searchNotes');
+        for (let i = 0; i < 3; i++) await call(client, 'findRecords');
         expect(connects()).toBe(3);
     });
 });
@@ -306,7 +315,7 @@ describe('healthcheck', () => {
 
         expect(connects()).toBe(0);
         expect(payload.status).toBe('healthy');
-        expect(payload.boundTo).toBe('the fake notes store');
+        expect(payload.boundTo).toBe('the fake Mod Organizer instance');
         expect(payload.server).toEqual(SERVER_INFO);
     });
 
@@ -347,20 +356,20 @@ describe('healthcheck', () => {
 
     it('names a refused credential, so an agent stops retrying', async () => {
         const { client } = await connect({}, { connectError: new PermanentBackendError('token revoked') });
-        await call(client, 'searchNotes');
+        await call(client, 'findRecords');
         const payload = payloadOf(await call(client, 'healthcheck'));
 
         expect(payload.status).toBe('degraded');
         expect(payload.session.refused).toMatch(/token revoked/);
     });
 
-    it('lists what this backend cannot serve once the gate has run', async () => {
+    gatedIt('lists what this backend cannot serve once the gate has run', async () => {
         const { client } = await connect({ MCP_GATE: 'on' }, { capabilities: async () => ['other'] });
         await client.listTools();
         const payload = payloadOf(await call(client, 'healthcheck'));
 
-        expect(payload.tools.backendMissing).toEqual(['tags']);
-        expect(payload.tools.withheldForBackend).toContain('listTags');
+        expect(payload.tools.backendMissing).toContain(GATED!.needsFeature);
+        expect(payload.tools.withheldForBackend).toContain(GATED!.name);
     });
 });
 
@@ -398,7 +407,7 @@ describe('bootstrap', () => {
     });
 
     it('refuses to start on an unknown profile, before anything else', () => {
-        expect(() => new AppServer({ env: { MCP_PROFILE: 'everything' }, backend: fakeBackend().backend }))
+        expect(() => new AppServer({ env: { ...BASE_ENV, MCP_PROFILE: 'everything' }, backend: fakeBackend().backend }))
             .toThrow(/not a known profile/);
     });
 });

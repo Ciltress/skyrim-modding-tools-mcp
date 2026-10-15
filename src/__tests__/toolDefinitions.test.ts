@@ -102,12 +102,12 @@ describe('tool catalogue', () => {
     });
 
     it('declares structured arguments as such, never as strings', () => {
-        // TEMPLATE: list the arguments your backend wants as objects or arrays.
+        // The arguments the backend wants as lists.
         // Declared as strings, they make callers pass a name where the whole
         // object a previous call returned was expected.
         const structured: Record<string, string[]> = {
-            createNote: ['tags'],
-            updateNote: ['tags']
+            findRecords: ['records', 'types'],
+            addPatch: ['records']
         };
 
         for (const { tool } of allTools) {

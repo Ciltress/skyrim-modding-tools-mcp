@@ -36,13 +36,13 @@ describe('parseFrontmatter', () => {
 
 describe('discoverSkills', () => {
     const skills = discoverSkills();
-    const example = findSkill('notes-workflow', 'domain');
+    const example = findSkill('skyrim-modding-basics', 'domain');
 
     it('finds the vendored example skill, with its supporting files', () => {
         expect(example).toBeDefined();
         expect(example!.collection).toBe('domain');
         expect(example!.description.length).toBeGreaterThan(40);
-        expect(example!.files).toContain('reference/tagging.md');
+        expect(example!.files).toContain('REFERENCE.md');
     });
 
     it('gives every skill a name and a description, which is what makes it findable', () => {
@@ -62,11 +62,11 @@ describe('discoverSkills', () => {
 });
 
 describe('readSkillFile', () => {
-    const example = () => findSkill('notes-workflow')!;
+    const example = () => findSkill('skyrim-modding-basics')!;
 
     it('reads SKILL.md by default and a supporting file on request', () => {
         expect(readSkillFile(example())).toMatch(/^---/);
-        expect(readSkillFile(example(), 'reference/tagging.md').length).toBeGreaterThan(0);
+        expect(readSkillFile(example(), 'REFERENCE.md').length).toBeGreaterThan(0);
     });
 
     it('refuses a path that escapes the skill directory', () => {
@@ -76,7 +76,7 @@ describe('readSkillFile', () => {
     });
 
     it('names what is available when the file does not exist', () => {
-        expect(() => readSkillFile(example(), 'nope.md')).toThrow(/Available: SKILL.md, reference\/tagging.md/);
+        expect(() => readSkillFile(example(), 'nope.md')).toThrow(/Available: SKILL.md, REFERENCE.md, TOOLS.md/);
     });
 });
 
@@ -96,20 +96,20 @@ describe('readSkill', () => {
 
     it('describes one collection', async () => {
         const payload = await run({ collection: 'domain' });
-        expect(payload.skills.map((s: any) => s.name)).toContain('notes-workflow');
+        expect(payload.skills.map((s: any) => s.name)).toContain('skyrim-modding-basics');
         expect(payload.skills[0].description).toBeTruthy();
     });
 
     it('reads one skill and one of its files', async () => {
-        expect((await run({ skill: 'notes-workflow' })).content).toMatch(/searchNotes/);
-        expect((await run({ skill: 'notes-workflow', file: 'reference/tagging.md' })).file)
-            .toBe('reference/tagging.md');
+        expect((await run({ skill: 'skyrim-modding-basics' })).content).toMatch(/FormID/);
+        expect((await run({ skill: 'skyrim-modding-basics', file: 'REFERENCE.md' })).file)
+            .toBe('REFERENCE.md');
     });
 
     it('turns a bad request into an argument error, not a fault', async () => {
         await expect(run({ skill: 'no-such-skill' })).rejects.toThrow(/no skill 'no-such-skill'/);
         await expect(run({ collection: 'nope' })).rejects.toThrow(/no collection 'nope'/);
         await expect(run({ file: 'x.md' })).rejects.toThrow(/without a skill/);
-        await expect(run({ skill: 'notes-workflow', file: '../../../.env' })).rejects.toThrow(/outside/);
+        await expect(run({ skill: 'skyrim-modding-basics', file: '../../../.env' })).rejects.toThrow(/outside/);
     });
 });

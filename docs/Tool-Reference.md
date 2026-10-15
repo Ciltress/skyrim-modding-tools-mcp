@@ -3,7 +3,7 @@
 <!-- GENERATED FILE - do not edit by hand.
      Run `npm run build && npm run docs:tools` after changing any getTools(). -->
 
-Every tool this server can expose: **8 tools across 3 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
+Every tool this server can expose: **9 tools across 4 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
 
 **How many you can actually call is smaller.** The active `MCP_PROFILE` decides what is
 listed, and the server withholds anything the connected backend does not support.
@@ -25,7 +25,8 @@ what needs a human, not a permission system: nothing here is enforced.
 ## Families
 
 - [Bundled skills](#bundled-skills) — 1 tool
-- [Notes](#notes) — 6 tools
+- [Projects: authoring and patching](#projects-authoring-and-patching) — 5 tools
+- [Records in the load order](#records-in-the-load-order) — 2 tools
 - [This server's own guides](#this-servers-own-guides) — 1 tool
 
 ---
@@ -34,53 +35,61 @@ what needs a human, not a permission system: nothing here is enforced.
 
 From `src/handlers/SkillsHandlers.ts`.
 
-**`readSkill`** — Bundled agent skills — reusable procedures for working with this server and for general engineering (TDD, code review, diagnosing bugs, domain modelling…). Call with no arguments to see which exist, then pass `collection` for their descriptions and `skill` to read one. Consult a skill's SKILL.md before starting a task it covers: they carry the conventions and checklists the tool descriptions alone do not.
+**`readSkill`** — Bundled agent skills — how Skyrim modding works and how to approach it here: the basics (plugins, FormIDs, load order, conflicts, the tool landscape) and one skill per record family (items and crafting, magic, NPCs, leveled lists). Call with no arguments to see which exist, then pass `collection` for their descriptions and `skill` to read one. Consult a skill's SKILL.md before starting a task it covers: they carry the conventions and checklists the tool descriptions alone do not.
 
 _read-only_
 
 `collection` string · `skill` string · `file` string
 
-## Notes
+## Projects: authoring and patching
 
-From `src/handlers/NotesHandlers.ts`.
+From `src/handlers/ProjectsHandlers.ts`.
 
-**`searchNotes`** — Find notes by text and/or tag, newest first. Returns summaries with a short preview — not the full body; read one with readNote. `total` is the number of matches before the limit, so a smaller `notes` list means there is more to page through.
+**`newProject`** — Create an empty project for a new mod: a plugin folder holding RecordData.yaml. Add records by writing YAML files into it (one file per record, in the group's folder, e.g. Weapons/MySword.yaml — leave out FormKey, the build assigns one). To change records other mods already have, use addPatch instead. Returns the folder to write into.
 
-_read-only_
+_writes · idempotent_
 
-`text` string · `tag` string · `limit` number, default `20` · `offset` number
+`project`**\*** string · `plugin` string · `light` boolean
 
-**`readNote`** — One note in full — title, body, tags and when it last changed — by its id.
+**`addPatch`** — Start or extend a patch: copy existing records into a project as overrides, so they can be changed without touching the plugins they come from. Each record is copied from its current winning version — so other mods' changes are kept — or from `from`. Creates the project when it does not exist. Then edit the copied files and run buildProject. A record already in the project is reported under `alreadyInProject` and left alone.
 
-_read-only_
+_writes · idempotent_
 
-`id`**\*** string
+`project`**\*** string · `records`**\*** array · `from` string · `plugin` string
 
-**`createNote`** — Create a note and return it with its new id. Calling it twice creates two notes — search first if the note might already exist.
+**`buildProject`** — Build a project's plugin from its text: gives new records their FormIDs (written back into their files), checks that every reference points at a record that exists, writes the plugin with the header this game version needs, and compiles the project's Papyrus scripts. Fails with the list of broken references, if any. Does not touch Mod Organizer — deployProject does.
 
-_writes_
+_writes · idempotent_
 
-`title`**\*** string · `body` string · `tags` array
+`project`**\*** string
 
-**`updateNote`** — Replace the title, body and/or tags of an existing note. Fields you omit are kept; `tags` replaces the whole list. Returns the note as it now is, and `changed:false` when the note already had these values.
-
-_writes · destructive · idempotent_
-
-`id`**\*** string · `title` string · `body` string · `tags` array
-
-**`deleteNote`** — Delete a note permanently. Answers `deleted:false` rather than failing when the note does not exist, so a repeated call is harmless.
+**`deployProject`** — Put a built project into Mod Organizer: replace its mod folder with the build and the project's assets, enable the mod, and activate the plugin — at the end of the load order when it is new, so it wins over what it patches. A running Mod Organizer is told to re-read its profile. Refuses when the project changed since its build, or when the deployed plugin was changed elsewhere (e.g. in the Creation Kit) — pull that first.
 
 _writes · destructive · idempotent_
 
-`id`**\*** string
+`project`**\*** string
 
-**`listTags`** — Every tag in use and how many notes carry it, most used first. Use it to find the tag to pass to searchNotes.
+**`pullProject`** — Bring changes made to a deployed plugin outside the project — placing objects in the Creation Kit, a fix in xEdit — back into the project's text. Refuses while the project folder has uncommitted changes, so what the pull changes can be reviewed with git diff and undone. Returns the files added, changed and removed.
+
+_writes · destructive · idempotent_
+
+`project`**\*** string
+
+## Records in the load order
+
+From `src/handlers/RecordsHandlers.ts`.
+
+**`findRecords`** — Find records in the active load order — by text in the editor ID or name, or by exact FormIDs and editor IDs. Each row says which plugin defines the record, which one wins, and how many override it. Use `records` to turn the FormIDs in project text into names (and back) before reasoning about them. Placed references, landscape and navmesh are not searched. `total` counts matches before the limit.
 
 _read-only_
 
-Needs the backend feature `tags`; withheld where it is missing.
+`text` string · `records` array · `types` array · `plugin` string · `limit` number, default `25`
 
-_no arguments_
+**`readRecord`** — One record as project text (YAML): by default the version that wins in the load order; with `plugin`, that plugin's version; with `allVersions`, every plugin's version, winning first — compare them to see a conflict. Each version comes with the file path it would have in a project. References inside are FormIDs: resolve them with findRecords.
+
+_read-only_
+
+`record`**\*** string · `plugin` string · `allVersions` boolean
 
 ## This server's own guides
 
@@ -90,4 +99,4 @@ From `src/handlers/DocsHandlers.ts`.
 
 _read-only_
 
-`guide` string, one of router/tool-reference/tools/hosting/development-skills/agents · `section` string
+`guide` string, one of router/tool-reference/tools/hosting/agents · `section` string

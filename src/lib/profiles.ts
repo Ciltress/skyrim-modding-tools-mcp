@@ -18,20 +18,23 @@ import type { ToolDefinition } from '../types/tools.js';
  * "which profile am I even running?".
  */
 
-// TEMPLATE: name your profiles after the client tiers and jobs you serve.
 export type ProfileName = 'core' | 'readonly' | 'all';
 
 /** The server's own guidance. Every profile gets it — it is what weak models lean on. */
 const GUIDANCE = ['readServerGuide', 'readSkill'] as const;
 
-/** Finding and reading. */
-const READ = ['searchNotes', 'readNote'] as const;
+/** Looking records up across the load order. */
+const READ = ['findRecords', 'readRecord'] as const;
 
-/** The smallest write set that can still finish a job it starts. */
-const CORE_WRITE = ['createNote', 'updateNote'] as const;
+/**
+ * The smallest write set that can still finish a job it starts: patch existing records, build the
+ * patch, put it into Mod Organizer. A new mod from scratch and pulling Creation Kit work back need
+ * the full profile.
+ */
+const CORE_WRITE = ['addPatch', 'buildProject', 'deployProject'] as const;
 
-/** Reading beyond the basics. */
-const ANALYSIS = ['listTags'] as const;
+/** Reading beyond the basics. Empty until the analysis wave. */
+const ANALYSIS = [] as const;
 
 export interface ProfileDefinition {
     description: string;

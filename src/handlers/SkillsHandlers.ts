@@ -35,10 +35,10 @@ export class SkillsHandlers extends BaseHandler {
                         idempotentHint: true,
                         openWorldHint: false
                     },
-                    // TEMPLATE: name the kinds of work your domain skills cover.
                     description:
-                        'Bundled agent skills — reusable procedures for working with this server and for ' +
-                        'general engineering (TDD, code review, diagnosing bugs, domain modelling…). Call ' +
+                        'Bundled agent skills — how Skyrim modding works and how to approach it here: the ' +
+                        'basics (plugins, FormIDs, load order, conflicts, the tool landscape) and one skill per ' +
+                        'record family (items and crafting, magic, NPCs, leveled lists). Call ' +
                         "with no arguments to see which exist, then pass `collection` for their descriptions " +
                         "and `skill` to read one. Consult a skill's SKILL.md before starting a task it covers: " +
                         'they carry the conventions and checklists the tool descriptions alone do not.',

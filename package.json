@@ -1,18 +1,20 @@
 {
-  "name": "mcp-template",
+  "name": "skyrim-modding-tools-mcp",
   "version": "0.1.0",
-  "mcpName": "io.github.your-org/mcp-template",
-  "description": "Template for a TypeScript MCP server: one-file tools, profiles, a response budget, self-serving docs and skills, stdio and Streamable HTTP",
+  "mcpName": "io.github.ciltress/skyrim-modding-tools-mcp",
+  "description": "MCP server for Skyrim SE modding: look up records across a Mod Organizer load order, and author mods and patches as text projects built into plugins",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "mcp-template": "dist/index.js"
+    "skyrim-modding-tools-mcp": "dist/index.js"
   },
   "files": [
     "dist",
     "docs",
     "skills",
-    "AGENTS.md"
+    "helper/bin",
+    "AGENTS.md",
+    "CONTEXT.md"
   ],
   "scripts": {
     "test": "vitest run",
@@ -23,15 +25,21 @@
     "dev": "npx @modelcontextprotocol/inspector ./dist/index.js",
     "build": "tsc",
     "docs:tools": "node scripts/generate-tool-docs.mjs",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "build:helper": "dotnet publish helper/SkyrimHelper -c Release -o helper/bin -nologo"
   },
   "keywords": [
     "mcp",
     "model-context-protocol",
-    "template"
+    "skyrim",
+    "skyrim-special-edition",
+    "modding",
+    "mod-organizer",
+    "mutagen",
+    "spriggit"
   ],
   "author": "Andreas Breit",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "engines": {
     "node": ">=24.18.0"
   },

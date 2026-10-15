@@ -19,7 +19,8 @@ const BASE_ENV: NodeJS.ProcessEnv = {
     MCP_GATE: 'off',
     MCP_TRANSPORT: 'http',
     MCP_HTTP_PORT: '0',
-    MCP_HTTP_HOST: '127.0.0.1'
+    MCP_HTTP_HOST: '127.0.0.1',
+    SKYRIM_MO2_INSTANCE: 'test-instance'
 };
 
 const ACCEPTED = ['good-token', 'other-good-token'];
@@ -117,7 +118,7 @@ describe('Streamable HTTP transport', () => {
 
         const response = await post(server.url, toolsList, { ...headers('good-token'), 'mcp-session-id': sessionId });
         expect(response.status).toBe(200);
-        expect(await response.text()).toContain('searchNotes');
+        expect(await response.text()).toContain('findRecords');
     });
 
     it('builds one backend per caller, each with that caller\'s own token', async () => {
@@ -173,9 +174,9 @@ describe('Streamable HTTP transport', () => {
 });
 
 describe('Streamable HTTP with the real backend factory', () => {
-    it('accepts only the tokens EXAMPLE_ACCEPTED_TOKENS names', async () => {
+    it('accepts only the tokens SKYRIM_ACCEPTED_TOKENS names', async () => {
         // No createSessionServer override: this is the wiring that ships.
-        const server = new AppServer({ env: { ...BASE_ENV, EXAMPLE_ACCEPTED_TOKENS: 'let-me-in' } });
+        const server = new AppServer({ env: { ...BASE_ENV, SKYRIM_ACCEPTED_TOKENS: 'let-me-in' } });
         const started = await (server as any).runHttp();
         close = started.close;
         const url = `http://127.0.0.1:${started.port}/mcp`;
@@ -191,7 +192,7 @@ describe('Streamable HTTP with the real backend factory', () => {
 
         const response = await post(`http://127.0.0.1:${started.port}/mcp`, initializeMessage, headers('anything'));
         expect(response.status).toBe(401);
-        expect((await response.json()).error.message).toMatch(/EXAMPLE_ACCEPTED_TOKENS/);
+        expect((await response.json()).error.message).toMatch(/SKYRIM_ACCEPTED_TOKENS/);
     });
 });
 

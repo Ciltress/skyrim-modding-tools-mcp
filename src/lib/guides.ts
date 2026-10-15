@@ -23,7 +23,7 @@ export interface GuideDefinition {
 }
 
 /**
- * TEMPLATE: add a guide by adding an entry here — it then appears as both a
+ * Add a guide by adding an entry here — it then appears as both a
  * resource and a readServerGuide topic. guides.test.ts reads the real files, so
  * a guide moved without updating this list fails the suite, not a client.
  */
@@ -57,19 +57,11 @@ export const GUIDES: readonly GuideDefinition[] = [
     },
     {
         id: 'hosting',
-        title: 'Running it: stdio, Streamable HTTP and Docker',
+        title: 'Running it: stdio and Streamable HTTP',
         file: 'docs/Hosting.md',
         description:
             'The two transports, the per-session bearer token in HTTP mode, the origin and host ' +
-            'allow-lists, the rate limit, and the container image.'
-    },
-    {
-        id: 'development-skills',
-        title: 'Development skills',
-        file: 'docs/Development-Skills.md',
-        description:
-            'The bundled general engineering skills (TDD, code review, diagnosing bugs, domain ' +
-            'modelling, writing for agents), how to reach them, and which fit this repository.'
+            'allow-lists, the rate limit, and why it runs beside the game rather than in a container.'
     },
     {
         id: 'agents',

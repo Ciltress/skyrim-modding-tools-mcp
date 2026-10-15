@@ -13,16 +13,19 @@ const tool = (name: string, needsFeature?: string): ToolDefinition => ({
 });
 
 describe('evaluateGate', () => {
+    // The mechanism, with an example feature of its own: it must not depend on which features this
+    // server happens to declare today.
     const tools = [tool('plain'), tool('tagged', 'tags')];
+    const features = [{ id: 'tags', label: 'tag indexing' }];
 
     it('withholds a tool whose feature the backend does not offer', () => {
-        const gate = evaluateGate(['something-else'], tools);
+        const gate = evaluateGate(['something-else'], tools, features);
         expect(gate.missing).toEqual(['tags']);
         expect([...gate.unavailable.keys()]).toEqual(['tagged']);
     });
 
     it('withholds nothing when the feature is offered, in any case', () => {
-        expect(evaluateGate(['TAGS'], tools).unavailable.size).toBe(0);
+        expect(evaluateGate(['TAGS'], tools, features).unavailable.size).toBe(0);
     });
 
     it.each([
@@ -32,13 +35,13 @@ describe('evaluateGate', () => {
     ])('withholds NOTHING when the capabilities are %s', (_label, capabilities) => {
         // The important one. Hiding a tool that would have worked is invisible;
         // offering one that errors is not. Every unclear answer fails open.
-        const gate = evaluateGate(capabilities, tools);
+        const gate = evaluateGate(capabilities, tools, features);
         expect(gate.unavailable.size).toBe(0);
         expect(gate.missing).toEqual([]);
     });
 
     it('explains itself well enough to stop a retry', () => {
-        const reason = evaluateGate(['x'], tools).unavailable.get('tagged')!;
+        const reason = evaluateGate(['x'], tools, features).unavailable.get('tagged')!;
         expect(reason).toMatch(/does not offer tag indexing/);
         expect(reason).toMatch(/calling it again will not help/);
     });

@@ -1,113 +1,105 @@
-# mcp-template
+# skyrim-modding-tools-mcp
 
-<!-- TEMPLATE: your server's name, one paragraph on what it gives an agent access to, and badges. -->
+An MCP server for **Skyrim Special Edition modding** with Mod Organizer 2. It lets an AI agent look
+records up across your whole load order — who defines a sword, which mods change it, and how — and
+**author mods and patches as text**: records are YAML files in a git-versioned project, built into a
+plugin and deployed into Mod Organizer. The Creation Kit stays for what only it can do (placing
+objects, navmesh); its work is pulled back into the text.
 
-A template for building **MCP servers in TypeScript** that a model uses correctly on the first try —
-whether it runs in an agent harness that fetches tool schemas on demand or in a small local model
-that carries every schema on every turn.
+Plugins are read and written by [Mutagen](https://github.com/Mutagen-Modding/Mutagen); the text is
+[Spriggit](https://github.com/Mutagen-Modding/Spriggit)'s format.
 
-It was extracted from a production MCP server and stripped of its domain. What is left is the
-machinery that made that server reliable, with an in-memory **notes** store standing in for a real
-backend so that every pattern has a working, tested example.
+## What it offers
 
-## What you get
+| Tool | Does |
+| --- | --- |
+| `findRecords` | Search the active load order by name or editor ID; resolve FormIDs to names and back |
+| `readRecord` | One record as project text — the winning version, one plugin's, or every version side by side |
+| `newProject` | Start a new mod |
+| `addPatch` | Copy existing records into a patch as overrides, from their winning version, to change them without touching the original mod |
+| `buildProject` | Text → plugin: assigns FormIDs to new records, checks every reference, compiles Papyrus scripts |
+| `deployProject` | Build → Mod Organizer: mod folder, enabled, plugin at the end of the load order |
+| `pullProject` | Changes made in the Creation Kit or xEdit → back into the text |
 
-- **One-file tools.** A tool is a definition plus a `run(args)` that returns plain data. Dispatch,
-  timing, the MCP envelope and error mapping live in one base class; the router, `tools/list` and the
-  contract tests are all derived from the definitions, so a listed tool is always callable and tested.
-- **Honest annotations.** All four MCP hints on every tool, held there by tests — including on the
-  wire, which is what directories such as OpenAI's check.
-- **Profiles.** `MCP_PROFILE` picks which tools are listed *and* routable, so a small client carries
-  a small menu and `readonly` genuinely cannot write.
-- **A response budget.** An over-sized answer is replaced by valid JSON that names the next step,
-  never by a fragment a model will retry.
-- **A capability gate.** Tools the backend cannot serve are withheld before `tools/list` answers, and
-  every failure path fails open.
-- **Self-documentation.** The guides in `docs/` and the skills in `skills/` are served as MCP
-  resources *and* through `readServerGuide` / `readSkill`, so an agent can look things up by itself.
-- **Session recovery.** Connect on demand, reconnect and retry once after a dropped session, and never
-  retry a refused credential — retries lock accounts.
-- **Two transports.** stdio, and Streamable HTTP with one backend session per caller's bearer token,
-  sessions bound to their token, origin and host allow-lists, and a per-session rate limit.
-- **Docs that cannot drift.** The tool reference is generated and a test compares it; `server.json`
-  is checked against every environment variable the code reads.
-- **A container.** A two-stage Dockerfile that ships the docs and skills the server reads at runtime.
+Plus `healthcheck`, and the server's own guides (`readServerGuide`) and modding skills (`readSkill`):
+how plugins, FormIDs, load order and conflicts work, the community's tools, and one reference per
+record family — items and crafting, magic, NPCs, leveled lists.
 
-## Quick start
+## Requirements
+
+- Windows, **Node.js 24**, git (with Git LFS for project assets)
+- **Skyrim Special Edition** 1.5.97 to 1.7.x, managed by **Mod Organizer 2** (2.5)
+- The **.NET 10 SDK** to build the plugin helper; the .NET 10 runtime to run it
+- The **Creation Kit** (free on Steam) for compiling Papyrus scripts — optional otherwise. Its
+  compiler needs **.NET Framework 3.5** (Windows Features)
+
+## Setup
 
 ```bash
-git clone --recurse-submodules <this repository> my-server
-cd my-server
+git clone <this repository>
+cd skyrim-modding-tools-mcp
 npm install
-npm run build
-npm test
-npm run smoke        # drives the built server over stdio
-npm run dev          # the MCP Inspector, against the build
+npm run build:helper   # the .NET plugin helper -> helper/bin
+npm run build          # the server -> dist/
+copy .env.example .env # then set SKYRIM_MO2_INSTANCE
 ```
 
-Register it with a client:
+Register it with a client — Claude Code, Claude Desktop, VS Code:
 
 ```json
 {
   "mcpServers": {
-    "notes": {
+    "skyrim": {
       "command": "node",
-      "args": ["C:/path/to/my-server/dist/index.js"]
+      "args": ["C:/path/to/skyrim-modding-tools-mcp/dist/index.js"],
+      "env": { "SKYRIM_MO2_INSTANCE": "G:\\Modding\\SkyrimSE-Test" }
     }
   }
 }
 ```
 
-## Making it yours
+Then ask `healthcheck` whether it found your instance, profile and game version.
 
-[`AGENTS.md`](AGENTS.md#starting-a-new-server-from-this-template) has the step-by-step list. In short:
-rename it in `package.json` and `server.json`, replace the backend in `src/backend/` and the tools in
-`src/handlers/`, rewrite the domain parts of the docs, and swap the example skill. Every place that
-needs a decision is marked `TEMPLATE:`:
-
-```bash
-grep -rn "TEMPLATE" --exclude-dir=node_modules --exclude-dir=dist .
-```
-
-Asking an agent to do it? Point it at `AGENTS.md` first — it was written for exactly that.
+**Work on a test instance.** Deploys write into the instance's mods and profile. A dedicated
+portable Mod Organizer on a clean game is the safe place to learn the tools — and if your instance
+was installed by Wabbajack, an update deletes every mod it did not install.
 
 ## Configuration
 
-Everything is optional; the example runs with no configuration. See [`.env.example`](.env.example).
+See [`.env.example`](.env.example).
 
 | Variable | Default | Effect |
 | --- | --- | --- |
+| `SKYRIM_MO2_INSTANCE` | — (required) | The Mod Organizer instance folder; the server follows its selected profile |
+| `SKYRIM_PROJECTS_DIR` | `./projects` | Where projects live |
+| `SKYRIM_CK_DIR` | the instance's game folder | The Creation Kit, for its Papyrus compiler |
+| `SKYRIM_HELPER_PATH` | `helper/bin/SkyrimHelper.exe` | The built plugin helper |
 | `MCP_PROFILE` | `all` | `core`, `readonly` or `all` — which tools are listed and callable |
 | `MCP_MAX_RESPONSE_BYTES` | per profile | Ceiling on one answer; `0` removes it |
-| `MCP_GATE` | on | `off` skips asking the backend which features it has |
-| `MCP_TRANSPORT` | `stdio` | `http` for Streamable HTTP at `/mcp` |
-| `MCP_HTTP_PORT`, `MCP_HTTP_HOST` | `3000`, `0.0.0.0` | Where HTTP mode listens |
-| `MCP_HTTP_ALLOWED_ORIGINS` | none | Browser origins allowed; `*` for any |
-| `MCP_HTTP_ALLOWED_HOSTS` | any | `Host` values answered to |
-| `MCP_HTTP_RATE_LIMIT` | `0` (off) | Requests per minute per session |
-| `EXAMPLE_ACCEPTED_TOKENS` | none | Example backend: bearer tokens HTTP callers may present |
-
-Running it for a team, over HTTP or in Docker: [`docs/Hosting.md`](docs/Hosting.md).
+| `MCP_TRANSPORT` | `stdio` | `http` for Streamable HTTP at `/mcp` — see [`docs/Hosting.md`](docs/Hosting.md) |
+| `SKYRIM_ACCEPTED_TOKENS` | none | HTTP mode: the bearer tokens callers may present |
 
 ## Documentation
 
 | Document | For |
 | --- | --- |
-| [`AGENTS.md`](AGENTS.md) | Working on this code — conventions, layout, how to test, how to start a new server |
-| [`docs/MCP-Tools.md`](docs/MCP-Tools.md) | How the server behaves: architecture, profiles, budget, gate, errors, troubleshooting |
 | [`docs/Tool-Router.md`](docs/Tool-Router.md) | Which tool does what, in the words people use |
+| [`docs/MCP-Tools.md`](docs/MCP-Tools.md) | How the server behaves: rules, architecture, workflows, errors, troubleshooting |
 | [`docs/Tool-Reference.md`](docs/Tool-Reference.md) | Every tool and argument — generated, never edited by hand |
-| [`docs/Hosting.md`](docs/Hosting.md) | stdio, Streamable HTTP, Docker |
-| [`docs/Development-Skills.md`](docs/Development-Skills.md) | The bundled engineering skills |
+| [`skills/`](skills) | The modding knowledge the server serves to agents |
 | [`CONTEXT.md`](CONTEXT.md), [`docs/adr`](docs/adr) | Vocabulary and design decisions |
+| [`docs/research`](docs/research) | The research the design rests on |
+| [`AGENTS.md`](AGENTS.md) | Working on this code |
+| [`docs/Hosting.md`](docs/Hosting.md) | stdio, Streamable HTTP, Docker |
 
 The guides are served to clients too: ask the running server with `readServerGuide`.
 
 ## Development
 
 ```bash
+npm run build:helper   # dotnet publish helper/SkyrimHelper -> helper/bin
 npm run build          # tsc -> dist/
-npm test               # vitest, fully offline
+npm test               # vitest, fully offline: no game, no helper needed
 npx tsc --noEmit       # type check only
 npm run docs:tools     # regenerate docs/Tool-Reference.md after changing a tool (needs a build)
 npm run smoke          # the built server over real stdio
@@ -115,4 +107,6 @@ npm run smoke          # the built server over real stdio
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+GPL-3.0 — see [`LICENSE`](LICENSE). The plugin engine, Mutagen, is GPL-3.0; [ADR-0006](docs/adr/0006-gpl-3.md)
+explains why the whole project follows it. Copyright © 2026 Andreas Breit; co-authored with Claude
+(Anthropic).

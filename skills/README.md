@@ -10,34 +10,21 @@ A collection is one directory here. Inside it, skills live under its own `skills
 one, at any depth; every directory containing a `SKILL.md` is one skill, and everything beside the
 `SKILL.md` is a supporting file `readSkill` can return.
 
-## Provenance
+## Domain
 
-| Collection | Upstream | Tracked as |
+[`Domain`](Domain) holds the Skyrim modding skills, ours to edit:
+
+| Skill | Covers | Supporting files |
 | --- | --- | --- |
-| [`Domain`](Domain) | this repository | **vendored** — ours, edit freely |
-| [`Development`](Development) | [mattpocock/skills](https://github.com/mattpocock/skills) | **git submodule** — do not edit |
+| `skyrim-modding-basics` | Plugins, masters, FormIDs, load order and mod order, overrides and patches, archives, game versions and SKSE, Papyrus and saves, where errors show up, what a project looks like | `REFERENCE.md`, `TOOLS.md` (the community's tools) |
+| `items-and-crafting` | Weapons, armor and addons, ammo, potions, books, recipes and tempering | `REFERENCE.md` |
+| `magic` | Spells, magic effects, enchantments, scrolls, shouts, how perks reach magic | `REFERENCE.md` |
+| `npcs` | NPCs, templates, FaceGen, outfits, factions, AI packages, followers | `REFERENCE.md` |
+| `leveled-lists` | Leveled items, NPCs and spells: how a pick works, the conflict problem | `REFERENCE.md` |
 
-<!-- TEMPLATE: replace skills/Domain/skills/notes-workflow with skills for your domain. -->
-
-**Domain** holds the skills for working with whatever this server wraps. The template ships one
-example, `notes-workflow`, with one supporting file.
-
-**Development** is a submodule because we do not modify it: upstream stays the source of truth and
-updates arrive with one command. See [`docs/Development-Skills.md`](../docs/Development-Skills.md).
-
-### Cloning
-
-A plain `git clone` leaves `skills/Development` **empty**. Either clone with submodules:
-
-```bash
-git clone --recurse-submodules <repository>
-```
-
-or initialise them afterwards:
-
-```bash
-git submodule update --init --recursive
-```
+Each `SKILL.md` stays short and points at its `REFERENCE.md`, where the record family's fields,
+gotchas, real project text and typical bugs live. The record families' tool workflows are still to
+be written (marked `STEP 2:`).
 
 ### A SKILL.md
 

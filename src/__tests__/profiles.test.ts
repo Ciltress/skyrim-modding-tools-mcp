@@ -66,8 +66,8 @@ describe('applyProfile', () => {
     it('throws when a profile names a tool no handler provides', () => {
         // A rename that misses profiles.ts must break the build, not silently
         // drop the tool from every profile that listed it.
-        expect(() => applyProfile('core', [tool('searchNotes')])).toThrow(ProfileError);
-        expect(() => applyProfile('core', [tool('searchNotes')])).toThrow(/Update src\/lib\/profiles\.ts/);
+        expect(() => applyProfile('core', [tool('findRecords')])).toThrow(ProfileError);
+        expect(() => applyProfile('core', [tool('findRecords')])).toThrow(/Update src\/lib\/profiles\.ts/);
     });
 });
 
@@ -94,9 +94,11 @@ describe('profile definitions', () => {
     });
 
     it('gives core a write it can finish, not half a cycle', () => {
-        // TEMPLATE: a profile that can start a job it cannot complete is worse
-        // than one that cannot start it. Assert the complete set here.
-        expect(named('core')).toEqual(expect.arrayContaining(['createNote', 'updateNote', 'readNote']));
+        // A profile that can start a job it cannot complete is worse than one
+        // that cannot start it: a patch it can create, it must also be able to
+        // build and deploy.
+        expect(named('core')).toEqual(expect.arrayContaining(
+            ['findRecords', 'readRecord', 'addPatch', 'buildProject', 'deployProject']));
     });
 
     it('lists no tool twice', () => {

@@ -92,21 +92,21 @@ describe('capToolResult', () => {
         // A cut-off fragment of the original would be unparseable, and a model
         // handed one retries the same call instead of narrowing it.
         const capped = capToolResult(
-            'searchNotes',
+            'findRecords',
             envelope(JSON.stringify({ big: 'x'.repeat(50_000) })),
             24_000,
-            hintOf('searchNotes')
+            hintOf('findRecords')
         );
         expect(capped.truncated).toBe(true);
 
         const parsed = JSON.parse(capped.result.content[0].text);
         expect(parsed.status).toBe('truncated');
-        expect(parsed.tool).toBe('searchNotes');
+        expect(parsed.tool).toBe('findRecords');
         expect(parsed.budget).toBe(24_000);
         expect(parsed.bytes).toBeGreaterThan(24_000);
         expect(parsed.otherwise).toMatch(/MCP_MAX_RESPONSE_BYTES/);
         expect(parsed.otherwise).toMatch(/Retrying this exact call/);
-        // searchNotes has a specific move, so the generic advice must not appear.
+        // findRecords has a specific move, so the generic advice must not appear.
         expect(parsed.nextStep).toMatch(/limit/);
         expect(parsed.nextStep).not.toBe(GENERIC_NARROWING_HINT);
         expect(typeof parsed.preview).toBe('string');
@@ -148,8 +148,7 @@ describe('the hints the catalogue carries', () => {
     });
 
     it('carries a hint on every tool that can answer large', () => {
-        // TEMPLATE: list your tools that return documents or unbounded rows.
-        for (const name of ['readServerGuide', 'readSkill', 'searchNotes']) {
+        for (const name of ['readServerGuide', 'readSkill', 'findRecords', 'readRecord']) {
             expect(`${name}: ${hintOf(name) ? 'has a hint' : 'MISSING'}`).toBe(`${name}: has a hint`);
         }
     });
