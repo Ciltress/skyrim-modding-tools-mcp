@@ -44,8 +44,9 @@ Every authoring task runs this loop; each record-family skill adds what its reco
 2. **Get the text.**
    - A record of the base game or another mod: `addPatch` copies its winning version into the project
      and answers each copy's path and text.
-   - A new record: `newProject` once, then write the file into `plugin/<group folder>/`, mirroring a
-     vanilla record of the same type read with `readRecord`. Leave out `FormKey`.
+   - A new record: `newProject` once, then write the file where its answer's `writeRecordsTo` says —
+     the project's plugin folder, in the type's group folder — mirroring a vanilla record of the same
+     type read with `readRecord`: the same field names and nesting, other values. Leave out `FormKey`.
    - One of the project's own records: its file is already there.
 3. **Edit** with your file tools — only the fields the task names; the rest stays as copied. Look up
    every FormID before you write it. Scripts and files such as meshes have folders of their own

@@ -255,6 +255,7 @@ function scriptedHelper() {
                     write(path.join(params.outputDir, 'Weapons', 'Sword - 000800_MyPatch.esp.yaml'), 'FormKey: 000800:MyPatch.esp\nEditorID: Sword\n');
                     return { files: 2 };
                 // Every downloaded file holds one plain mod in a wrapper folder.
+                case 'checkRecords': return { records: 1 };
                 case 'readArchive': return { files: ['Plain Mod/PlainMod.esp', 'Plain Mod/textures/a.dds'] };
                 case 'extractArchive':
                     for (const { from, to } of params.files) write(path.join(params.targetDir, to), from);
@@ -295,6 +296,7 @@ describe('deploying into Amethyst', () => {
     it('deploys a project, has Amethyst link it in, and keeps a deployed hard link current', async () => {
         const { setup, backend, runs, project } = makeBackend();
         await backend.newProject({ project: 'MyPatch' });
+        write(path.join(project, 'plugin', 'Weapons', 'Sword - 000800_MyPatch.esp.yaml'), 'FormKey: 000800:MyPatch.esp\n');
         age(project);
         await backend.buildProject('MyPatch');
         const deployed = await backend.deployProject('MyPatch');
@@ -318,6 +320,7 @@ describe('deploying into Amethyst', () => {
     it('guards a plugin the Creation Kit saved over the link in Data, pulls it, and clears it on deploy', async () => {
         const { setup, backend, project } = makeBackend();
         await backend.newProject({ project: 'MyPatch' });
+        write(path.join(project, 'plugin', 'Weapons', 'Sword - 000800_MyPatch.esp.yaml'), 'FormKey: 000800:MyPatch.esp\n');
         age(project);
         await backend.buildProject('MyPatch');
         await backend.deployProject('MyPatch');

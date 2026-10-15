@@ -13,8 +13,9 @@ import {
 import type { Instance } from './modManager.js';
 import { findCaseInsensitive } from './paths.js';
 import {
-    ProjectError, assignFormIds, createProject, fileHash, newestSourceTime, projectExists,
-    projectInfo, projectPaths, readDeployState, readProjectHeader, syncFolder, syncYaml, writeDeployState
+    ProjectError, assignFormIds, createProject, fileHash, looseRecordFiles, newestSourceTime, projectExists,
+    projectInfo, projectPaths, readDeployState, readProjectHeader, recordFiles, strayRecordFiles, syncFolder, syncYaml,
+    whereRecordsGo, writeDeployState
 } from './projects.js';
 import type { SkyrimEngine } from './engine.js';
 import { NexusCatalogue, markDownloadInstalled, readDownloadMeta } from './nexus.js';
@@ -260,6 +261,25 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         await this.engine.ensureFresh();
         const paths = projectPaths(this.engine.projectsDir, project);
         const { plugin, light } = readProjectHeader(paths);
+
+        // A build of nothing succeeded, and small models took it for done (eval round 9): name what is
+        // missing, and the record files no build would read.
+        const strays = strayRecordFiles(paths);
+        if (strays.length > 0) {
+            throw new ProjectError(
+                `${strays.length} record file(s) of '${project}' are outside its plugin folder, where no build reads them: ` +
+                `${strays.join(', ')}. Move each into its group's folder in ${paths.plugin} — a weapon as ` +
+                `${path.join(paths.plugin, 'Weapons', path.basename(strays[0]))} — then build again.`);
+        }
+        if (recordFiles(paths.plugin).length === 0) {
+            const loose = looseRecordFiles(this.engine.projectsDir);
+            throw new ProjectError(
+                `'${project}' has no records to build: ${whereRecordsGo(paths)} Mirror a vanilla record of the same type ` +
+                `(readRecord), leaving FormKey out.` +
+                (loose.length > 0 ? ` Record files that belong to no project: ${loose.join(', ')} — move those that are this project's.` : ''));
+        }
+        // Fields a record type does not have, folders that are no group: named while the files keep the names given them.
+        await this.engine.helper.call('checkRecords', { projectPluginDir: paths.plugin });
 
         const assignedFormIds = assignFormIds(paths.plugin, plugin, light);
         // Every build starts from nothing, so a script deleted from the project leaves no .pex behind.

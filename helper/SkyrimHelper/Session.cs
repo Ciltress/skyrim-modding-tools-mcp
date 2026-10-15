@@ -34,8 +34,8 @@ public sealed class Session : IDisposable
     public async Task<JsonNode?> Dispatch(string method, JsonObject p)
     {
         // Overlays are read by one thread at a time: whatever reads plugins waits for the background index.
-        // Downloaded files and plugin headers are read from files of their own, and need not wait.
-        if (method is not ("hello" or "gameVersion" or "setLoadOrder" or "readArchive" or "extractArchive" or "pluginHeaders")
+        // Downloaded files, plugin headers and record files are read from files of their own, and need not wait.
+        if (method is not ("hello" or "gameVersion" or "setLoadOrder" or "readArchive" or "extractArchive" or "pluginHeaders" or "checkRecords")
             && indexing is { } running)
         {
             try { await running; } catch { /* surfaced by the call that needs the index */ }
@@ -56,6 +56,7 @@ public sealed class Session : IDisposable
         "readArchive" => Archives.Read(p),
         "extractArchive" => Archives.Extract(p),
         "pluginHeaders" => PluginHeaders(p),
+        "checkRecords" => new JsonObject { ["records"] = RecordFiles.Require(Required(p, "projectPluginDir")) },
         _ => throw new HelperException("unknownMethod", $"No method '{method}'.")
     };
 
@@ -333,7 +334,17 @@ public sealed class Session : IDisposable
         if (!File.Exists(Path.Combine(dir, "RecordData.yaml")))
             throw new HelperException("notFound", $"No RecordData.yaml in '{dir}': this is not a project's plugin folder.");
 
-        var deserialized = await MutagenYamlConverter.Instance.Deserialize(dir);
+        // What the reader would skip or fail on without saying why, named first (RecordFiles).
+        RecordFiles.Require(dir);
+        IModGetter deserialized;
+        try
+        {
+            deserialized = await MutagenYamlConverter.Instance.Deserialize(dir);
+        }
+        catch (Exception e) when (e is not HelperException)
+        {
+            throw RecordFiles.Unreadable(e, dir);
+        }
         if (deserialized is not ISkyrimMod mod) throw new HelperException("badRequest", "The project is not a Skyrim plugin.");
         mod.ModHeader.Stats.Version = headerVersion;
         // xEdit's Check for Errors requires an author in the header; the Creation Kit writes this one.

@@ -321,6 +321,13 @@ function scriptedHelper(archives = new Map<string, FakeArchive>(), masters: Reco
                             path: file, masters: masters[path.basename(file)] ?? ['Skyrim.esm'], master: /\.esm$/i.test(file), light: false
                         }))
                     };
+                case 'checkRecords': {
+                    // As the helper does with fields a record type does not have: refused, naming the file.
+                    const files = fs.readdirSync(params.projectPluginDir, { recursive: true }).map(String).filter(f => f.endsWith('.yaml') && f !== 'RecordData.yaml');
+                    const invented = files.find(f => fs.readFileSync(path.join(params.projectPluginDir, f), 'utf8').includes('damage:'));
+                    if (invented) throw new HelperError('badRecord', `1 record file(s) cannot be built as written: ${invented}: a Weapon has no field damage.`);
+                    return { records: files.length };
+                }
                 default: throw new Error(`unexpected helper call ${method}`);
             }
         }
@@ -360,6 +367,12 @@ function makeBackend(options: { nexus?: NexusCatalogue } = {}) {
         return file;
     };
     return { fixture, backend, calls, engine, startProgram, download, masters };
+}
+
+/** A new project with one record in it: a build of a project without any is refused. */
+async function newProjectWithRecord(backend: SkyrimInstanceBackend, projects: string, project: string) {
+    await backend.newProject({ project });
+    write(path.join(projects, project, 'plugin', 'Weapons', `Sword - 000800_${project}.esp.yaml`), `FormKey: 000800:${project}.esp\nEditorID: ${project}Sword\n`);
 }
 
 /** Moves the clock of a folder's files and folders back, so a build made "now" is newer than the sources. */
@@ -446,6 +459,45 @@ describe('the Skyrim backend', () => {
             .rejects.toThrow(/Shared\.esp is already .*`from`/);
         expect(fs.existsSync(path.join(fixture.projects, 'MyMod'))).toBe(false);
         expect(fs.existsSync(path.join(fixture.projects, 'IronSwordBuff'))).toBe(false);
+    });
+
+    it('says where a new record\'s file goes, as a full path, when it creates a project', async () => {
+        const { backend, fixture } = makeBackend();
+        const created = await backend.newProject({ project: 'FlameBlade' });
+        expect(created.writeRecordsTo).toContain(path.join(fixture.projects, 'FlameBlade', 'plugin', 'Weapons', ''));
+        expect(created.writeRecordsTo).toMatch(/Npcs/);
+    });
+
+    it('builds nothing from a project without records, or with record files outside its plugin folder — naming them', async () => {
+        // Where round 9's models put their records: the project folder, and the projects folder itself.
+        const { backend, fixture, calls } = makeBackend();
+        await backend.newProject({ project: 'FlameBlade' });
+        const plugin = path.join(fixture.projects, 'FlameBlade', 'plugin');
+        await expect(backend.buildProject('FlameBlade')).rejects.toThrow(/has no records.*Weapons/);
+
+        const misplaced = path.join(fixture.projects, 'FlameBlade', 'Weapons', 'FlameBlade.yaml');
+        write(misplaced, 'EditorID: FlameBlade\n');
+        write(path.join(plugin, 'Weapons', 'Kept - 000800_FlameBlade.esp.yaml'), 'FormKey: 000800:FlameBlade.esp\n');
+        await expect(backend.buildProject('FlameBlade')).rejects.toThrow(
+            new RegExp(`outside its plugin folder.*${misplaced.replace(/[\\.]/g, '\\$&')}`));
+
+        fs.rmSync(path.join(plugin, 'Weapons'), { recursive: true });
+        fs.rmSync(path.dirname(misplaced), { recursive: true });
+        const loose = path.join(fixture.projects, 'Spells', 'StormBolt.yaml');
+        write(loose, 'EditorID: StormBolt\n');
+        await expect(backend.buildProject('FlameBlade')).rejects.toThrow(new RegExp(`has no records.*${loose.replace(/[\\.]/g, '\\$&')}`));
+        expect(calls.some(c => c.method === 'build')).toBe(false);
+    });
+
+    it('has the record files checked before any of them gets a FormID, so an unbuildable one keeps its name', async () => {
+        const { backend, fixture } = makeBackend();
+        await backend.newProject({ project: 'FlameBlade' });
+        const invented = path.join(fixture.projects, 'FlameBlade', 'plugin', 'Weapons', 'FlameBlade.yaml');
+        write(invented, 'EditorID: FlameBlade\ndamage: 18\n');
+        const refused = backend.buildProject('FlameBlade');
+        await expect(refused).rejects.toThrow(/has no field damage/);
+        await expect(asRequestError(backend.buildProject('FlameBlade'))).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
+        expect(fs.readFileSync(invented, 'utf8')).not.toMatch(/FormKey/);
     });
 
     it('patches, builds, deploys and pulls a project — and guards each step', async () => {
@@ -566,7 +618,7 @@ describe('the Skyrim backend', () => {
 
     it('refuses to deploy while this instance\'s Mod Organizer runs and cannot be told to re-read its profile', async () => {
         const { backend, fixture, startProgram } = makeBackend();
-        await backend.newProject({ project: 'Quiet' });
+        await newProjectWithRecord(backend, fixture.projects, 'Quiet');
         age(path.join(fixture.projects, 'Quiet'));
         await backend.buildProject('Quiet');
         const modList = fs.readFileSync(path.join(fixture.profile, 'modlist.txt'), 'utf8');
@@ -583,7 +635,7 @@ describe('the Skyrim backend', () => {
 
     it('deploys while another instance\'s Mod Organizer runs: this one reads the profile when it starts', async () => {
         const { backend, fixture, startProgram } = makeBackend();
-        await backend.newProject({ project: 'Elsewhere' });
+        await newProjectWithRecord(backend, fixture.projects, 'Elsewhere');
         age(path.join(fixture.projects, 'Elsewhere'));
         await backend.buildProject('Elsewhere');
         startProgram(4243, path.join(fixture.root, 'other-mo2', 'ModOrganizer.exe'));
@@ -593,7 +645,7 @@ describe('the Skyrim backend', () => {
 
     it('never deploys over a mod of the same name that it did not deploy', async () => {
         const { backend, fixture } = makeBackend();
-        await backend.newProject({ project: 'HighMod' });
+        await newProjectWithRecord(backend, fixture.projects, 'HighMod');
         age(path.join(fixture.projects, 'HighMod'));
         await backend.buildProject('HighMod');
         await expect(backend.deployProject('HighMod')).rejects.toThrow(/already exists in the instance/);
@@ -602,7 +654,7 @@ describe('the Skyrim backend', () => {
 
     it('leaves nothing to deploy when a build fails, and nothing of an earlier build behind', async () => {
         const { backend, fixture } = makeBackend();
-        await backend.newProject({ project: 'Scripted' });
+        await newProjectWithRecord(backend, fixture.projects, 'Scripted');
         const root = path.join(fixture.projects, 'Scripted');
         age(root);
         await backend.buildProject('Scripted');
@@ -659,7 +711,7 @@ describe('the Skyrim backend', () => {
 
     it('refuses a first deploy that a plugin of the same name in overwrite would hide', async () => {
         const { backend, fixture } = makeBackend();
-        await backend.newProject({ project: 'Hidden' });
+        await newProjectWithRecord(backend, fixture.projects, 'Hidden');
         age(path.join(fixture.projects, 'Hidden'));
         await backend.buildProject('Hidden');
         write(path.join(fixture.instanceDir, 'overwrite', 'Hidden.esp'), 'someone else\'s');
@@ -874,7 +926,7 @@ describe('installing a mod', () => {
 
     it('never installs over a project\'s mod — the project deploys it', async () => {
         const { backend, fixture, download } = makeBackend();
-        await backend.newProject({ project: 'Quiet' });
+        await newProjectWithRecord(backend, fixture.projects, 'Quiet');
         age(path.join(fixture.projects, 'Quiet'));
         await backend.buildProject('Quiet');
         await backend.deployProject('Quiet');

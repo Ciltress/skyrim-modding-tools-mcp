@@ -100,7 +100,10 @@ export class InMemorySkyrimBackend implements AppBackend {
 
     private info(name: string, created: boolean): ProjectInfo {
         const project = this.projects.get(name)!;
-        return { project: name, plugin: project.plugin, light: project.light, path: `projects/${name}`, pluginFolder: `projects/${name}/plugin`, created };
+        return {
+            project: name, plugin: project.plugin, light: project.light, path: `projects/${name}`, pluginFolder: `projects/${name}/plugin`,
+            writeRecordsTo: `One YAML file per record, in its type's group folder inside projects/${name}/plugin.`, created
+        };
     }
 
     private existing(name: string): FakeProject {

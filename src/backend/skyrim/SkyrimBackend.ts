@@ -99,6 +99,8 @@ export interface ProjectInfo {
     path: string;
     /** Where its records live, one YAML file each. */
     pluginFolder: string;
+    /** Where a record's file goes, in full paths, and the group folders' names. */
+    writeRecordsTo: string;
     created: boolean;
 }
 

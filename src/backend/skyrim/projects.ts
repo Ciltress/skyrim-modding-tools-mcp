@@ -67,7 +67,64 @@ export function readProjectHeader(paths: ProjectPaths): { plugin: string; light:
 
 export function projectInfo(name: string, paths: ProjectPaths, created: boolean): ProjectInfo {
     const { plugin, light } = readProjectHeader(paths);
-    return { project: name, plugin, light, path: paths.root, pluginFolder: paths.plugin, created };
+    return { project: name, plugin, light, path: paths.root, pluginFolder: paths.plugin, writeRecordsTo: whereRecordsGo(paths), created };
+}
+
+/** The group folders of the everyday record types, as Spriggit names them. */
+const GROUP_FOLDERS = 'Weapons, Armors, Spells, MagicEffects, ObjectEffects (enchantments), Npcs, LeveledItems';
+
+/**
+ * Where a record's file goes, in full paths. Given an example relative to the plugin folder, small
+ * models joined it to the project folder, and the build never read their records (eval round 9).
+ */
+export function whereRecordsGo(paths: ProjectPaths): string {
+    return `One YAML file per record, in its type's group folder inside ${paths.plugin} — a new weapon as ` +
+        `${path.join(paths.plugin, 'Weapons', 'MyWeapon.yaml')}. The group folders are named as readRecord's ` +
+        `pathInPluginFolder names them: ${GROUP_FOLDERS}.`;
+}
+
+/** YAML files in a project's folder but outside its plugin folder and build output: no build reads them. */
+export function strayRecordFiles(paths: ProjectPaths): string[] {
+    const skip = new Set([paths.plugin, paths.build].map(dir => path.resolve(dir).toLowerCase()));
+    return yamlFilesUnder(paths.root, dir => !skip.has(path.resolve(dir).toLowerCase()));
+}
+
+/** YAML files in the projects folder that belong to no project: on its top, or in a folder that is no project. */
+export function looseRecordFiles(projectsDir: string): string[] {
+    let entries: fs.Dirent[];
+    try {
+        entries = fs.readdirSync(projectsDir, { withFileTypes: true });
+    } catch {
+        return [];
+    }
+    return entries.flatMap(entry => {
+        const full = path.join(projectsDir, entry.name);
+        if (entry.isFile()) return /\.ya?ml$/i.test(entry.name) ? [full] : [];
+        const isProject = fs.existsSync(path.join(full, 'plugin', 'RecordData.yaml'));
+        return entry.isDirectory() && !isProject && !entry.name.startsWith('.') ? yamlFilesUnder(full, () => true) : [];
+    }).sort();
+}
+
+function yamlFilesUnder(root: string, descend: (dir: string) => boolean): string[] {
+    const found: string[] = [];
+    const walk = (dir: string) => {
+        let entries: fs.Dirent[];
+        try {
+            entries = fs.readdirSync(dir, { withFileTypes: true });
+        } catch {
+            return;
+        }
+        for (const entry of entries) {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                if (!entry.name.startsWith('.') && descend(full)) walk(full);
+            } else if (/\.ya?ml$/i.test(entry.name)) {
+                found.push(full);
+            }
+        }
+    };
+    walk(root);
+    return found.sort();
 }
 
 export function createProject(paths: ProjectPaths, plugin: string, light: boolean): void {

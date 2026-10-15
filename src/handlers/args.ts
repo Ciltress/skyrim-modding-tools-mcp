@@ -119,7 +119,7 @@ export function limitArg(args: any, fallback: number, max: number): number {
  * than a server fault. What is missing on the machine — a compiler, a writable disk, a way to Nexus —
  * is not the request's fault and passes through to BaseHandler's mapping, as does everything else.
  */
-const REQUEST_ERRORS = new Set(['notFound', 'badRequest', 'badArchive', 'danglingLinks', 'writeFailed']);
+const REQUEST_ERRORS = new Set(['notFound', 'badRequest', 'badArchive', 'badRecord', 'danglingLinks', 'writeFailed']);
 
 export async function asRequestError<T>(work: Promise<T> | T): Promise<T> {
     try {

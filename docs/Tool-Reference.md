@@ -85,7 +85,7 @@ Needs the backend feature `nexus-premium`; withheld where it is missing.
 
 From `src/handlers/ProjectsHandlers.ts`.
 
-**`newProject`** — Create an empty project for a new mod: a plugin folder holding RecordData.yaml. Add records by writing YAML files into it (one file per record, in the group's folder, e.g. Weapons/MySword.yaml — leave out FormKey, the build assigns one). To change records other mods already have, use addPatch instead. Returns the folder to write into.
+**`newProject`** — Create an empty project for a new mod. Add records by writing YAML files into its plugin folder — one file per record, in its type's group folder there; the answer's `writeRecordsTo` gives the full path, so never write into the project folder itself. Write each record the way readRecord shows a vanilla one of its type, and leave out FormKey: the build assigns one. To change records other mods already have, use addPatch instead.
 
 _writes · idempotent_
 
@@ -97,7 +97,7 @@ _writes · idempotent_
 
 `project`**\*** string · `records`**\*** array · `from` string · `plugin` string
 
-**`buildProject`** — Build a project's plugin from its text: gives new records their FormIDs (written back into their files), checks that every link (a FormID in a field) points at a record that exists, compiles the project's Papyrus scripts and writes the plugin with the header this game version needs. Fails with the list of broken links, if any. Does not touch the mod manager — deployProject does.
+**`buildProject`** — Build a project's plugin from its text: gives new records their FormIDs (written back into their files), checks that every link (a FormID in a field) points at a record that exists, compiles the project's Papyrus scripts and writes the plugin with the header this game version needs. Refuses a project with no records, record files outside its plugin folder, and fields a record type does not have — each named; fails with the list of broken links, if any. Does not touch the mod manager — deployProject does.
 
 _writes · idempotent_
 
