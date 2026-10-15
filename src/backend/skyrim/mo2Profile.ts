@@ -47,37 +47,37 @@ export function enableMod(instance: Instance, mod: string): boolean {
 }
 
 /**
- * Activates a plugin in plugins.txt and puts it at the end of loadorder.txt when it is not there —
- * after every plugin it could override. A plugin already in the load order keeps its place.
+ * Activates plugins in plugins.txt and puts each one not there at the end of loadorder.txt, in the
+ * order given — after every plugin it could override. A plugin already in the load order keeps its place.
  */
-export function activatePlugin(instance: Instance, plugin: string): { pluginActive: boolean; addedToLoadOrder: boolean } {
-    const same = (line: string) => line.replace(/^\*/, '').toLowerCase() === plugin.toLowerCase();
+export function activatePlugins(instance: Instance, plugins: readonly string[]): { activated: string[]; addedToLoadOrder: string[] } {
+    const same = (plugin: string) => (line: string) => line.replace(/^\*/, '').toLowerCase() === plugin.toLowerCase();
 
     const pluginsFile = path.join(instance.profileDir, 'plugins.txt');
     // The system codepage, as MO2 writes it; latin1 is the Western one.
-    const plugins = readLines(pluginsFile, 'latin1');
-    const at = plugins.findIndex(same);
-    let pluginActive = false;
-    if (at < 0) {
-        plugins.push(`*${plugin}`);
-        pluginActive = true;
-    } else if (!plugins[at].startsWith('*')) {
-        plugins[at] = `*${plugin}`;
-        pluginActive = true;
+    const lines = readLines(pluginsFile, 'latin1');
+    const activated: string[] = [];
+    for (const plugin of plugins) {
+        const at = lines.findIndex(same(plugin));
+        if (at >= 0 && lines[at].startsWith('*')) continue;
+        if (at < 0) lines.push(`*${plugin}`);
+        else lines[at] = `*${plugin}`;
+        activated.push(plugin);
     }
-    if (pluginActive) writeLines(pluginsFile, plugins, 'latin1');
+    if (activated.length > 0) writeLines(pluginsFile, lines, 'latin1');
 
     const orderFile = path.join(instance.profileDir, 'loadorder.txt');
-    let addedToLoadOrder = false;
+    const addedToLoadOrder: string[] = [];
     if (fs.existsSync(orderFile)) {
         const order = readLines(orderFile, 'utf8');
-        if (!order.some(same)) {
+        for (const plugin of plugins) {
+            if (order.some(same(plugin))) continue;
             order.push(plugin);
-            writeLines(orderFile, order, 'utf8');
-            addedToLoadOrder = true;
+            addedToLoadOrder.push(plugin);
         }
+        if (addedToLoadOrder.length > 0) writeLines(orderFile, order, 'utf8');
     }
-    return { pluginActive, addedToLoadOrder };
+    return { activated, addedToLoadOrder };
 }
 
 // ---------------------------------------------------------------- the running process

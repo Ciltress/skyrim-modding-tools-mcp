@@ -56,6 +56,15 @@ export interface ProfileChange {
     addedToLoadOrder: boolean;
 }
 
+/** What enabling a mod changed in the selected profile. */
+export interface ModEnabled {
+    modEnabled: boolean;
+    /** The plugins activated now; one active already is not listed. */
+    activated: string[];
+    /** The plugins new to the load order, now at its end. */
+    addedToLoadOrder: string[];
+}
+
 /** What the mod manager was told after a deploy, and what the user still has to do in it. */
 export interface ModManagerNotice {
     manager: ModManagerName;
@@ -91,13 +100,16 @@ export interface ModManager {
      */
     shadowingCopies(instance: Instance, mod: string, plugin: string): string[];
     /**
-     * Why a deploy must not write into the instance now — with what the user has to do first — or
-     * undefined when it may. Asked before a deploy writes anything.
+     * Why a mod must not be written into the instance now — deployed or installed — with what the user
+     * has to do first, or undefined when it may. Asked before anything is written.
      */
-    deployRefusal(instance: Instance): Promise<string | undefined>;
-    /** Enables the mod and activates its plugin in the selected profile. */
-    enable(instance: Instance, mod: string, plugin: string): ProfileChange;
-    /** Tells the mod manager what a deploy changed, or says what the user has to do in it. */
+    writeRefusal(instance: Instance): Promise<string | undefined>;
+    /**
+     * Enables the mod and activates its plugins in the selected profile — a plugin new to the load order
+     * at its end, in the order given.
+     */
+    enable(instance: Instance, mod: string, plugins: readonly string[]): ModEnabled;
+    /** Tells the mod manager what a deploy or an install changed, or says what the user has to do in it. */
     afterDeploy(instance: Instance): Promise<ModManagerNotice>;
     /** Remarks for healthcheck — something about the instance the user should know. */
     notes(instance: Instance): string[];

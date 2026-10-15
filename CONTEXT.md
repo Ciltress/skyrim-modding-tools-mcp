@@ -92,6 +92,17 @@ _Avoid_: mod (which always means the folder in an instance)
 One download offered on a Nexus mod. Installed, it becomes one mod.
 _Avoid_: archive, download, upload
 
+**Downloaded file**:
+A `.7z`, `.zip` or `.rar` in the instance's downloads folder — a Nexus file, or one the user fetched
+by hand — waiting to be installed as a mod.
+_Avoid_: archive (which means a BSA), package, download
+
+**FOMOD installer**:
+The installer a downloaded file may carry (`fomod/ModuleConfig.xml`): steps of option groups whose
+choices — and the load order — decide which of its files the mod gets. Each option is named by its
+id, `step.group.option`.
+_Avoid_: wizard, script installer, BAIN
+
 ### Authoring
 
 **Project**:

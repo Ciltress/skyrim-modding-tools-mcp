@@ -2,10 +2,11 @@ import { SessionExpiredError } from '../backend/Backend';
 import type { HealthReport } from '../backend/Backend';
 import type { AppBackend } from '../backend/index';
 import { HelperError } from '../backend/skyrim/helperClient';
+import { InstallError } from '../backend/skyrim/installer';
 import { NexusError } from '../backend/skyrim/nexus';
 import { ProjectError } from '../backend/skyrim/projects';
 import type {
-    AddPatchRequest, AddPatchResult, BuildResult, ProjectFile, DeployResult, NewProjectRequest, NexusDownload, NexusMod, NexusModSummary,
+    AddPatchRequest, AddPatchResult, BuildResult, ProjectFile, DeployResult, InstallModRequest, InstallModResult, NewProjectRequest, NexusDownload, NexusMod, NexusModSummary,
     NexusSearchQuery, NexusSearchResult, ProjectInfo, PullResult, RecordQuery, RecordRequest, RecordSearchResult,
     RecordSummary, RecordVersions
 } from '../backend/skyrim/SkyrimBackend';
@@ -191,6 +192,19 @@ export class InMemorySkyrimBackend implements AppBackend {
             category: 'main', sizeBytes: 1024
         };
     }
+
+    /** The downloaded file `sample` installs, as a mod with one plugin and no installer; nothing else is there. */
+    async installMod(request: InstallModRequest): Promise<InstallModResult> {
+        if (request.file !== SAMPLE) {
+            throw new InstallError(`No file '${request.file}' in the downloads folder downloads. Download it with downloadNexusFile.`);
+        }
+        const mod = request.name ?? 'Sample Mod';
+        return {
+            mod, modFolder: `mods/${mod}`, file: `downloads/${SAMPLE}`, files: 1, installer: 'none', root: '', plugins: ['Sample.esp'],
+            profile: { name: 'Default', modEnabled: true, activated: ['Sample.esp'], addedToLoadOrder: ['Sample.esp'] },
+            modManager: { manager: 'mo2', status: 'notRunning' }
+        };
+    }
 }
 
 const NEXUS_MOD: NexusModSummary = {
@@ -244,7 +258,7 @@ export interface FakeBackendOptions {
 
 const DOMAIN_METHODS = [
     'findRecords', 'readRecord', 'newProject', 'addPatch', 'buildProject', 'deployProject', 'pullProject',
-    'searchNexus', 'readNexusMod', 'downloadNexusFile'
+    'searchNexus', 'readNexusMod', 'downloadNexusFile', 'installMod'
 ] as const;
 
 /**

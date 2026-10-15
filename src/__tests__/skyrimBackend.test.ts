@@ -3,9 +3,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { vi, type MockInstance } from 'vitest';
 import {
-    decodeQtValue, parseModList, readInstance, readLoadOrder, readModList, resolvePluginFiles
+    decodeQtValue, parseIni, parseModList, readInstance, readLoadOrder, readModList, resolvePluginFiles
 } from '../backend/skyrim/mo2';
-import { activatePlugin, enableMod } from '../backend/skyrim/mo2Profile';
+import { InstallError, type FomodConfig } from '../backend/skyrim/installer';
+import { activatePlugins, enableMod } from '../backend/skyrim/mo2Profile';
 import { ProjectError, assignFormIds, projectPaths, readProjectHeader, syncYaml } from '../backend/skyrim/projects';
 import { SkyrimEngine } from '../backend/skyrim/engine';
 import { SkyrimInstanceBackend } from '../backend/skyrim/SkyrimInstanceBackend';
@@ -157,14 +158,22 @@ describe('changing the profile', () => {
         expect(enableMod(instance, 'HighMod')).toBe(false);
     });
 
-    it('activates a new plugin at the end of the load order, once', () => {
+    it('activates new plugins at the end of the load order, in the order given, once', () => {
         const fixture = makeInstance();
         const instance = readInstance(fixture.instanceDir);
-        expect(activatePlugin(instance, 'MyPatch.esp')).toEqual({ pluginActive: true, addedToLoadOrder: true });
-        expect(activatePlugin(instance, 'MyPatch.esp')).toEqual({ pluginActive: false, addedToLoadOrder: false });
+        expect(activatePlugins(instance, ['MyMaster.esm', 'MyPatch.esp']))
+            .toEqual({ activated: ['MyMaster.esm', 'MyPatch.esp'], addedToLoadOrder: ['MyMaster.esm', 'MyPatch.esp'] });
+        expect(activatePlugins(instance, ['MyMaster.esm', 'MyPatch.esp'])).toEqual({ activated: [], addedToLoadOrder: [] });
 
         const order = readLoadOrder(instance);
-        expect(order[order.length - 1]).toEqual({ name: 'MyPatch.esp', active: true });
+        expect(order.slice(-2)).toEqual([{ name: 'MyMaster.esm', active: true }, { name: 'MyPatch.esp', active: true }]);
+    });
+
+    it('activates an inactive plugin where it stands in the load order', () => {
+        const fixture = makeInstance();
+        const instance = readInstance(fixture.instanceDir);
+        expect(activatePlugins(instance, ['Disabled.esp'])).toEqual({ activated: ['Disabled.esp'], addedToLoadOrder: [] });
+        expect(readLoadOrder(instance).map(p => p.name).slice(-2)).toEqual(['Shared.esp', 'Disabled.esp']);
     });
 });
 
@@ -247,9 +256,23 @@ describe('project files', () => {
 
 // ---------------------------------------------------------------- the backend, end to end
 
-/** Plays the helper's part: records what it was asked, writes what the real one would. */
-function scriptedHelper() {
+/** A downloaded file the scripted helper can read: its files with their contents, and its installer. */
+interface FakeArchive {
+    files: Record<string, string>;
+    fomod?: { path: string; config: FomodConfig };
+}
+
+/**
+ * Plays the helper's part: records what it was asked, writes what the real one would. Downloaded
+ * files are read from `archives` by their full path; a plugin's masters come from `masters`, by its name.
+ */
+function scriptedHelper(archives = new Map<string, FakeArchive>(), masters: Record<string, string[]> = {}) {
     const calls: { method: string; params: any }[] = [];
+    const archive = (file: string) => {
+        const found = archives.get(file);
+        if (!found) throw new HelperError('notFound', `No file at '${file}'.`);
+        return found;
+    };
     let running = false;
     const helper: HelperTransport = {
         get running() { return running; },
@@ -283,6 +306,21 @@ function scriptedHelper() {
                     write(path.join(params.outputDir, 'RecordData.yaml'), 'ModKey: MyPatch.esp\n');
                     write(path.join(params.outputDir, 'Weapons', 'IronSword - 012EB7_Skyrim.esm.yaml'), 'FormKey: 012EB7:Skyrim.esm\nEditorID: IronSword\nDamage: 12\n');
                     return { files: 2 };
+                case 'readArchive': {
+                    const { files, fomod } = archive(params.archivePath);
+                    return { files: Object.keys(files), ...(fomod ? { fomod } : {}) };
+                }
+                case 'extractArchive': {
+                    const { files } = archive(params.archivePath);
+                    for (const { from, to } of params.files) write(path.join(params.targetDir, to), files[from]);
+                    return { written: params.files.length, missing: [] };
+                }
+                case 'pluginHeaders':
+                    return {
+                        plugins: params.paths.map((file: string) => ({
+                            path: file, masters: masters[path.basename(file)] ?? ['Skyrim.esm'], master: /\.esm$/i.test(file), light: false
+                        }))
+                    };
                 default: throw new Error(`unexpected helper call ${method}`);
             }
         }
@@ -306,12 +344,22 @@ function makeBackend(options: { nexus?: NexusCatalogue } = {}) {
     const fixture = makeInstance();
     const procRoot = path.join(fixture.root, 'proc');
     const platform = linuxPlatform(procRoot, hostDrives);
-    const { helper, calls } = scriptedHelper();
+    const archives = new Map<string, FakeArchive>();
+    const masters: Record<string, string[]> = {};
+    const { helper, calls } = scriptedHelper(archives, masters);
     const engine = new SkyrimEngine(new Mo2Manager(fixture.instanceDir, platform, { env: {} }), helper, fixture.projects, { platform });
     const backend = new SkyrimInstanceBackend({ engine, nexus: options.nexus });
     /** Starts a Windows program in the table, as Wine does: its command line is the program's Windows path. */
     const startProgram = (pid: number, exe: string) => write(path.join(procRoot, String(pid), 'cmdline'), `${asWinePath(exe)}\0`);
-    return { fixture, backend, calls, engine, startProgram };
+    /** Puts a downloaded file into the instance's downloads folder, with Mod Organizer's record of it when given. */
+    const download = (name: string, content: FakeArchive, meta?: string) => {
+        const file = path.join(fixture.instanceDir, 'downloads', name);
+        write(file, 'archive bytes');
+        if (meta !== undefined) write(`${file}.meta`, meta);
+        archives.set(file, content);
+        return file;
+    };
+    return { fixture, backend, calls, engine, startProgram, download, masters };
 }
 
 /** Moves the clock of a folder's files and folders back, so a build made "now" is newer than the sources. */
@@ -632,6 +680,184 @@ describe('the Skyrim backend', () => {
 });
 
 // ---------------------------------------------------------------- what the client is told
+
+// ---------------------------------------------------------------- installing
+
+/** Mod Organizer's record of a Nexus download, as it and downloadNexusFile write it. */
+const downloadMeta = (modId: number, fileId: number, name: string, modName = name, category = 1) => [
+    '[General]', 'gameName=SkyrimSE', `modID=${modId}`, `fileID=${fileId}`, `name=${name}`, `modName=${modName}`,
+    'version=1.0', `fileCategory=${category}`, 'repository=Nexus', 'installed=false', 'uninstalled=false', ''
+].join('\r\n');
+
+const COOL_MOD: FakeArchive = { files: { 'Cool Mod/CoolMod.esp': 'esp', 'Cool Mod/meshes/a.nif': 'nif', 'readme.txt': 'readme' } };
+const COOL_FILE = 'Cool Mod-1234-1-0-1700000000.7z';
+
+/** One step choosing A or B, a core installed always, and a patch for Low.esp when that is active. */
+const FOMOD_MOD: FakeArchive = {
+    files: {
+        'fomod/ModuleConfig.xml': '', 'Core/meshes/core.nif': 'core', 'Opt A/A.esp': 'a', 'Opt B/B.esp': 'b',
+        'Patches/Low Patch.esp': 'patch'
+    },
+    fomod: {
+        path: 'fomod/ModuleConfig.xml',
+        config: {
+            moduleName: 'Test Installer', dependencies: null, stepOrder: 'Explicit',
+            requiredFiles: [{ source: 'Core', destination: '', folder: true, priority: 0, alwaysInstall: false, installIfUsable: false }],
+            steps: [{
+                name: 'Main', visible: null, groupOrder: 'Explicit', groups: [{
+                    name: 'Pick', type: 'SelectExactlyOne', order: 'Explicit', options: ['A', 'B'].map(name => ({
+                        name, description: `Option ${name}`, flags: [],
+                        type: { default: name === 'A' ? 'Recommended' as const : 'Optional' as const },
+                        files: [{ source: `Opt ${name}/${name}.esp`, destination: `${name}.esp`, folder: false, priority: 0, alwaysInstall: false, installIfUsable: false }]
+                    }))
+                }]
+            }],
+            conditionalFiles: [{
+                when: { operator: 'And', conditions: [{ file: 'Low.esp', state: 'Active' }] },
+                files: [{ source: 'Patches/Low Patch.esp', destination: 'Low Patch.esp', folder: false, priority: 0, alwaysInstall: false, installIfUsable: false }]
+            }]
+        }
+    }
+};
+
+describe('installing a mod', () => {
+    it('installs a downloaded file\'s Data folder as a mod — enabled, its plugins active at the end of the load order', async () => {
+        const { backend, fixture, download } = makeBackend();
+        const file = download(COOL_FILE, COOL_MOD, downloadMeta(1234, 99, 'Cool Mod'));
+
+        const result = await backend.installMod({ file: COOL_FILE });
+        const modFolder = path.join(fixture.instanceDir, 'mods', 'Cool Mod');
+        expect(result).toMatchObject({
+            mod: 'Cool Mod', modFolder, file, files: 2, installer: 'none', root: 'Cool Mod', plugins: ['CoolMod.esp'],
+            profile: { name: 'Default', modEnabled: true, activated: ['CoolMod.esp'], addedToLoadOrder: ['CoolMod.esp'] },
+            modManager: { manager: 'mo2', status: 'notRunning' },
+            nexus: { modId: 1234, fileId: 99, version: '1.0' }
+        });
+        expect(fs.readFileSync(path.join(modFolder, 'meshes', 'a.nif'), 'utf8')).toBe('nif');
+        expect(fs.existsSync(path.join(modFolder, 'readme.txt'))).toBe(false);
+        expect(fs.readFileSync(path.join(fixture.profile, 'modlist.txt'), 'utf8')).toMatch(/^# .*\r\n\+Cool Mod\r\n\+HighMod\r\n/);
+        expect(readLoadOrder(readInstance(fixture.instanceDir)).slice(-1)).toEqual([{ name: 'CoolMod.esp', active: true }]);
+    });
+
+    it('records where the mod came from, as Mod Organizer does, so its update check knows the mod', async () => {
+        const { backend, fixture, download } = makeBackend();
+        const file = download(COOL_FILE, COOL_MOD, downloadMeta(1234, 99, 'Cool Mod'));
+        await backend.installMod({ file: COOL_FILE });
+
+        const meta = parseIni(fs.readFileSync(path.join(fixture.instanceDir, 'mods', 'Cool Mod', 'meta.ini'), 'utf8'));
+        expect(Object.fromEntries(meta.get('General')!)).toEqual(expect.objectContaining({
+            gameName: 'SkyrimSE', modid: '1234', version: '1.0', installationFile: COOL_FILE, repository: 'Nexus'
+        }));
+        expect(Object.fromEntries(meta.get('installedFiles')!)).toEqual({ '1\\modid': '1234', '1\\fileid': '99', size: '1' });
+        // The download shows as installed in Mod Organizer's downloads tab.
+        expect(fs.readFileSync(`${file}.meta`, 'utf8')).toMatch(/\r\ninstalled=true\r\n/);
+    });
+
+    it('finds the downloaded file by its full path too, and says where it looked when there is none', async () => {
+        const { backend, fixture, download } = makeBackend();
+        const file = download('Plain.zip', { files: { 'Plain.esp': 'p' } });
+        await expect(backend.installMod({ file })).resolves.toMatchObject({ mod: 'Plain', root: '', plugins: ['Plain.esp'] });
+        // Without Nexus's record, the mod's meta.ini still names its file, and no Nexus mod.
+        const meta = parseIni(fs.readFileSync(path.join(fixture.instanceDir, 'mods', 'Plain', 'meta.ini'), 'utf8'));
+        expect(meta.get('General')!.get('installationFile')).toBe('Plain.zip');
+        expect(meta.get('General')!.get('repository')).toBeUndefined();
+
+        const missing = backend.installMod({ file: 'Missing.7z' });
+        await expect(missing).rejects.toThrow(InstallError);
+        await expect(backend.installMod({ file: 'Missing.7z' })).rejects.toThrow(/No file 'Missing\.7z' in the downloads folder .*downloadNexusFile/);
+    });
+
+    it('asks for `root` when the Data folder is not clear, writing nothing, and installs the folder given', async () => {
+        const { backend, fixture, download } = makeBackend();
+        download('Textures.zip', { files: { '1K/textures/a.dds': '1k', '2K/textures/a.dds': '2k' } });
+        await expect(backend.installMod({ file: 'Textures.zip' })).rejects.toThrow(/1K, 2K.*`root`/);
+        expect(fs.existsSync(path.join(fixture.instanceDir, 'mods', 'Textures'))).toBe(false);
+
+        const result = await backend.installMod({ file: 'Textures.zip', root: '2K' });
+        expect(result).toMatchObject({ mod: 'Textures', root: '2K', plugins: [], profile: { modEnabled: true, activated: [], addedToLoadOrder: [] } });
+        expect(fs.readFileSync(path.join(fixture.instanceDir, 'mods', 'Textures', 'textures', 'a.dds'), 'utf8')).toBe('2k');
+    });
+
+    it('answers what a FOMOD installer asks first, writing nothing, then installs the options chosen', async () => {
+        const { backend, fixture, download } = makeBackend();
+        download('Fomod Mod.7z', FOMOD_MOD);
+        const modList = fs.readFileSync(path.join(fixture.profile, 'modlist.txt'), 'utf8');
+
+        const first = await backend.installMod({ file: 'Fomod Mod.7z' });
+        expect(first).toMatchObject({
+            status: 'chooseOptions', mod: 'Fomod Mod',
+            installer: {
+                name: 'Test Installer',
+                steps: [{ step: 1, name: 'Main', groups: [{ name: 'Pick', choose: 'exactly one', options: [
+                    { id: '1.1.1', name: 'A', description: 'Option A', default: true }, { id: '1.1.2', name: 'B', description: 'Option B' }
+                ] }] }]
+            }
+        });
+        expect((first as { nextStep: string }).nextStep).toMatch(/choices/);
+        expect(fs.existsSync(path.join(fixture.instanceDir, 'mods', 'Fomod Mod'))).toBe(false);
+        expect(fs.readFileSync(path.join(fixture.profile, 'modlist.txt'), 'utf8')).toBe(modList);
+
+        // Low.esp is active in the fixture, so the installer's patch for it comes along.
+        const installed = await backend.installMod({ file: 'Fomod Mod.7z', choices: ['1.1.2'] });
+        expect(installed).toMatchObject({
+            installer: 'fomod', chosen: [{ step: 'Main', group: 'Pick', options: ['B'] }], plugins: ['B.esp', 'Low Patch.esp'], files: 3
+        });
+        expect(fs.readdirSync(path.join(fixture.instanceDir, 'mods', 'Fomod Mod')).sort()).toEqual(['B.esp', 'Low Patch.esp', 'meshes', 'meta.ini']);
+    });
+
+    it('refuses a mod of the same name unless asked to replace it — which keeps its place in the mod order', async () => {
+        const { backend, fixture, download } = makeBackend();
+        download(COOL_FILE, COOL_MOD, downloadMeta(1234, 99, 'Cool Mod'));
+        await backend.installMod({ file: COOL_FILE });
+        const modFolder = path.join(fixture.instanceDir, 'mods', 'Cool Mod');
+        write(path.join(modFolder, 'left over.txt'), 'old');
+        const modList = path.join(fixture.profile, 'modlist.txt');
+        fs.writeFileSync(modList, fs.readFileSync(modList, 'utf8').replace('+Cool Mod\r\n+HighMod\r\n', '+HighMod\r\n+Cool Mod\r\n'));
+        const profile = () => ['modlist.txt', 'plugins.txt', 'loadorder.txt'].map(f => fs.readFileSync(path.join(fixture.profile, f), 'utf8'));
+        const before = profile();
+
+        await expect(backend.installMod({ file: COOL_FILE })).rejects.toThrow(/'Cool Mod' is already .*replace: true.*`name`/);
+        const again = await backend.installMod({ file: COOL_FILE, replace: true });
+        expect(again).toMatchObject({ replaced: true, profile: { modEnabled: false, activated: [], addedToLoadOrder: [] } });
+        expect(fs.existsSync(path.join(modFolder, 'left over.txt'))).toBe(false);
+        // Idempotent: the second install leaves the profile as the first left it.
+        expect(profile()).toEqual(before);
+
+        await expect(backend.installMod({ file: COOL_FILE, name: 'Cool Mod Copy' })).resolves.toMatchObject({ mod: 'Cool Mod Copy' });
+    });
+
+    it('orders a mod\'s plugins masters first, and names masters the load order lacks', async () => {
+        const { backend, download, masters } = makeBackend();
+        download('Big.7z', { files: { 'Big.esm': '', 'Big - Patch.esp': '', 'Big - Other.esp': '', 'A first.esp': '' } });
+        Object.assign(masters, {
+            'Big - Patch.esp': ['Skyrim.esm', 'Big.esm'], 'Big - Other.esp': ['Big.esm', 'Missing.esp'], 'A first.esp': ['Big - Patch.esp']
+        });
+        const result = await backend.installMod({ file: 'Big.7z' });
+        expect(result).toMatchObject({
+            plugins: ['Big.esm', 'Big - Other.esp', 'Big - Patch.esp', 'A first.esp'],
+            missingMasters: [{ plugin: 'Big - Other.esp', masters: ['Missing.esp'] }]
+        });
+        expect((result as { warnings: string[] }).warnings.join(' ')).toMatch(/game will not start .*Missing\.esp/);
+    });
+
+    it('installs nothing while this instance\'s Mod Organizer runs under Proton', async () => {
+        const { backend, fixture, download, startProgram } = makeBackend();
+        download(COOL_FILE, COOL_MOD);
+        startProgram(4242, path.join(fixture.instanceDir, 'ModOrganizer.exe'));
+        await expect(backend.installMod({ file: COOL_FILE })).rejects.toThrow(/Mod Organizer .*is running.*[Cc]lose it/);
+        expect(fs.existsSync(path.join(fixture.instanceDir, 'mods', 'Cool Mod'))).toBe(false);
+    });
+
+    it('never installs over a project\'s mod — the project deploys it', async () => {
+        const { backend, fixture, download } = makeBackend();
+        await backend.newProject({ project: 'Quiet' });
+        age(path.join(fixture.projects, 'Quiet'));
+        await backend.buildProject('Quiet');
+        await backend.deployProject('Quiet');
+        download('Quiet.zip', { files: { 'Quiet.esp': 'not the project' } });
+        await expect(backend.installMod({ file: 'Quiet.zip', replace: true })).rejects.toThrow(/project 'Quiet'.*deployProject/);
+    });
+});
 
 describe('which failures the client is asked to fix', () => {
     const code = (error: unknown) => asRequestError(Promise.reject(error)).catch(e => e instanceof McpError ? e.code : 'passed through');

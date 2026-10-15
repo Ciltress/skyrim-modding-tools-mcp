@@ -1,5 +1,6 @@
 import type { Backend } from '../Backend.js';
-import type { ModManagerNotice, ProfileChange } from './modManager.js';
+import type { InstallerQuestions } from './installer.js';
+import type { ModEnabled, ModManagerNotice, ProfileChange } from './modManager.js';
 
 /**
  * The domain operations the tools call, on top of the lifecycle every backend has. FormIDs are
@@ -22,6 +23,63 @@ export interface SkyrimBackend extends Backend {
     readNexusMod(modId: number): Promise<NexusMod>;
     /** One file of a Nexus mod into the instance's downloads folder. Needs a premium account's key. */
     downloadNexusFile(modId: number, fileId: number): Promise<NexusDownload>;
+
+    /**
+     * A downloaded file installed as a mod, enabled, its plugins active. A FOMOD installer is answered
+     * first with what it asks, unless the request carries the choices.
+     */
+    installMod(request: InstallModRequest): Promise<InstallModResult | InstallModQuestions>;
+}
+
+export interface InstallModRequest {
+    /** The downloaded file: its full path, or its name in the instance's downloads folder. */
+    file: string;
+    /** The mod's name in the mod manager. Defaults to the Nexus mod's name, else the file's. */
+    name?: string;
+    /** FOMOD option ids, `step.group.option`. Groups they name nothing of keep the installer's defaults. */
+    choices?: string[];
+    /** The folder of the file to install as the mod's Data, skipping any installer; '' is the top. */
+    root?: string;
+    /** Replace the files of a mod of the same name. */
+    replace?: boolean;
+}
+
+/** The first answer for a FOMOD installer: what it asks. Nothing was written. */
+export interface InstallModQuestions {
+    status: 'chooseOptions';
+    /** The name the mod will get. */
+    mod: string;
+    file: string;
+    installer: InstallerQuestions;
+    nextStep: string;
+}
+
+export interface InstallModResult {
+    mod: string;
+    modFolder: string;
+    /** The downloaded file it came from. */
+    file: string;
+    /** How many files the mod got. */
+    files: number;
+    /** `fomod` when its FOMOD installer chose the files, `none` when a folder of the file is the mod. */
+    installer: 'fomod' | 'none';
+    /** The folder of the file installed as Data; '' is its top. */
+    root?: string;
+    /** What the FOMOD installer installed, step by step — defaults included. */
+    chosen?: { step: string; group: string; options: string[] }[];
+    /** Choices in steps the other choices left hidden, which installed nothing. */
+    ignoredChoices?: string[];
+    /** The mod's plugins, in the order they now load. */
+    plugins: string[];
+    /** Plugins needing masters the load order lacks: the game will not start until those are installed. */
+    missingMasters?: { plugin: string; masters: string[] }[];
+    warnings?: string[];
+    /** Set when a mod of the same name was replaced. */
+    replaced?: true;
+    /** The Nexus mod and file, from the download's record. */
+    nexus?: { modId: number; fileId?: number; version?: string };
+    profile: { name: string } & ModEnabled;
+    modManager: ModManagerNotice;
 }
 
 export interface NewProjectRequest {
@@ -222,8 +280,8 @@ export interface NexusFileInfo {
     version: string;
     /** `main`, `update`, `optional` or `miscellaneous`. */
     category: string;
-    /** The file's name as it downloads. */
-    fileName: string;
+    /** The file's name as it downloads; Nexus does not say it for newer uploads. */
+    fileName?: string;
     sizeBytes: number;
     /** `YYYY-MM-DD`. */
     uploaded: string;

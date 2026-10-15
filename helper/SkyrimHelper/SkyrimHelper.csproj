@@ -26,6 +26,8 @@
     <PackageReference Include="Mutagen.Bethesda.Serialization.Yaml" Version="[1.38.6]" />
     <PackageReference Include="Mutagen.Bethesda.Serialization.SourceGenerator" Version="[1.38.6]" />
     <PackageReference Include="Noggog.CSharpExt" Version="[4.3.0]" />
+    <!-- Downloaded files: .7z, .zip, .rar (MIT). -->
+    <PackageReference Include="SharpCompress" Version="[0.50.4]" />
   </ItemGroup>
 
 </Project>

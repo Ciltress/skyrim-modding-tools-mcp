@@ -1,8 +1,8 @@
 import os from 'node:os';
 import path from 'node:path';
 import { loadOrderFingerprint, readInstance, readLoadOrder, readModList, resolvePluginFiles, winePrefix, type IniPaths } from './mo2.js';
-import { activatePlugin, enableMod, refreshIfRunning, runningMo2 } from './mo2Profile.js';
-import type { Instance, ModEntry, ModManager, ModManagerNotice, PluginEntry, ProfileChange } from './modManager.js';
+import { activatePlugins, enableMod, refreshIfRunning, runningMo2 } from './mo2Profile.js';
+import type { Instance, ModEnabled, ModEntry, ModManager, ModManagerNotice, PluginEntry } from './modManager.js';
 import type { Platform } from './platform.js';
 
 /**
@@ -76,24 +76,24 @@ export class Mo2Manager implements ModManager {
     }
 
     // Mod Organizer writes the profile it holds back when it exits. Where it cannot be told to re-read
-    // the files — under Proton — a deploy into a running instance would be undone.
-    async deployRefusal(instance: Instance): Promise<string | undefined> {
+    // the files — under Proton — a deploy or an install into a running instance would be undone.
+    async writeRefusal(instance: Instance): Promise<string | undefined> {
         if (this.platform.runsWindowsPrograms) return undefined;
         if (await runningMo2(instance, this.platform, this.iniPaths()) !== 'this') return undefined;
         return `Mod Organizer is running for this instance, and under Proton the server cannot tell it to re-read its ` +
-            `profile: it would write its own over this deploy when it exits. Close it, then deploy again.`;
+            `profile: it would write its own over this change when it exits. Close it, then try again.`;
     }
 
-    enable(instance: Instance, mod: string, plugin: string): ProfileChange {
+    enable(instance: Instance, mod: string, plugins: readonly string[]): ModEnabled {
         const modEnabled = enableMod(instance, mod);
-        return { modEnabled, ...activatePlugin(instance, plugin) };
+        return { modEnabled, ...activatePlugins(instance, plugins) };
     }
 
     async afterDeploy(instance: Instance): Promise<ModManagerNotice> {
         if (this.platform.runsWindowsPrograms) {
             return { manager: this.name, status: await refreshIfRunning(instance, this.platform, this.iniPaths()) };
         }
-        // deployRefusal found none of this instance running a moment ago; one found now started during the deploy.
+        // writeRefusal found none of this instance running a moment ago; one found now started during the deploy.
         const running = await runningMo2(instance, this.platform, this.iniPaths());
         if (running === 'this') {
             return {

@@ -129,6 +129,15 @@ describe('reading a Nexus mod', () => {
         expect(requests[0].variables).toEqual({ ids: [{ gameDomain: 'skyrimspecialedition', modId: 12604 }], modId: '12604', gameId: '1704' });
     });
 
+    it('leaves out the file name of a newer upload, which Nexus answers as a storage path', async () => {
+        const newer = structuredClone(skyUiMod);
+        newer.data.modFiles[2].uri = 'cb/53/00/cb530099-ac55-4399-a045-c92782ad4825';
+        const { catalogue } = fakeNexus(() => newer);
+        const [main] = (await catalogue.readMod(12604)).files;
+        expect(main.fileId).toBe(801234);
+        expect(main).not.toHaveProperty('fileName');
+    });
+
     it('cuts a long description, and says so', async () => {
         const long = structuredClone(skyUiMod);
         long.data.legacyModsByDomain.nodes[0].description = '[b]Changelog[/b]\n<br />' + 'A line about one more fix.\n<br />'.repeat(800);

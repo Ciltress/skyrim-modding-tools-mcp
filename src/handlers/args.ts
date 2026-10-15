@@ -1,5 +1,6 @@
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { HelperError } from '../backend/skyrim/helperClient.js';
+import { InstallError } from '../backend/skyrim/installer.js';
 import { NexusError } from '../backend/skyrim/nexus.js';
 import { ProjectError } from '../backend/skyrim/projects.js';
 import { ScriptCompileError } from '../backend/skyrim/externalTools.js';
@@ -114,11 +115,11 @@ export function limitArg(args: any, fallback: number, max: number): number {
 /**
  * Failures that are about the request — a record or Nexus mod that does not exist, a malformed FormID,
  * a link to nothing, project text the plugin cannot be written from, a project in the wrong state, a
- * script that does not compile — become `InvalidParams`, so the client sees something to fix rather
+ * script that does not compile, a downloaded file that cannot be installed as asked — become `InvalidParams`, so the client sees something to fix rather
  * than a server fault. What is missing on the machine — a compiler, a writable disk, a way to Nexus —
  * is not the request's fault and passes through to BaseHandler's mapping, as does everything else.
  */
-const REQUEST_ERRORS = new Set(['notFound', 'badRequest', 'danglingLinks', 'writeFailed']);
+const REQUEST_ERRORS = new Set(['notFound', 'badRequest', 'badArchive', 'danglingLinks', 'writeFailed']);
 
 export async function asRequestError<T>(work: Promise<T> | T): Promise<T> {
     try {
@@ -128,6 +129,7 @@ export async function asRequestError<T>(work: Promise<T> | T): Promise<T> {
             (error instanceof HelperError && REQUEST_ERRORS.has(error.code)) ||
             (error instanceof NexusError && error.code === 'notFound') ||
             error instanceof ProjectError ||
+            error instanceof InstallError ||
             error instanceof ScriptCompileError;
         if (aboutTheRequest) throw new McpError(ErrorCode.InvalidParams, (error as Error).message);
         throw error;

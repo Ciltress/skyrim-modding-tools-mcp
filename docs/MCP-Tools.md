@@ -342,19 +342,31 @@ the game's prefix with Amethyst):
 {"tool":"deployProject","args":{"project":"FrostBlade"}}
 ```
 
-### 4.5 Find a mod on Nexus and check what it needs
+### 4.5 Find a mod on Nexus, check what it needs, install it
 
 ```jsonc
-{"tool":"searchNexus","args":{"text":"address library"}}   // most endorsed first; modId, version, author, page
-{"tool":"readNexusMod","args":{"modId":32444}}             // description as text, requirements, the files it offers now
-{"tool":"downloadNexusFile","args":{"modId":32444,"fileId":795954}}   // into the instance's downloads folder
+{"tool":"searchNexus","args":{"text":"realistic water"}}   // most endorsed first; modId, version, author, page
+{"tool":"readNexusMod","args":{"modId":2182}}              // description as text, requirements, the files it offers now
+{"tool":"downloadNexusFile","args":{"modId":2182,"fileId":705147}}   // into the instance's downloads folder
+{"tool":"installMod","args":{"file":"Realistic Water Two SE v5.7.3-2182-5-7-3-1767473625.7z"}}
+// a FOMOD installer: status "chooseOptions", its steps, every option with an id; nothing is written
+{"tool":"installMod","args":{"file":"Realistic Water Two SE v5.7.3-2182-5-7-3-1767473625.7z","choices":["2.1.1","3.1.6"]}}
 ```
 
 Searching and reading need no API key. Recommend a mod only with its `requirements` checked against
 what the instance has — an SKSE plugin without SKSE does nothing, and one built for another game
 version crashes it. `downloadNexusFile` is listed only when `NEXUS_API_KEY` belongs to a premium
 account (`health.nexus` says whether it does); it writes the file and Mod Organizer's `<file>.meta`
-record beside it.
+record beside it. Without one, the user downloads the file into the downloads folder themselves.
+
+`installMod` takes any `.7z`, `.zip` or `.rar` there. Without a FOMOD installer it installs the
+file's Data folder at once — the top, a `Data` folder or the one folder there is; when that is not
+clear (`1K/`, `2K/`), it asks for `root`. With one, the first call answers the steps and the second
+installs the `choices`; a group the choices leave out keeps the installer's default, and options the
+load order decides — a patch for a mod that is there — are defaults already. The mod is enabled, its
+plugins activated at the end of the load order (masters first), and the mod manager told, as for
+`deployProject`. Its `meta.ini` names the Nexus mod and file, so Mod Organizer's update check knows
+it. `missingMasters` lists plugins the game cannot load until another mod is installed.
 
 ### 4.6 Find out what you are connected to
 
@@ -446,6 +458,11 @@ Start with `healthcheck`.
 | `healthcheck` → `health.nexus.problem`: "Nexus Mods refused the key in NEXUS_API_KEY" | A mistyped, revoked or regenerated personal API key | Copy the key from nexusmods.com/settings/api-keys into `NEXUS_API_KEY`, restart the server |
 | `downloadNexusFile` not listed; `tools.withheldForBackend` names it | `NEXUS_API_KEY` is unset, refused, or not a premium account's — Nexus gives download links through its API to premium accounts only | Set a premium account's key and restart; otherwise the user downloads the file on the mod page |
 | `downloadNexusFile` → "came out N of M bytes" | The download broke off; nothing was kept | Call it again |
+| `installMod` → "A mod named 'X' is already in the instance" | The mod is installed, or another one has its name | `replace: true` to install over it (it keeps its place in the mod order), or `name` for a separate mod |
+| `installMod` → "Which folder of X is the mod is not clear" | The file has several folders at the top — usually options, such as texture sizes | Read the mod page, ask the user, and call again with `root` |
+| `installMod` → `missingMasters` | A plugin of the mod needs one that is not in the load order | Install the mod it comes from (`readNexusMod` → `requirements`); until then the game will not start |
+| `installMod` → "cannot be opened as a .7z, .zip or .rar" | A broken or incomplete download, or another format | Download it again |
+| `installMod` → "Mod Organizer is running for this instance, and under Proton…" | As for `deployProject` | Close Mod Organizer, then install again |
 | `readNexusMod` → "No Nexus mod N for Skyrim Special Edition" | A guessed number, or a mod of another game (Skyrim LE, VR) | `searchNexus` for it; `modId` is the number in the page's address |
 | `buildProject` on Linux → "a Windows program … SKYRIM_PAPYRUS_COMPILER" | The Creation Kit's Papyrus compiler does not run on Linux | Install russo-2025's compiler and name it in `SKYRIM_PAPYRUS_COMPILER` ([Hosting](Hosting.md) §4) |
 | `Unknown tool: X` | Not in the catalogue at all | `tools/list` — the router is derived from it |
@@ -478,8 +495,9 @@ own `inputSchema`, so **a new tool is covered the moment it is listed**.
 | `platform.test.ts` | The operating system's side: the Linux process table, file names matched without case, both Papyrus compilers' command lines. |
 | `nexus.test.ts` | The Nexus Mods catalogue against trimmed copies of real GraphQL answers: the search's filter and order, a mod page's description as text (BBCode), requirements and current files, a long description cut, an unknown mod, Nexus unreachable or refusing. The account behind `NEXUS_API_KEY` (never the key or e-mail in the answer; checked once, again after a failed check), and downloads: the file and its `.meta`, the key sent to the API but never to the CDN, a file already there kept, a short download leaving nothing, no key or no premium account said in words. |
 | `mo2Proton.test.ts` | Mod Organizer under Proton, against an MO2-LINT-style setup: the ini's Windows paths read through the Wine prefix, finding the prefix (`SKYRIM_WINE_PREFIX`, MO2-LINT's `state.json`), the deploy refused while this instance's Mod Organizer runs, `refresh` never started, the `healthcheck` notes. A real `dosdevices` folder only on Linux, since Windows forbids its `c:` names. |
-| `amethyst.test.ts` | Against an Amethyst setup laid out as Amethyst 2.5.4 does (Flatpak config, custom staging, a hardlink deploy with `Data_Core`): finding it, reading the profile, adding only new lines, its deploy command, and deploy and pull through the backend. |
-| `skyrimBackend.test.ts` | Against a real Mod Organizer instance laid out in a temp folder, with a scripted helper: reading the ini, mod priority and the load order; the profile edits deploy makes; FormID assignment; text sync; and the whole patch, build, deploy and pull cycle with each of its refusals. |
+| `amethyst.test.ts` | Against an Amethyst setup laid out as Amethyst 2.5.4 does (Flatpak config, custom staging, a hardlink deploy with `Data_Core`): finding it, reading the profile, adding only new lines, its deploy command, and deploy, pull and install through the backend. |
+| `skyrimBackend.test.ts` | Against a real Mod Organizer instance laid out in a temp folder, with a scripted helper: reading the ini, mod priority and the load order; the profile edits deploy and install make; FormID assignment; text sync; the whole patch, build, deploy and pull cycle with each of its refusals; and installing a downloaded file — the mod, its `meta.ini`, the download marked installed, a FOMOD's question writing nothing, `root`, `replace` keeping the mod order, missing masters, a project's mod refused. |
+| `installer.test.ts` | What installMod decides before writing: a plain file's Data folder, and a FOMOD installer's numbering, order, defaults, option types and steps decided by the load order or by flags, and the files a set of choices installs — paths relative to the installer's folder, folders and files placed as the schema says, priority, folder spelling, unknown or forbidden choices refused. The default mod name from the download's record or Nexus's file names. |
 
 `npm run smoke` drives the **built** server over real stdio and fails if anything but protocol frames
 reaches stdout.

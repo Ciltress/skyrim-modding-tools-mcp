@@ -50,6 +50,11 @@ export function decodeQtValue(raw: string): string {
     return value.replace(/\\(["\\])/g, '$1');
 }
 
+/** A string as Qt's ini format writes one: quoted when a comma would make it a list, or when it holds quotes. */
+export function encodeQtValue(value: string): string {
+    return /[,;="\\]|^\s|\s$/.test(value) ? `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"` : value;
+}
+
 // ---------------------------------------------------------------- instance
 
 /** Turns a path as Mod Organizer wrote it into one this system opens; undefined when it cannot. */

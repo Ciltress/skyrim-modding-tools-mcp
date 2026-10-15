@@ -55,6 +55,9 @@ Workflows and the error model: [`MCP-Tools.md`](./MCP-Tools.md). The vocabulary:
 | Choose which file of a mod to get | `readNexusMod` → `files`: the main file, optional files, updates, with versions |
 | Download a mod's file | `downloadNexusFile` with `modId` and `fileId` — needs a premium account's `NEXUS_API_KEY`; without one, the user downloads it on the page |
 | Know whether the Nexus key is premium | `healthcheck` → `health.nexus` |
+| Install a downloaded mod | `installMod` with `file` — its name in the downloads folder; enables it and activates its plugins |
+| Answer a mod's installer (FOMOD), choose its options | `installMod` without `choices` answers the steps and option ids; then again with `choices` |
+| Install a mod again — a newer file, other options | `installMod` with `replace: true` |
 
 ## When something went wrong
 

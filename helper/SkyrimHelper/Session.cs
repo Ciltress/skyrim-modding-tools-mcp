@@ -34,7 +34,9 @@ public sealed class Session : IDisposable
     public async Task<JsonNode?> Dispatch(string method, JsonObject p)
     {
         // Overlays are read by one thread at a time: whatever reads plugins waits for the background index.
-        if (method is not ("hello" or "gameVersion" or "setLoadOrder") && indexing is { } running)
+        // Downloaded files and plugin headers are read from files of their own, and need not wait.
+        if (method is not ("hello" or "gameVersion" or "setLoadOrder" or "readArchive" or "extractArchive" or "pluginHeaders")
+            && indexing is { } running)
         {
             try { await running; } catch { /* surfaced by the call that needs the index */ }
         }
@@ -51,6 +53,9 @@ public sealed class Session : IDisposable
         "addOverrides" => await AddOverrides(p),
         "build" => await Build(p),
         "serialize" => await Serialize(p),
+        "readArchive" => Archives.Read(p),
+        "extractArchive" => Archives.Extract(p),
+        "pluginHeaders" => PluginHeaders(p),
         _ => throw new HelperException("unknownMethod", $"No method '{method}'.")
     };
 
@@ -394,6 +399,39 @@ public sealed class Session : IDisposable
         return new JsonObject { ["files"] = files.Length };
     }
 
+    // ---------------------------------------------------------------- installing
+
+    /// <summary>
+    /// The header of each plugin a mod brings: its masters, and whether it is master- or light-flagged —
+    /// what the server needs to place new plugins in the load order and to name missing masters. A file
+    /// that is not a plugin answers its error instead.
+    /// </summary>
+    private JsonNode PluginHeaders(JsonObject p)
+    {
+        var answers = new JsonArray();
+        foreach (var path in p["paths"]?.AsArray().Select(x => x!.GetValue<string>())
+            ?? throw new HelperException("badRequest", "'paths' is required: the plugins' full paths."))
+        {
+            try
+            {
+                using var mod = SkyrimMod.Create(release).FromPath(new ModPath(ModKey.FromFileName(Path.GetFileName(path)), path)).Construct();
+                var flags = mod.ModHeader.Flags;
+                answers.Add(new JsonObject
+                {
+                    ["path"] = path,
+                    ["masters"] = new JsonArray(mod.ModHeader.MasterReferences.Select(m => (JsonNode)m.Master.FileName.String).ToArray()),
+                    ["master"] = flags.HasFlag(SkyrimModHeader.HeaderFlag.Master),
+                    ["light"] = flags.HasFlag(SkyrimModHeader.HeaderFlag.Small)
+                });
+            }
+            catch (Exception e)
+            {
+                answers.Add(new JsonObject { ["path"] = path, ["error"] = e.Message });
+            }
+        }
+        return new JsonObject { ["plugins"] = answers };
+    }
+
     // ---------------------------------------------------------------- helpers
 
     /// <summary>
@@ -421,7 +459,7 @@ public sealed class Session : IDisposable
 
     public static string FormKeyText(FormKey key) => $"{key.ID:X6}:{key.ModKey.FileName}";
 
-    private static string Required(JsonObject p, string name) =>
+    public static string Required(JsonObject p, string name) =>
         p[name]?.GetValue<string>() is { Length: > 0 } value
             ? value
             : throw new HelperException("badRequest", $"'{name}' is required.");

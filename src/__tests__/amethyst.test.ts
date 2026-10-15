@@ -193,7 +193,7 @@ describe('changing an Amethyst profile', () => {
         const am = manager(setup);
         const instance = am.readInstance();
         const before = fs.readFileSync(path.join(setup.profile, 'modlist.txt'), 'utf8');
-        expect(am.enable(instance, 'MyPatch', 'MyPatch.esp')).toEqual({ modEnabled: true, pluginActive: true, addedToLoadOrder: true });
+        expect(am.enable(instance, 'MyPatch', ['MyPatch.esp'])).toEqual({ modEnabled: true, activated: ['MyPatch.esp'], addedToLoadOrder: ['MyPatch.esp'] });
 
         expect(fs.readFileSync(path.join(setup.profile, 'modlist.txt'), 'utf8')).toBe(`+MyPatch\n${before}`);
         expect(fs.readFileSync(path.join(setup.profile, 'plugins.txt'), 'utf8')).toMatch(/\*SeranaDialogueExpansion\.esp\n\*MyPatch\.esp\n$/);
@@ -201,7 +201,19 @@ describe('changing an Amethyst profile', () => {
         expect(fs.readdirSync(setup.profile).some(f => f.endsWith('.tmp'))).toBe(false);
 
         // Once there, nothing changes: Amethyst keeps lines it has not seen, and these are now its own.
-        expect(am.enable(instance, 'MyPatch', 'MyPatch.esp')).toEqual({ modEnabled: false, pluginActive: false, addedToLoadOrder: false });
+        expect(am.enable(instance, 'MyPatch', ['MyPatch.esp'])).toEqual({ modEnabled: false, activated: [], addedToLoadOrder: [] });
+    });
+
+    it('adds a mod\'s plugins in the order given, and a mod without plugins to the mod list only', () => {
+        const setup = makeSetup();
+        const am = manager(setup);
+        const instance = am.readInstance();
+        const plugins = fs.readFileSync(path.join(setup.profile, 'plugins.txt'), 'utf8');
+        expect(am.enable(instance, 'Textures', [])).toEqual({ modEnabled: true, activated: [], addedToLoadOrder: [] });
+        expect(fs.readFileSync(path.join(setup.profile, 'plugins.txt'), 'utf8')).toBe(plugins);
+
+        expect(am.enable(instance, 'Big Mod', ['BigMod.esm', 'BigMod - Patch.esp']).addedToLoadOrder).toEqual(['BigMod.esm', 'BigMod - Patch.esp']);
+        expect(fs.readFileSync(path.join(setup.profile, 'loadorder.txt'), 'utf8')).toMatch(/\nBigMod\.esm\nBigMod - Patch\.esp\n$/);
     });
 
     it('has Amethyst deploy when its window is closed, and asks the user when it is open', async () => {
@@ -242,6 +254,13 @@ function scriptedHelper() {
                     write(path.join(params.outputDir, 'RecordData.yaml'), 'ModKey: MyPatch.esp\nGameRelease: SkyrimSE\n');
                     write(path.join(params.outputDir, 'Weapons', 'Sword - 000800_MyPatch.esp.yaml'), 'FormKey: 000800:MyPatch.esp\nEditorID: Sword\n');
                     return { files: 2 };
+                // Every downloaded file holds one plain mod in a wrapper folder.
+                case 'readArchive': return { files: ['Plain Mod/PlainMod.esp', 'Plain Mod/textures/a.dds'] };
+                case 'extractArchive':
+                    for (const { from, to } of params.files) write(path.join(params.targetDir, to), from);
+                    return { written: params.files.length, missing: [] };
+                case 'pluginHeaders':
+                    return { plugins: params.paths.map((file: string) => ({ path: file, masters: ['Skyrim.esm'], master: false, light: false })) };
                 default: throw new Error(`unexpected helper call ${method}`);
             }
         }
@@ -318,6 +337,19 @@ describe('deploying into Amethyst', () => {
         const deployed = await backend.deployProject('MyPatch');
         expect(deployed.removedCopies).toEqual([inData]);
         expect(fs.existsSync(inData)).toBe(false);
+    });
+
+    it('installs a downloaded file into the staged mods, as lines Amethyst keeps, and has Amethyst deploy it', async () => {
+        const { setup, backend, runs } = makeBackend();
+        write(path.join(setup.config, 'download_cache', 'Plain Mod.zip'), 'archive bytes');
+        const installed = await backend.installMod({ file: 'Plain Mod.zip' });
+        expect(installed).toMatchObject({
+            mod: 'Plain Mod', root: 'Plain Mod', plugins: ['PlainMod.esp'], modManager: { manager: 'amethyst', status: 'deployed' }
+        });
+        expect(fs.existsSync(path.join(setup.mods, 'Plain Mod', 'textures', 'a.dds'))).toBe(true);
+        expect(fs.readFileSync(path.join(setup.profile, 'modlist.txt'), 'utf8')).toMatch(/^\+Plain Mod\n\+UIExtensions v1\n/);
+        expect(fs.readFileSync(path.join(setup.profile, 'plugins.txt'), 'utf8')).toMatch(/\n\*PlainMod\.esp\n$/);
+        expect(runs).toEqual([expect.arrayContaining(['deploy', '489830', 'default'])]);
     });
 
     it('names Amethyst in healthcheck', async () => {

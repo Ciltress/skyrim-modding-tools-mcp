@@ -72,7 +72,9 @@ src/
                                     deploy command
   backend/skyrim/projects.ts        a project on disk: paths, FormID assignment, text sync, deploy state
   backend/skyrim/nexus.ts           Nexus Mods: the catalogue over GraphQL, the account and downloads over
-                                    v1 with NEXUS_API_KEY, BBCode as text
+                                    v1 with NEXUS_API_KEY, BBCode as text; a download's .meta record
+  backend/skyrim/installer.ts       what installMod decides before writing: a plain file's Data folder, a
+                                    FOMOD installer's questions and the files its choices install
   backend/skyrim/externalTools.ts   the Papyrus compilers (the Creation Kit's, russo-2025's) and git
   backend/skyrim/platform.ts        everything that differs by operating system (ADR-0007) — the only
                                     place that asks; Windows and Linux side by side
@@ -83,13 +85,15 @@ src/
   handlers/RecordsHandlers.ts       findRecords, readRecord
   handlers/ProjectsHandlers.ts      newProject, addPatch, buildProject, deployProject, pullProject
   handlers/NexusHandlers.ts         searchNexus, readNexusMod, downloadNexusFile
+  handlers/ModsHandlers.ts          installMod
   handlers/DocsHandlers.ts, SkillsHandlers.ts   readServerGuide and readSkill
   types/tools.ts           ToolDefinition / ToolProperty / ToolAnnotations — the inputSchema contract
   lib/                     logger, guides, skills, profiles, responseBudget, capabilityGate,
                            instructions, serverInfo, http, toolDocs, env — the template's machinery
   __tests__/               vitest suites, all offline; fakes.ts holds the shared doubles
 helper/SkyrimHelper/       the C# plugin helper: Session.cs (the methods), RecordIndex.cs, SpriggitFormat.cs,
-                           PeVersion.cs (an exe's version, read the same way on Windows and Linux)
+                           PeVersion.cs (an exe's version, read the same way on Windows and Linux),
+                           Archives.cs (downloaded files, through SharpCompress), Fomod.cs (ModuleConfig.xml as data)
 skills/Domain              the modding skills — ours, edit freely
 projects/                  the user's projects (mods as text); created on first use
 scripts/generate-tool-docs.mjs   writes docs/Tool-Reference.md; run after changing any getTools()

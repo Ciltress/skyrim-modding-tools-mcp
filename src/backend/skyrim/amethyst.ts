@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 import { parseIni, parseModList, primaryPlugins, readLoadOrder, resolvePluginFiles } from './mo2.js';
 import {
     InstanceConfigError, type Instance, type ModEntry, type ModManager, type ModManagerNotice, type PluginEntry,
-    type ProfileChange
+    type ModEnabled
 } from './modManager.js';
 import { findCaseInsensitive } from './paths.js';
 
@@ -185,10 +185,10 @@ export class AmethystManager implements ModManager {
 
     /**
      * Adds only what is new, the way Amethyst keeps outside changes: a mod line it has not seen, the
-     * plugin at the end of the load order. Files are written whole and renamed into place, as Amethyst
+     * plugins at the end of the load order. Files are written whole and renamed into place, as Amethyst
      * writes its own, with LF line ends.
      */
-    enable(instance: Instance, mod: string, plugin: string): ProfileChange {
+    enable(instance: Instance, mod: string, plugins: readonly string[]): ModEnabled {
         const modlist = path.join(instance.profileDir, 'modlist.txt');
         const mods = readTextLines(modlist, 'utf8');
         let modEnabled = false;
@@ -202,36 +202,34 @@ export class AmethystManager implements ModManager {
         }
         if (modEnabled) writeTextLines(modlist, mods, 'utf8');
 
-        const same = (line: string) => line.replace(/^\*/, '').toLowerCase() === plugin.toLowerCase();
+        const same = (plugin: string) => (line: string) => line.replace(/^\*/, '').toLowerCase() === plugin.toLowerCase();
         const pluginsFile = path.join(instance.profileDir, 'plugins.txt');
         // Amethyst writes plugins.txt in cp1252 where it can; latin1 reads and writes the same bytes.
-        const plugins = readTextLines(pluginsFile, 'latin1');
-        const listed = plugins.findIndex(same);
-        let pluginActive = false;
-        if (listed < 0) {
-            plugins.push(`*${plugin}`);
-            pluginActive = true;
-        } else if (!plugins[listed].startsWith('*')) {
-            plugins[listed] = `*${plugin}`;
-            pluginActive = true;
+        const lines = readTextLines(pluginsFile, 'latin1');
+        const activated: string[] = [];
+        for (const plugin of plugins) {
+            const listed = lines.findIndex(same(plugin));
+            if (listed >= 0 && lines[listed].startsWith('*')) continue;
+            if (listed < 0) lines.push(`*${plugin}`);
+            else lines[listed] = `*${plugin}`;
+            activated.push(plugin);
         }
-        if (pluginActive) writeTextLines(pluginsFile, plugins, 'latin1');
+        if (activated.length > 0) writeTextLines(pluginsFile, lines, 'latin1');
 
         const orderFile = path.join(instance.profileDir, 'loadorder.txt');
         const order = readTextLines(orderFile, 'utf8');
-        let addedToLoadOrder = false;
-        if (!order.some(same)) {
+        const addedToLoadOrder = plugins.filter(plugin => !order.some(same(plugin)));
+        if (addedToLoadOrder.length > 0) {
             // Amethyst's loadorder.txt lists the game's own plugins too; a missing file starts from them.
             if (order.length === 0) order.push(...primaryPlugins(instance.gameDir));
-            order.push(plugin);
+            order.push(...addedToLoadOrder);
             writeTextLines(orderFile, order, 'utf8');
-            addedToLoadOrder = true;
         }
-        return { modEnabled, pluginActive, addedToLoadOrder };
+        return { modEnabled, activated, addedToLoadOrder };
     }
 
-    // A deploy adds only lines Amethyst has not seen, which it keeps, open or not.
-    async deployRefusal(): Promise<string | undefined> {
+    // A deploy or an install adds only lines Amethyst has not seen, which it keeps, open or not.
+    async writeRefusal(): Promise<string | undefined> {
         return undefined;
     }
 

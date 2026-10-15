@@ -3,7 +3,7 @@
 <!-- GENERATED FILE - do not edit by hand.
      Run `npm run build && npm run docs:tools` after changing any getTools(). -->
 
-Every tool this server can expose: **12 tools across 5 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
+Every tool this server can expose: **13 tools across 6 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
 
 **How many you can actually call is smaller.** The active `MCP_PROFILE` decides what is
 listed, and the server withholds anything the connected backend does not support.
@@ -25,6 +25,7 @@ what needs a human, not a permission system: nothing here is enforced.
 ## Families
 
 - [Bundled skills](#bundled-skills) — 1 tool
+- [Installing mods](#installing-mods) — 1 tool
 - [Nexus Mods](#nexus-mods) — 3 tools
 - [Projects: authoring and patching](#projects-authoring-and-patching) — 5 tools
 - [Records in the load order](#records-in-the-load-order) — 2 tools
@@ -41,6 +42,16 @@ From `src/handlers/SkillsHandlers.ts`.
 _read-only_
 
 `collection` string · `skill` string · `file` string
+
+## Installing mods
+
+From `src/handlers/ModsHandlers.ts`.
+
+**`installMod`** — Install a downloaded file (.7z, .zip, .rar) as a mod: unpack it into a new mod, enable the mod and activate its plugins at the end of the load order; then the mod manager is told, as for deployProject — when the user has to act, `modManager.nextStep` says what. A file with a FOMOD installer takes two calls: the first installs nothing and answers its steps, every option with an id like 1.1.2; the second, with `choices`, installs. A mod name already taken is refused unless `replace` is true. `missingMasters` names plugins the game cannot load until the mods they need are installed too.
+
+_writes · destructive · idempotent_
+
+`file`**\*** string · `choices` array · `name` string · `root` string · `replace` boolean
 
 ## Nexus Mods
 

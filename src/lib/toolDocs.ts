@@ -33,7 +33,8 @@ const LABELS: Record<string, string> = {
     SkillsHandlers: 'Bundled skills',
     RecordsHandlers: 'Records in the load order',
     ProjectsHandlers: 'Projects: authoring and patching',
-    NexusHandlers: 'Nexus Mods'
+    NexusHandlers: 'Nexus Mods',
+    ModsHandlers: 'Installing mods'
 };
 
 function labelFor(handler: string): string {

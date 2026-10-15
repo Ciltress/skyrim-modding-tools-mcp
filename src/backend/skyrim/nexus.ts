@@ -3,6 +3,7 @@ import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
+import { encodeQtValue, parseIni } from './mo2.js';
 import type {
     NexusAccount, NexusDownload, NexusFileInfo, NexusMod, NexusModSummary, NexusRequirement, NexusSearchQuery,
     NexusSearchResult, NexusSort
@@ -368,7 +369,8 @@ function fileInfo(node: FileNode): NexusFileInfo {
         name: plain(node.name),
         version: node.version,
         category: node.category.toLowerCase(),
-        fileName: node.uri,
+        // Newer uploads answer a storage path here, not the name the file downloads as.
+        ...(node.uri && !node.uri.includes('/') ? { fileName: node.uri } : {}),
         sizeBytes: Number(node.sizeInBytes),
         uploaded: new Date(node.date * 1000).toISOString().slice(0, 10),
         ...(description ? { description } : {})
@@ -391,13 +393,53 @@ function writeDownloadMeta(file: string, download: NexusDownload, fileCategory: 
         ['fileCategory', fileCategory], ['repository', 'Nexus'],
         ['installed', false], ['uninstalled', false], ['paused', false], ['removed', false]
     ];
-    const lines = ['[General]', ...entries.map(([key, value]) => `${key}=${qtIniValue(String(value))}`)];
+    const lines = ['[General]', ...entries.map(([key, value]) => `${key}=${encodeQtValue(String(value))}`)];
     fs.writeFileSync(`${file}.meta`, `${lines.join('\r\n')}\r\n`, 'utf8');
 }
 
-/** A string as Qt's ini format writes one: quoted when a comma would make it a list, or when it holds quotes. */
-function qtIniValue(value: string): string {
-    return /[,;="\\]|^\s|\s$/.test(value) ? `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"` : value;
+/** What a downloaded file's `.meta` says — Mod Organizer's record of a download, and downloadNexusFile's. */
+export interface DownloadMeta {
+    modId?: number;
+    fileId?: number;
+    version?: string;
+    /** The file's name on the mod page. */
+    name?: string;
+    modName?: string;
+    /** Nexus's file category: 1 main, 2 update, 3 optional, 4 old version, 5 miscellaneous. */
+    category?: number;
+}
+
+/** The record beside a downloaded file; empty when there is none, as for a file downloaded by hand. */
+export function readDownloadMeta(file: string): DownloadMeta {
+    let text: string;
+    try {
+        text = fs.readFileSync(`${file}.meta`, 'utf8');
+    } catch {
+        return {};
+    }
+    // Mod Organizer has written these keys in more than one letter case over the years.
+    const general = new Map([...(parseIni(text).get('General') ?? [])].map(([key, value]) => [key.toLowerCase(), value]));
+    const string = (key: string) => general.get(key.toLowerCase()) || undefined;
+    const number = (key: string) => {
+        const value = Number(general.get(key.toLowerCase()));
+        return Number.isInteger(value) && value > 0 ? value : undefined;
+    };
+    return {
+        modId: number('modID'), fileId: number('fileID'), version: string('version'), name: string('name'),
+        modName: string('modName'), category: number('fileCategory')
+    };
+}
+
+/** Marks a download installed in its record, as Mod Organizer does once it installed one. */
+export function markDownloadInstalled(file: string): void {
+    const meta = `${file}.meta`;
+    if (!fs.existsSync(meta)) return;
+    const text = fs.readFileSync(meta, 'utf8');
+    let next = text.replace(/^uninstalled=true$/im, 'uninstalled=false');
+    next = /^installed=/im.test(next)
+        ? next.replace(/^installed=.*$/im, 'installed=true')
+        : next.replace(/^\[General\]\r?\n/im, header => `${header}installed=true\r\n`);
+    if (next !== text) fs.writeFileSync(meta, next, 'utf8');
 }
 
 /** The text up to the last line break within `limit` characters, so it never ends mid-sentence. */

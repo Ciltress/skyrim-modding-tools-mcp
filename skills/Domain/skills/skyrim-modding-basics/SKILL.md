@@ -1,6 +1,6 @@
 ---
 name: skyrim-modding-basics
-description: How Skyrim SE mods work - plugins, masters, FormIDs, load order versus mod order, overrides and conflicts, light plugins, archives, game versions and SKSE, mod managers (Mod Organizer, Amethyst). Read before any authoring or analysis; when a FormID, load-order or conflict question comes up; when a game-version or SKSE mismatch is suspected; or to choose an external tool such as xEdit or the Creation Kit.
+description: How Skyrim SE mods work - plugins, masters, FormIDs, load order versus mod order, overrides and conflicts, light plugins, archives, game versions and SKSE, mod managers (Mod Organizer, Amethyst). Read before any authoring, analysis or installing a mod; when a FormID, load-order or conflict question comes up; when a game-version or SKSE mismatch is suspected; or to choose an external tool such as xEdit or the Creation Kit.
 ---
 
 # Skyrim modding basics
@@ -60,6 +60,16 @@ Every authoring task runs this loop; each record-family skill adds what its reco
    project, `pullProject`, review `git diff`, then build and deploy.
 
 When a change has no effect in game, `readRecord` with `allVersions: true` shows which plugin wins.
+
+## Installing someone else's mod
+
+1. **Check it.** `searchNexus`, then `readNexusMod`: its `requirements` and `dlcRequirements` must be
+   in the instance first — install those first, the same way.
+2. **Get the file.** `downloadNexusFile` with the main file's `fileId`, plus optional files the user
+   wants. Without that tool (no premium key), the user downloads it into the downloads folder.
+3. **Install.** `installMod` with the file. A FOMOD installer answers its steps first: choose with the
+   user where it matters, then call again with `choices`. Done when it succeeds, `missingMasters` is
+   empty, and the user has heard `modManager.nextStep`, if there is one.
 
 ## Where to look next
 

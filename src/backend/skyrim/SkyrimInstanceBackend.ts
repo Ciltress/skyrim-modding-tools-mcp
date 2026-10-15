@@ -7,15 +7,21 @@ import type { HealthReport } from '../Backend.js';
 import { compileScripts, hasUncommittedChanges } from './externalTools.js';
 import { HelperError, HelperUnavailableError } from './helperClient.js';
 import {
+    FomodInstaller, InstallError, checkRoot, defaultModName, findDataRoot, folderName, modMetaIni, plainLayout, pluginOrder,
+    topFolders, type ArchiveListing, type InstallEnvironment, type PluginHeader, type UnpackedFile
+} from './installer.js';
+import type { Instance } from './modManager.js';
+import { findCaseInsensitive } from './paths.js';
+import {
     ProjectError, assignFormIds, createProject, fileHash, newestSourceTime, projectExists,
     projectInfo, projectPaths, readDeployState, readProjectHeader, syncFolder, syncYaml, writeDeployState
 } from './projects.js';
 import type { SkyrimEngine } from './engine.js';
-import { NexusCatalogue } from './nexus.js';
+import { NexusCatalogue, markDownloadInstalled, readDownloadMeta } from './nexus.js';
 import type {
-    AddPatchRequest, AddPatchResult, BuildResult, DeployResult, NewProjectRequest, NexusAccount, NexusDownload, NexusMod, NexusSearchQuery,
-    NexusSearchResult, ProjectFile, ProjectInfo, PullResult, RecordQuery, RecordRequest, RecordSearchResult, RecordVersion,
-    RecordVersions, SkyrimBackend
+    AddPatchRequest, AddPatchResult, BuildResult, DeployResult, InstallModQuestions, InstallModRequest, InstallModResult,
+    NewProjectRequest, NexusAccount, NexusDownload, NexusMod, NexusSearchQuery, NexusSearchResult, ProjectFile, ProjectInfo,
+    PullResult, RecordQuery, RecordRequest, RecordSearchResult, RecordVersion, RecordVersions, SkyrimBackend
 } from './SkyrimBackend.js';
 import { SERVER_INFO } from '../../lib/serverInfo.js';
 
@@ -299,7 +305,7 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
                 `deploy — saved in the Creation Kit or xEdit? Run pullProject to bring those changes into the project ` +
                 `first; deploying now would overwrite them.`);
         }
-        const refusal = await modManager.deployRefusal(instance);
+        const refusal = await modManager.writeRefusal(instance);
         if (refusal) throw new ProjectError(refusal);
 
         // The mod folder becomes the build plus the assets, so files removed from the project go too —
@@ -308,14 +314,19 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         // Guarded above: a shadowing copy that got this far was pulled, so the project holds its work.
         for (const copy of shadowing) fs.rmSync(copy);
 
-        const profileChange = modManager.enable(instance, project, plugin);
+        const enabled = modManager.enable(instance, project, [plugin]);
         const notice = await modManager.afterDeploy(instance);
         writeDeployState(paths, { modFolder, plugin, pluginHash: fileHash(deployed), at: new Date().toISOString() });
 
         return {
             project, plugin, modFolder, files,
             ...(shadowing.length > 0 ? { removedCopies: shadowing } : {}),
-            profile: { name: instance.profile, ...profileChange },
+            profile: {
+                name: instance.profile,
+                modEnabled: enabled.modEnabled,
+                pluginActive: enabled.activated.length > 0,
+                addedToLoadOrder: enabled.addedToLoadOrder.length > 0
+            },
             modManager: notice
         };
     }
@@ -380,6 +391,193 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
 
     async downloadNexusFile(modId: number, fileId: number): Promise<NexusDownload> {
         return this.nexus.downloadFile(modId, fileId, this.engine.modManager.readInstance().downloadsDir);
+    }
+
+    // ---------------------------------------------------------------- installing
+
+    /**
+     * A downloaded file into the instance as a mod, the way deployProject puts a project there: the mod
+     * manager may refuse first, the mod is enabled and its plugins activated, and the mod manager is
+     * told. Whatever can be refused is refused before anything is written; a FOMOD installer's first
+     * answer writes nothing at all.
+     */
+    async installMod(request: InstallModRequest): Promise<InstallModResult | InstallModQuestions> {
+        const modManager = this.engine.modManager;
+        const instance = modManager.readInstance();
+        const file = findDownload(instance.downloadsDir, request.file);
+        const fileName = path.basename(file);
+        const meta = readDownloadMeta(file);
+        const mod = request.name !== undefined ? checkModName(request.name) : defaultModName(meta, fileName);
+        const modFolder = path.join(instance.modsDir, mod);
+
+        if (isProjectMod(this.engine.projectsDir, mod)) {
+            throw new InstallError(
+                `'${mod}' is the mod of the project '${mod}', which deployProject puts into the instance. Give \`name\` to ` +
+                `install this file as another mod.`);
+        }
+        const exists = fs.existsSync(modFolder) && fs.readdirSync(modFolder).length > 0;
+        if (exists && !request.replace) {
+            throw new InstallError(
+                `A mod named '${mod}' is already in the instance. Pass replace: true to replace its files with this file's, ` +
+                `or give \`name\` to install it as another mod.`);
+        }
+
+        await this.engine.ensureFresh();
+        const listing = await this.engine.helper.call<ArchiveListing>('readArchive', { archivePath: file }, BUILD_TIMEOUT_MS);
+        const warnings: string[] = [];
+        let plan: Pick<InstallModResult, 'installer' | 'root' | 'chosen' | 'ignoredChoices'> & { files: UnpackedFile[] };
+        if (listing.fomod && request.root === undefined) {
+            const fomod = new FomodInstaller(listing, this.installEnvironment(instance));
+            if (request.choices === undefined && fomod.asksQuestions) {
+                return { status: 'chooseOptions', mod, file, installer: fomod.describe(), nextStep: CHOOSE_OPTIONS };
+            }
+            const planned = fomod.plan(request.choices ?? []);
+            warnings.push(...planned.warnings);
+            plan = {
+                installer: 'fomod', files: planned.files, chosen: planned.chosen,
+                ...(planned.ignoredChoices.length > 0 ? { ignoredChoices: planned.ignoredChoices } : {})
+            };
+        } else {
+            const root = request.root !== undefined ? checkRoot(listing.files, request.root) : findDataRoot(listing.files);
+            if (root === undefined) {
+                throw new InstallError(
+                    `Which folder of ${fileName} is the mod is not clear: it has ${topFolders(listing.files).join(', ')} at the ` +
+                    `top, likely options to choose from. Call installMod again with \`root\` set to the one the user wants — ` +
+                    `the mod page (readNexusMod) says what each is.`);
+            }
+            if (request.choices !== undefined) warnings.push(`${fileName} was installed without its FOMOD installer, so \`choices\` were not used.`);
+            plan = { installer: 'none', root, files: plainLayout(listing.files, root) };
+        }
+        if (plan.files.length === 0) {
+            throw new InstallError(`Nothing of ${fileName} would be installed. Choose other options, or another \`root\`.`);
+        }
+        const refusal = await modManager.writeRefusal(instance);
+        if (refusal) throw new InstallError(refusal);
+
+        // Written from here on. A half-unpacked mod is worse than none: the file is still there to install again.
+        if (exists) fs.rmSync(modFolder, { recursive: true, force: true });
+        fs.mkdirSync(modFolder, { recursive: true });
+        try {
+            const unpacking = this.engine.helper.call('extractArchive', { archivePath: file, targetDir: modFolder, files: plan.files }, BUILD_TIMEOUT_MS);
+            await (exists ? afterLocalWrites(unpacking) : unpacking);
+        } catch (error) {
+            fs.rmSync(modFolder, { recursive: true, force: true });
+            throw error;
+        }
+        fs.writeFileSync(path.join(modFolder, 'meta.ini'), modMetaIni(meta, fileName), 'utf8');
+        markDownloadInstalled(file);
+
+        const plugins = await this.pluginsOf(modFolder, warnings);
+        const order = pluginOrder(plugins);
+        const loaded = new Set([
+            ...modManager.readLoadOrder(instance).filter(plugin => plugin.active).map(plugin => plugin.name.toLowerCase()),
+            ...order.map(name => name.toLowerCase())
+        ]);
+        const missingMasters = order
+            .map(name => ({ plugin: name, masters: plugins.find(p => p.name === name)!.masters.filter(m => !loaded.has(m.toLowerCase())) }))
+            .filter(entry => entry.masters.length > 0);
+        if (missingMasters.length > 0) {
+            const masters = [...new Set(missingMasters.flatMap(entry => entry.masters))];
+            warnings.push(
+                `The game will not start while ${masters.join(', ')} ${masters.length === 1 ? 'is' : 'are'} missing from the load ` +
+                `order: install the mods ${masters.length === 1 ? 'it comes' : 'they come'} from — readNexusMod lists a mod's requirements.`);
+        }
+
+        const enabled = modManager.enable(instance, mod, order);
+        const notice = await modManager.afterDeploy(instance);
+        const { files: unpacked, ...how } = plan;
+        return {
+            mod, modFolder, file,
+            files: unpacked.length,
+            ...how,
+            plugins: order,
+            ...(missingMasters.length > 0 ? { missingMasters } : {}),
+            ...(warnings.length > 0 ? { warnings } : {}),
+            ...(exists ? { replaced: true as const } : {}),
+            ...(meta.modId ? {
+                nexus: { modId: meta.modId, ...(meta.fileId ? { fileId: meta.fileId } : {}), ...(meta.version ? { version: meta.version } : {}) }
+            } : {}),
+            profile: { name: instance.profile, ...enabled },
+            modManager: notice
+        };
+    }
+
+    /** The plugins at the top of a mod folder, with their masters; a file that is not a plugin is named in `warnings`. */
+    private async pluginsOf(modFolder: string, warnings: string[]): Promise<PluginHeader[]> {
+        const names = fs.readdirSync(modFolder, { withFileTypes: true })
+            .filter(entry => entry.isFile() && /\.(esp|esm|esl)$/i.test(entry.name))
+            .map(entry => entry.name);
+        if (names.length === 0) return [];
+        const read = await afterLocalWrites(this.engine.helper.call<{ plugins: { path: string; masters?: string[]; master?: boolean; error?: string }[] }>(
+            'pluginHeaders', { paths: names.map(name => path.join(modFolder, name)) }));
+        return read.plugins.map(plugin => {
+            const name = path.basename(plugin.path);
+            if (plugin.error) warnings.push(`${name} could not be read as a plugin (${plugin.error}); the game may not load it.`);
+            return { name, masters: plugin.masters ?? [], master: plugin.master ?? false };
+        });
+    }
+
+    /** What a FOMOD installer's conditions can ask: a file's state in the instance, the game's version, SKSE. */
+    private installEnvironment(instance: Instance): InstallEnvironment {
+        const modManager = this.engine.modManager;
+        const mods = modManager.readModList(instance);
+        const present = modManager.resolvePluginFiles(instance, mods);
+        const active = new Set(modManager.readLoadOrder(instance).filter(p => p.active).map(p => p.name.toLowerCase()));
+        const folders = [
+            instance.overwriteDir,
+            ...mods.filter(m => m.enabled && m.managed).map(m => path.join(instance.modsDir, m.name)),
+            path.join(instance.gameDir, 'Data')
+        ];
+        // Any other file is looked for in every enabled mod — thousands, in a big list — so once per file.
+        const looked = new Map<string, boolean>();
+        return {
+            fileState: name => {
+                const file = name.replace(/\\/g, '/');
+                const key = file.toLowerCase();
+                if (/\.(esp|esm|esl)$/i.test(file) && !file.includes('/')) {
+                    return present.has(key) ? (active.has(key) ? 'Active' : 'Inactive') : 'Missing';
+                }
+                if (!looked.has(key)) looked.set(key, folders.some(folder => findCaseInsensitive(folder, file)));
+                return looked.get(key) ? 'Active' : 'Missing';
+            },
+            gameVersion: this.engine.gameVersion,
+            scriptExtender: findCaseInsensitive(instance.gameDir, 'skse64_loader.exe') !== undefined
+        };
+    }
+}
+
+/** What the first answer for a FOMOD installer asks the caller to do. */
+const CHOOSE_OPTIONS =
+    'Choose the options the user wants — ask them where it matters — then call installMod again with the same file ' +
+    'and `choices`: the ids of the options to install, e.g. ["1.1.2", "2.1.1"]. A group you choose nothing in keeps ' +
+    'its default; `choices: []` installs every default. A step with `shownWhen` is installed only when that holds.';
+
+/** The downloaded file a request names: a full path, or a name in the downloads folder in any letter case. */
+function findDownload(downloadsDir: string, file: string): string {
+    const given = file.trim();
+    const found = path.isAbsolute(given) ? (fs.existsSync(given) ? given : undefined) : findCaseInsensitive(downloadsDir, given);
+    if (found && fs.statSync(found).isFile()) return found;
+    throw new InstallError(path.isAbsolute(given)
+        ? `There is no file at '${given}'. Give the full path of a downloaded .7z, .zip or .rar, or its name in the downloads folder ${downloadsDir}.`
+        : `No file '${given}' in the downloads folder ${downloadsDir}. Download it with downloadNexusFile, or give the full ` +
+          `path of a file downloaded by hand.`);
+}
+
+/** A name the caller gave, as it is — or refused, when it cannot be a folder. */
+function checkModName(name: string): string {
+    const given = name.trim();
+    if (!given || folderName(given) !== given) {
+        throw new InstallError(`'${name}' cannot be a mod's name: it becomes a folder, so leave out < > : " / \\ | ? * and a trailing dot.`);
+    }
+    return given;
+}
+
+/** Whether a mod of this name is a project's, deployed by deployProject. */
+function isProjectMod(projectsDir: string, mod: string): boolean {
+    try {
+        return projectExists(projectPaths(projectsDir, mod));
+    } catch {
+        return false; // not a name a project can have
     }
 }
 
