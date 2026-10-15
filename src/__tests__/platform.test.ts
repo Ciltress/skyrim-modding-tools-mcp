@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { CompilerUnavailableError, papyrusCommand, type CompileOptions } from '../backend/skyrim/externalTools';
-import type { Mo2Instance } from '../backend/skyrim/mo2';
+import type { Instance } from '../backend/skyrim/modManager';
 import { findCaseInsensitive } from '../backend/skyrim/paths';
 import { linuxPlatform, type Platform } from '../backend/skyrim/platform';
 
@@ -74,7 +74,7 @@ describe('the Papyrus command', () => {
         write(path.join(game, 'Papyrus Compiler', 'PapyrusCompiler.exe'));
         write(path.join(root, 'mods', 'SKSE', 'scripts', 'source', 'SKSE.psc'));
         write(path.join(root, 'tools', 'papyrus-compiler'));
-        const instance = { modsDir: path.join(root, 'mods') } as Mo2Instance;
+        const instance = { modsDir: path.join(root, 'mods') } as Instance;
         const options = (platform: Platform, compiler?: string): CompileOptions => ({
             platform, compiler, creationKitDir: game,
             scriptsDir: path.join(root, 'project', 'scripts'),

@@ -4,8 +4,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { PermanentBackendError, SessionExpiredError } from '../Backend.js';
 import type { HealthReport } from '../Backend.js';
-import { readInstance, readModList, type Mo2Instance } from './mo2.js';
-import { activatePlugin, enableMod, refreshIfRunning } from './mo2Profile.js';
 import { compileScripts, hasUncommittedChanges } from './externalTools.js';
 import { HelperError, HelperUnavailableError } from './helperClient.js';
 import {
@@ -18,36 +16,35 @@ import type {
     RecordQuery, RecordRequest, RecordSearchResult, RecordVersions, SkyrimBackend
 } from './SkyrimBackend.js';
 
-export interface Mo2SkyrimBackendOptions {
+export interface SkyrimInstanceBackendOptions {
     engine: SkyrimEngine;
     /** The caller's bearer token, in HTTP mode. */
     credential?: string;
     /** Tokens HTTP callers may present. Undefined in stdio mode, where nothing is checked. */
     acceptedCredentials?: readonly string[];
-    /** Tells a running Mod Organizer to re-read its profile. Replaced in tests, which have none running. */
-    refreshModOrganizer?: (instance: Mo2Instance) => Promise<DeployResult['modOrganizer']>;
 }
 
 /**
- * The backend one server talks to: a thin layer over the shared SkyrimEngine, which holds
- * the MO2 instance and the plugin helper. Per session it only adds the credential check.
+ * The backend one server talks to: a thin layer over the shared SkyrimEngine, which holds the
+ * instance — through its mod manager — and the plugin helper. Per session it only adds the
+ * credential check. Nothing here knows which mod manager it is (docs/adr/0007).
  *
  * `connect()` is the credential check and nothing else — it starts the engine in the background but
  * does not wait for it. An instance that cannot be read, or a helper that is not built, is not a
  * refused credential: it surfaces on the first tool call and in healthcheck with its own cause, and
  * is checked again on every call rather than latched.
  */
-export class Mo2SkyrimBackend implements SkyrimBackend {
+export class SkyrimInstanceBackend implements SkyrimBackend {
     private accepted = false;
 
-    constructor(private readonly options: Mo2SkyrimBackendOptions) { }
+    constructor(private readonly options: SkyrimInstanceBackendOptions) { }
 
     private get engine(): SkyrimEngine {
         return this.options.engine;
     }
 
     describe(): string {
-        return `the Mod Organizer instance at ${this.engine.instanceDir}`;
+        return this.engine.modManager.describe();
     }
 
     get connected(): boolean {
@@ -76,7 +73,7 @@ export class Mo2SkyrimBackend implements SkyrimBackend {
     async health(): Promise<HealthReport> {
         let instance;
         try {
-            instance = readInstance(this.engine.instanceDir);
+            instance = this.engine.modManager.readInstance();
         } catch (error) {
             return { ok: false, summary: (error as Error).message };
         }
@@ -96,7 +93,8 @@ export class Mo2SkyrimBackend implements SkyrimBackend {
                 : missing > 0
                     ? `${missing} active plugin(s) have no file in the game or any enabled mod: ${engine.missingPlugins.slice(0, 5).join(', ')}.`
                     : `Profile '${instance.profile}': ${engine.activePlugins} active plugins, game ${engine.gameVersion}.`,
-            instance: engine.instanceDir,
+            modManager: engine.modManager.name,
+            instance: engine.modManager.location,
             profile: instance.profile,
             game: { dir: instance.gameDir, edition: instance.edition, version: engine.gameVersion ?? null },
             plugins: { active: engine.activePlugins, missing: engine.missingPlugins },
@@ -161,7 +159,7 @@ export class Mo2SkyrimBackend implements SkyrimBackend {
         // The plugin is written last: a build that fails on the way leaves no plugin, and deploy refuses.
         fs.rmSync(paths.build, { recursive: true, force: true });
 
-        const instance = readInstance(this.engine.instanceDir);
+        const instance = this.engine.modManager.readInstance();
         const compiled = await compileScripts({
             platform: this.engine.platform,
             compiler: this.engine.papyrusCompiler,
@@ -169,7 +167,7 @@ export class Mo2SkyrimBackend implements SkyrimBackend {
             scriptsDir: paths.scripts,
             outputDir: path.join(paths.build, 'Scripts'),
             instance,
-            mods: readModList(instance)
+            mods: this.engine.modManager.readModList(instance)
         });
 
         const output = path.join(paths.build, plugin);
@@ -190,7 +188,8 @@ export class Mo2SkyrimBackend implements SkyrimBackend {
     }
 
     async deployProject(project: string): Promise<DeployResult> {
-        const instance = readInstance(this.engine.instanceDir);
+        const modManager = this.engine.modManager;
+        const instance = modManager.readInstance();
         const paths = projectPaths(this.engine.projectsDir, project);
         const { plugin } = readProjectHeader(paths);
         const output = path.join(paths.build, plugin);
@@ -204,61 +203,59 @@ export class Mo2SkyrimBackend implements SkyrimBackend {
 
         const modFolder = path.join(instance.modsDir, project);
         const deployed = path.join(modFolder, plugin);
-        // A copy in overwrite outranks the mod: it is the one the game loads, and the one to guard.
-        const inOverwrite = path.join(instance.overwriteDir, plugin);
-        const overwriteCopy = fs.existsSync(inOverwrite);
-        const live = overwriteCopy ? inOverwrite : deployed;
+        // A copy that outranks the mod — Mod Organizer's overwrite — is the one the game loads, and the one to guard.
+        const shadowing = modManager.shadowingCopies(instance, plugin).filter(file => fs.existsSync(file));
+        const live = shadowing[0] ?? deployed;
         const state = readDeployState(paths);
         if (!state && fs.existsSync(modFolder) && fs.readdirSync(modFolder).some(f => f.toLowerCase() !== 'meta.ini')) {
             throw new ProjectError(
                 `A mod named '${project}' already exists in the instance and was not deployed from this project. ` +
-                `Rename the project, or remove that mod in Mod Organizer first.`);
+                `Rename the project, or remove that mod in the mod manager first.`);
         }
-        if (!state && overwriteCopy) {
+        if (!state && shadowing.length > 0) {
             throw new ProjectError(
-                `Mod Organizer's overwrite folder holds a ${plugin}, which would hide this deploy from the game. ` +
-                `If it is this project's work, run pullProject first; otherwise move it out of overwrite in Mod Organizer.`);
+                `A ${plugin} at '${shadowing[0]}' would hide this deploy from the game. If it is this project's work, ` +
+                `run pullProject first; otherwise move it away in the mod manager.`);
         }
         if (state && fs.existsSync(live) && fileHash(live) !== state.pluginHash) {
             throw new ProjectError(
-                `The deployed ${plugin}${overwriteCopy ? ' (the copy in overwrite)' : ''} changed since the last deploy — ` +
-                `saved in the Creation Kit or xEdit? Run pullProject to bring those changes into the project first; ` +
-                `deploying now would overwrite them.`);
+                `The deployed ${plugin}${live === deployed ? '' : ` (the copy at '${live}')`} changed since the last ` +
+                `deploy — saved in the Creation Kit or xEdit? Run pullProject to bring those changes into the project ` +
+                `first; deploying now would overwrite them.`);
         }
 
-        // Everything but Mod Organizer's own meta.ini is replaced, so files removed from the project go too.
+        // Everything but the mod manager's own meta.ini is replaced, so files removed from the project go too.
         if (fs.existsSync(modFolder)) {
             for (const entry of fs.readdirSync(modFolder)) {
                 if (entry.toLowerCase() !== 'meta.ini') fs.rmSync(path.join(modFolder, entry), { recursive: true, force: true });
             }
         }
         const files = copyTree(paths.build, modFolder) + copyTree(paths.assets, modFolder);
-        // Guarded above: an overwrite copy that got this far was pulled, so the project holds its work.
-        if (overwriteCopy) fs.rmSync(inOverwrite);
+        // Guarded above: a shadowing copy that got this far was pulled, so the project holds its work.
+        for (const copy of shadowing) fs.rmSync(copy);
 
-        const modEnabled = enableMod(instance, project);
-        const { pluginActive, addedToLoadOrder } = activatePlugin(instance, plugin);
-        const modOrganizer = await (this.options.refreshModOrganizer ?? (i => refreshIfRunning(i, this.engine.platform)))(instance);
+        const profileChange = modManager.enable(instance, project, plugin);
+        const notice = await modManager.afterDeploy(instance);
         writeDeployState(paths, { modFolder, plugin, pluginHash: fileHash(deployed), at: new Date().toISOString() });
 
         return {
             project, plugin, modFolder, files,
-            ...(overwriteCopy ? { removedFromOverwrite: inOverwrite } : {}),
-            profile: { name: instance.profile, modEnabled, pluginActive, addedToLoadOrder },
-            modOrganizer
+            ...(shadowing.length > 0 ? { removedCopies: shadowing } : {}),
+            profile: { name: instance.profile, ...profileChange },
+            modManager: notice
         };
     }
 
     async pullProject(project: string): Promise<PullResult> {
         await this.engine.ensureFresh();
-        const instance = readInstance(this.engine.instanceDir);
+        const instance = this.engine.modManager.readInstance();
         const paths = projectPaths(this.engine.projectsDir, project);
         const { plugin } = readProjectHeader(paths);
 
-        // The Creation Kit writes a plugin it edits back to its mod, but a plugin it saves anew lands in overwrite.
+        // The Creation Kit writes a plugin it edits back to its mod, but one it saves anew can land
+        // elsewhere — in Mod Organizer, in overwrite. The newest copy is the latest work.
         const deployed = path.join(instance.modsDir, project, plugin);
-        const inOverwrite = path.join(instance.overwriteDir, plugin);
-        const candidates = [deployed, inOverwrite].filter(file => fs.existsSync(file));
+        const candidates = [deployed, ...this.engine.modManager.shadowingCopies(instance, plugin)].filter(file => fs.existsSync(file));
         if (candidates.length === 0) {
             throw new ProjectError(`There is no deployed ${plugin} to pull from: deploy the project first.`);
         }

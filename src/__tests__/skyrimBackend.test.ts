@@ -3,12 +3,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { vi, type MockInstance } from 'vitest';
 import {
-    Mo2ConfigError, decodeQtValue, parseModList, readInstance, readLoadOrder, readModList, resolvePluginFiles
+    decodeQtValue, parseModList, readInstance, readLoadOrder, readModList, resolvePluginFiles
 } from '../backend/skyrim/mo2';
 import { activatePlugin, enableMod } from '../backend/skyrim/mo2Profile';
 import { ProjectError, assignFormIds, projectPaths, readProjectHeader, syncYaml } from '../backend/skyrim/projects';
 import { SkyrimEngine } from '../backend/skyrim/engine';
-import { Mo2SkyrimBackend } from '../backend/skyrim/Mo2SkyrimBackend';
+import { SkyrimInstanceBackend } from '../backend/skyrim/SkyrimInstanceBackend';
+import { Mo2Manager } from '../backend/skyrim/mo2Manager';
+import { InstanceConfigError } from '../backend/skyrim/modManager';
+import { linuxPlatform } from '../backend/skyrim/platform';
 import { HelperError, HelperMissingError, HelperUnavailableError, type HelperTransport } from '../backend/skyrim/helperClient';
 import { CompilerUnavailableError, ScriptCompileError } from '../backend/skyrim/externalTools';
 import { asRequestError } from '../handlers/args';
@@ -95,7 +98,7 @@ describe('reading a Mod Organizer instance', () => {
     });
 
     it('says what to fix when the folder is not an instance, or manages another game', () => {
-        expect(() => readInstance(path.join(os.tmpdir(), 'no-such-instance'))).toThrow(Mo2ConfigError);
+        expect(() => readInstance(path.join(os.tmpdir(), 'no-such-instance'))).toThrow(InstanceConfigError);
         expect(() => readInstance(path.join(os.tmpdir(), 'no-such-instance'))).toThrow(/SKYRIM_MO2_INSTANCE/);
         expect(() => readInstance(makeInstance({ gameName: 'Fallout 4' }).instanceDir)).toThrow(/not Skyrim Special Edition/);
     });
@@ -276,11 +279,17 @@ function scriptedHelper() {
     return { helper, calls };
 }
 
+/**
+ * The same system on every machine that runs the suite: no Mod Organizer running (no process table)
+ * and no Creation Kit compiler — the Linux side, whatever the suite runs on.
+ */
+const quiet = linuxPlatform(path.join(os.tmpdir(), 'skyrim-mcp-no-proc'));
+
 function makeBackend() {
     const fixture = makeInstance();
     const { helper, calls } = scriptedHelper();
-    const engine = new SkyrimEngine(fixture.instanceDir, helper, fixture.projects);
-    const backend = new Mo2SkyrimBackend({ engine, refreshModOrganizer: async () => 'notRunning' });
+    const engine = new SkyrimEngine(new Mo2Manager(fixture.instanceDir, quiet), helper, fixture.projects, { platform: quiet });
+    const backend = new SkyrimInstanceBackend({ engine });
     return { fixture, backend, calls, engine };
 }
 
@@ -384,7 +393,7 @@ describe('the Skyrim backend', () => {
         const deployed = await backend.deployProject('MyPatch');
         const modFolder = path.join(fixture.instanceDir, 'mods', 'MyPatch');
         expect(deployed).toEqual(expect.objectContaining({
-            modFolder, modOrganizer: 'notRunning',
+            modFolder, modManager: { manager: 'mo2', status: 'notRunning' },
             profile: { name: 'Default', modEnabled: true, pluginActive: true, addedToLoadOrder: true }
         }));
         expect(fs.existsSync(path.join(modFolder, 'MyPatch.esp'))).toBe(true);
@@ -467,7 +476,7 @@ describe('the Skyrim backend', () => {
 
         // The project holds that work now: deploy goes ahead and removes the copy that would hide it.
         const deployed = await backend.deployProject('MyPatch');
-        expect(deployed.removedFromOverwrite).toBe(inOverwrite);
+        expect(deployed.removedCopies).toEqual([inOverwrite]);
         expect(fs.existsSync(inOverwrite)).toBe(false);
         expect(fs.readFileSync(path.join(fixture.instanceDir, 'mods', 'MyPatch', 'MyPatch.esp'), 'utf8')).toMatch(/plugin built from/);
     });
@@ -489,7 +498,7 @@ describe('the Skyrim backend', () => {
             stop() { },
             async call() { throw new Error('not running'); }
         };
-        const backend = new Mo2SkyrimBackend({ engine: new SkyrimEngine(fixture.instanceDir, helper, fixture.projects) });
+        const backend = new SkyrimInstanceBackend({ engine: new SkyrimEngine(new Mo2Manager(fixture.instanceDir, quiet), helper, fixture.projects, { platform: quiet }) });
         await backend.connect();
         await backend.findRecords({ limit: 1 }).catch(() => { });
         const health = await backend.health();

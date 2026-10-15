@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import type { Mo2Instance, ModEntry } from './mo2.js';
+import type { Instance, ModEntry } from './modManager.js';
 import { findCaseInsensitive } from './paths.js';
 import type { Platform } from './platform.js';
 
@@ -27,7 +27,7 @@ export interface CompileOptions {
     creationKitDir: string;
     scriptsDir: string;
     outputDir: string;
-    instance: Mo2Instance;
+    instance: Instance;
     mods: readonly ModEntry[];
 }
 

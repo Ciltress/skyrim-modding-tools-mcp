@@ -403,7 +403,7 @@ Start with `healthcheck`.
 | `buildProject` → "cannot be written from the project's text" | A record whose fields Mutagen cannot write | Compare it with a vanilla record of the same type (`readRecord`) and fix the fields |
 | `buildProject` → "no Papyrus compiler" / ".NET Framework 3.5" | The machine lacks what compiles scripts — not a fault in the project | Install what the message names, then build again |
 | `deployProject` → "changed since the last deploy" | The deployed plugin was saved in the Creation Kit or xEdit — perhaps into overwrite | `pullProject`, review, commit, then build and deploy; deploy then clears the pulled copy from overwrite |
-| `deployProject` → "overwrite folder holds a …" | A plugin of the same name in overwrite would hide a first deploy | Pull it if it is this project's work; otherwise move it out of overwrite in Mod Organizer |
+| `deployProject` → "… would hide this deploy from the game" | A plugin of the same name in overwrite would hide a first deploy | Pull it if it is this project's work; otherwise move it out of overwrite in the mod manager |
 | `deployProject` → "changed since its last build" | Project text is newer than the build | `buildProject` first |
 | `pullProject` → "uncommitted changes" | The project folder has uncommitted work | Commit it, so the pull shows on its own in `git diff` |
 | "The plugin helper is not built" | `helper/bin` is missing | `npm run build:helper` (needs the .NET 10 SDK) |

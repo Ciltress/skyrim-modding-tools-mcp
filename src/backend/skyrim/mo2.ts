@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { InstanceConfigError, type Instance, type ModEntry, type PluginEntry } from './modManager.js';
 
 /**
  * What a Mod Organizer 2 instance says about itself, read from its own files. Nothing here writes.
@@ -9,42 +10,6 @@ import path from 'node:path';
  * is — from the instance's settings, the active profile's mod order and load order, and the mods'
  * folders.
  */
-
-export type GameRelease = 'SkyrimSE' | 'SkyrimSEGog';
-
-/**
- * A setting the instance gets wrong, or a file it lacks. Not latched as permanent: it is checked
- * again on every call, so fixing it in Mod Organizer takes effect without a restart.
- */
-export class Mo2ConfigError extends Error { }
-
-export interface Mo2Instance {
-    instanceDir: string;
-    /** The game folder MO2 manages — `SkyrimSE.exe` and `Data` are in it. */
-    gameDir: string;
-    /** MO2's edition label: Steam, GOG, Epic Games… */
-    edition: string;
-    release: GameRelease;
-    /** The profile MO2 has selected — the server follows it. */
-    profile: string;
-    profileDir: string;
-    modsDir: string;
-    overwriteDir: string;
-    downloadsDir: string;
-}
-
-/** One line of a profile's modlist.txt. */
-export interface ModEntry {
-    name: string;
-    enabled: boolean;
-    /** False for the DLC and Creation Club entries MO2 lists but does not manage (`*`). */
-    managed: boolean;
-}
-
-export interface PluginEntry {
-    name: string;
-    active: boolean;
-}
 
 /** The base game's own masters, always active and always first. */
 const BASE_MASTERS = ['Skyrim.esm', 'Update.esm', 'Dawnguard.esm', 'HearthFires.esm', 'Dragonborn.esm'];
@@ -88,13 +53,13 @@ export function decodeQtValue(raw: string): string {
 // ---------------------------------------------------------------- instance
 
 /**
- * Reads the instance's ModOrganizer.ini. Throws Mo2ConfigError with what to fix when the folder is
+ * Reads the instance's ModOrganizer.ini. Throws InstanceConfigError with what to fix when the folder is
  * not an MO2 instance, manages another game, or points at a game folder that is not there.
  */
-export function readInstance(instanceDir: string): Mo2Instance {
+export function readInstance(instanceDir: string): Instance {
     const iniPath = path.join(instanceDir, 'ModOrganizer.ini');
     if (!fs.existsSync(iniPath)) {
-        throw new Mo2ConfigError(
+        throw new InstanceConfigError(
             `No ModOrganizer.ini in '${instanceDir}'. Set SKYRIM_MO2_INSTANCE to the folder that holds ` +
             `ModOrganizer.exe and ModOrganizer.ini.`);
     }
@@ -104,13 +69,13 @@ export function readInstance(instanceDir: string): Mo2Instance {
 
     const gameName = general.get('gameName') ?? '';
     if (gameName !== 'Skyrim Special Edition') {
-        throw new Mo2ConfigError(
+        throw new InstanceConfigError(
             `This MO2 instance manages '${gameName || 'no game'}', not Skyrim Special Edition. Point ` +
             `SKYRIM_MO2_INSTANCE at a Skyrim SE instance.`);
     }
     const gameDir = general.get('gamePath') ?? '';
     if (!gameDir || !fs.existsSync(path.join(gameDir, 'SkyrimSE.exe'))) {
-        throw new Mo2ConfigError(
+        throw new InstanceConfigError(
             `The instance's game folder '${gameDir}' has no SkyrimSE.exe. Fix the game path in Mod ` +
             `Organizer (Settings > General) or in ModOrganizer.ini.`);
     }
@@ -121,7 +86,7 @@ export function readInstance(instanceDir: string): Mo2Instance {
     const profile = general.get('selected_profile') || 'Default';
     const profileDir = path.join(profilesDir, profile);
     if (!fs.existsSync(profileDir)) {
-        throw new Mo2ConfigError(
+        throw new InstanceConfigError(
             `The selected profile '${profile}' has no folder at '${profileDir}'. Select an existing profile in Mod ` +
             `Organizer, or fix selected_profile in ModOrganizer.ini.`);
     }
@@ -159,7 +124,7 @@ export function parseModList(text: string): ModEntry[] {
     return mods;
 }
 
-export function readModList(instance: Mo2Instance): ModEntry[] {
+export function readModList(instance: Instance): ModEntry[] {
     const file = path.join(instance.profileDir, 'modlist.txt');
     return fs.existsSync(file) ? parseModList(fs.readFileSync(file, 'utf8')) : [];
 }
@@ -171,7 +136,7 @@ export function readModList(instance: Mo2Instance): ModEntry[] {
  * and plugins.txt (which ones are active). The base masters and the Creation Club plugins the game
  * activates itself are active whatever plugins.txt says, because the game never lists them there.
  */
-export function readLoadOrder(instance: Mo2Instance): PluginEntry[] {
+export function readLoadOrder(instance: Instance): PluginEntry[] {
     const primary = primaryPlugins(instance.gameDir);
     const primarySet = new Set(primary.map(name => name.toLowerCase()));
     const active = activeInPluginsTxt(instance.profileDir);
@@ -219,7 +184,7 @@ function listLines(text: string): string[] {
  * to highest priority, overridden by the overwrite folder — the order Mod Organizer layers them in.
  * Keys are lower-case file names.
  */
-export function resolvePluginFiles(instance: Mo2Instance, mods: readonly ModEntry[]): Map<string, string> {
+export function resolvePluginFiles(instance: Instance, mods: readonly ModEntry[]): Map<string, string> {
     const files = new Map<string, string>();
     const collect = (dir: string) => {
         let entries: fs.Dirent[];

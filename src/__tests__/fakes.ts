@@ -156,7 +156,7 @@ export class InMemorySkyrimBackend implements AppBackend {
         return {
             project: name, plugin: project.plugin, modFolder: `mods/${name}`, files: 1,
             profile: { name: 'Default', modEnabled: false, pluginActive: false, addedToLoadOrder: false },
-            modOrganizer: 'notRunning'
+            modManager: { manager: 'mo2', status: 'notRunning' }
         };
     }
 

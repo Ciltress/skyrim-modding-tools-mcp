@@ -3,7 +3,8 @@ import { parseList } from '../lib/env.js';
 import { PROJECT_ROOT } from '../lib/serverInfo.js';
 import { SkyrimEngine } from './skyrim/engine.js';
 import { HelperClient } from './skyrim/helperClient.js';
-import { Mo2SkyrimBackend } from './skyrim/Mo2SkyrimBackend.js';
+import { Mo2Manager } from './skyrim/mo2Manager.js';
+import { SkyrimInstanceBackend } from './skyrim/SkyrimInstanceBackend.js';
 import { currentPlatform, type Platform } from './skyrim/platform.js';
 import type { SkyrimBackend } from './skyrim/SkyrimBackend.js';
 
@@ -43,12 +44,12 @@ let sharedEngine: SkyrimEngine | undefined;
 export function createBackend(env: NodeJS.ProcessEnv = process.env, options: BackendOptions = {}): AppBackend {
     const instanceDir = String(env.SKYRIM_MO2_INSTANCE ?? '');
     const projectsDir = path.resolve(PROJECT_ROOT, env.SKYRIM_PROJECTS_DIR || DEFAULT_PROJECTS_DIR);
-    if (sharedEngine?.instanceDir !== instanceDir || sharedEngine.projectsDir !== projectsDir) {
+    if (sharedEngine?.modManager.location !== instanceDir || sharedEngine.projectsDir !== projectsDir) {
         sharedEngine?.stop();
         // The one place the server asks which operating system it runs on (docs/adr/0007).
         const platform = currentPlatform();
         sharedEngine = new SkyrimEngine(
-            instanceDir,
+            new Mo2Manager(instanceDir, platform),
             new HelperClient(env.SKYRIM_HELPER_PATH || defaultHelperPath(platform)),
             projectsDir,
             {
@@ -58,7 +59,7 @@ export function createBackend(env: NodeJS.ProcessEnv = process.env, options: Bac
             }
         );
     }
-    return new Mo2SkyrimBackend({
+    return new SkyrimInstanceBackend({
         engine: sharedEngine,
         credential: options.bearerToken,
         // Only HTTP sessions present a credential, so only they are checked.

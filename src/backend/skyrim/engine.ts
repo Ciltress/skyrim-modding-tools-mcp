@@ -1,10 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { HelperTransport } from './helperClient.js';
-import {
-    loadOrderFingerprint, readInstance, readLoadOrder, readModList, resolvePluginFiles,
-    type Mo2Instance
-} from './mo2.js';
+import type { Instance, ModManager } from './modManager.js';
 import { createLogger } from '../../lib/logger.js';
 import { currentPlatform, type Platform } from './platform.js';
 
@@ -21,11 +18,11 @@ export interface EngineOptions {
 }
 
 /**
- * One MO2 instance and the helper process that reads its plugins — shared by every backend in the
+ * One instance and the helper process that reads its plugins — shared by every backend in the
  * process, because each HTTP session gets its own backend, and a helper per session would each
  * spend seconds indexing the same load order.
  *
- * It keeps the helper's load order in step with Mod Organizer: before each call it compares a
+ * It keeps the helper's load order in step with the mod manager: before each call it compares a
  * fingerprint of the instance's settings and the active profile's files, and hands the helper a
  * fresh load order when another profile was selected or a mod or plugin changed.
  */
@@ -34,7 +31,7 @@ export class SkyrimEngine {
     private connecting?: Promise<void>;
     private fingerprint?: string;
 
-    instance?: Mo2Instance;
+    instance?: Instance;
     /** Why the last attempt to start failed — cleared by the next one that succeeds. */
     startError?: string;
     gameVersion?: string;
@@ -48,9 +45,12 @@ export class SkyrimEngine {
     readonly papyrusCompiler?: string;
     private readonly creationKitOverride?: string;
 
-    /** @param projectsDir  Where projects live. */
+    /**
+     * @param modManager   The mod manager that keeps the instance.
+     * @param projectsDir  Where projects live.
+     */
     constructor(
-        readonly instanceDir: string,
+        readonly modManager: ModManager,
         readonly helper: HelperTransport,
         readonly projectsDir: string,
         options: EngineOptions = {}
@@ -61,7 +61,7 @@ export class SkyrimEngine {
     }
 
     get creationKitDir(): string {
-        return this.creationKitOverride || readInstance(this.instanceDir).gameDir;
+        return this.creationKitOverride || this.modManager.readInstance().gameDir;
     }
 
     get ready(): boolean {
@@ -80,7 +80,7 @@ export class SkyrimEngine {
     }
 
     private async doConnect(): Promise<void> {
-        this.instance = readInstance(this.instanceDir);
+        this.instance = this.modManager.readInstance();
         if (!this.helper.running) {
             this.fingerprint = undefined;
             await this.helper.start();
@@ -135,13 +135,13 @@ export class SkyrimEngine {
                 return '-';
             }
         });
-        return `${loadOrderFingerprint(this.instanceDir)}|${stamps.join(',')}`;
+        return `${this.modManager.fingerprint()}|${stamps.join(',')}`;
     }
 
     private async syncLoadOrder(): Promise<void> {
-        const instance = readInstance(this.instanceDir);
-        const files = resolvePluginFiles(instance, readModList(instance));
-        const active = readLoadOrder(instance).filter(plugin => plugin.active);
+        const instance = this.modManager.readInstance();
+        const files = this.modManager.resolvePluginFiles(instance, this.modManager.readModList(instance));
+        const active = this.modManager.readLoadOrder(instance).filter(plugin => plugin.active);
         const gameData = path.join(instance.gameDir, 'Data').toLowerCase() + path.sep;
 
         const plugins = active.map(plugin => {

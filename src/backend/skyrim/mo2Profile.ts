@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import type { Mo2Instance } from './mo2.js';
+import type { Instance } from './modManager.js';
 import type { Platform } from './platform.js';
 
 const run = promisify(execFile);
@@ -29,7 +29,7 @@ function writeLines(file: string, lines: string[], encoding: BufferEncoding): vo
  * Enables a mod: flips `-Name` to `+Name`, or adds `+Name` at the top — the highest priority, so its
  * files win. A mod already listed keeps its place. Returns true when something changed.
  */
-export function enableMod(instance: Mo2Instance, mod: string): boolean {
+export function enableMod(instance: Instance, mod: string): boolean {
     const file = path.join(instance.profileDir, 'modlist.txt');
     const lines = readLines(file, 'utf8');
     const index = lines.findIndex(line => line.slice(1) === mod && /^[+-]/.test(line));
@@ -49,7 +49,7 @@ export function enableMod(instance: Mo2Instance, mod: string): boolean {
  * Activates a plugin in plugins.txt and puts it at the end of loadorder.txt when it is not there —
  * after every plugin it could override. A plugin already in the load order keeps its place.
  */
-export function activatePlugin(instance: Mo2Instance, plugin: string): { pluginActive: boolean; addedToLoadOrder: boolean } {
+export function activatePlugin(instance: Instance, plugin: string): { pluginActive: boolean; addedToLoadOrder: boolean } {
     const same = (line: string) => line.replace(/^\*/, '').toLowerCase() === plugin.toLowerCase();
 
     const pluginsFile = path.join(instance.profileDir, 'plugins.txt');
@@ -87,7 +87,7 @@ export function activatePlugin(instance: Mo2Instance, plugin: string): { pluginA
  * another instance's MO2 running, the command would be forwarded to that one, which never read
  * these files.
  */
-export async function refreshIfRunning(instance: Mo2Instance, platform: Platform): Promise<'notRunning' | 'refreshed' | 'otherInstanceRunning'> {
+export async function refreshIfRunning(instance: Instance, platform: Platform): Promise<'notRunning' | 'refreshed' | 'otherInstanceRunning'> {
     const exe = path.join(instance.instanceDir, 'ModOrganizer.exe');
     const running = (await platform.findProcesses('ModOrganizer.exe')).map(process => process.path.toLowerCase());
     if (running.length === 0) return 'notRunning';

@@ -1,4 +1,5 @@
 import type { Backend } from '../Backend.js';
+import type { ModManagerNotice, ProfileChange } from './modManager.js';
 
 /**
  * The domain operations the tools call, on top of the lifecycle every backend has. FormIDs are
@@ -70,12 +71,12 @@ export interface DeployResult {
     plugin: string;
     modFolder: string;
     files: number;
-    /** A copy of the plugin in overwrite, already pulled into the project, that was removed so it no longer hides the mod's. */
-    removedFromOverwrite?: string;
-    /** What happened in Mod Organizer's profile. */
-    profile: { name: string; modEnabled: boolean; pluginActive: boolean; addedToLoadOrder: boolean };
-    /** Whether a running Mod Organizer was told to re-read its profile. */
-    modOrganizer: 'notRunning' | 'refreshed' | 'otherInstanceRunning';
+    /** Copies of the plugin that outranked the mod's — in overwrite — already pulled into the project, and removed so they no longer hide it. */
+    removedCopies?: string[];
+    /** What happened in the selected profile. */
+    profile: { name: string } & ProfileChange;
+    /** What the mod manager was told. */
+    modManager: ModManagerNotice;
 }
 
 export interface PullResult {
