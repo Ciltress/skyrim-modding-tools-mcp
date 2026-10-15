@@ -3,6 +3,7 @@ import { performance } from 'perf_hooks';
 import type { AppBackend } from '../backend/index.js';
 import type { ToolDefinition } from "../types/tools.js";
 import { createLogger } from '../lib/logger.js';
+import { coerceArgs } from './args.js';
 
 /**
  * One tool: what a caller must know to use it, and what it does.
@@ -119,7 +120,7 @@ export abstract class BaseHandler {
       // Never undefined: a tool reading `args.name` on a call with no arguments
       // would otherwise throw a TypeError, which reads to a client as a bug in
       // the server rather than as a missing argument.
-      const payload = await spec.run(args ?? {});
+      const payload = await spec.run(coerceArgs(spec.definition.inputSchema, args ?? {}));
       this.trackRequest(startTime, true);
       return this.envelope(payload);
     } catch (error) {

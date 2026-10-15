@@ -48,6 +48,7 @@ export interface AddPatchRequest {
     plugin?: string;
 }
 
+/** Every `file` and `files` entry is a full path, ready for a file tool. */
 export interface AddPatchResult {
     project: ProjectInfo;
     added: { formId: string; editorId: string | null; type: string; from: string; files: string[] }[];
@@ -61,7 +62,7 @@ export interface BuildResult {
     records: number;
     masters: string[];
     headerVersion: number;
-    /** New records that got their FormID in this build. */
+    /** New records that got their FormID in this build, each with the full path of its renamed file. */
     assignedFormIds: { formId: string; editorId: string | null; file: string }[];
     scripts: { compiled: number };
 }

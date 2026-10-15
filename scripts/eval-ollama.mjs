@@ -1,0 +1,534 @@
+#!/usr/bin/env node
+/**
+ * Measures how well a local model drives this server: a fixed set of modding tasks, run through the
+ * BUILT server against the configured instance, with a model served by Ollama.
+ *
+ *   npm run build
+ *   node scripts/eval-ollama.mjs [--model gemma4:26b] [--profile all] [--runs 3] [--tasks find,read]
+ *                                [--ctx 131072] [--max-turns 25] [--think true|false] [--out <file>]
+ *                                [--ollama http://localhost:11434]
+ *
+ * It is its own minimal client — Ollama's /api/chat and an agent loop, nothing in between — so what
+ * is measured is the server and the model, not a client's prompt. The model gets the server's tools
+ * and `instructions`, plus four file tools (list_directory, read_file, write_file, edit_file) confined
+ * to a fresh projects folder: the server expects records to be edited with the client's own file
+ * tools, the way a filesystem MCP server offers them to ollmcp or oterm.
+ *
+ * Nothing is deployed. `deployProject` stays listed, so the tool list is the one a client sees, but a
+ * call to it is refused and counted. The server's projects folder is a temporary one, emptied before
+ * each run; the instance is only read.
+ *
+ * Every task is checked against the instance itself: the expected FormIDs and values are read through
+ * the server at startup, not written into this file. The full record — every call, its arguments and
+ * what came back — goes to --out as JSON; a summary is printed.
+ */
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+const { values: opt } = parseArgs({
+    options: {
+        model: { type: 'string', default: 'gemma4:26b' },
+        profile: { type: 'string', default: 'all' },
+        runs: { type: 'string', default: '3' },
+        tasks: { type: 'string' },
+        ctx: { type: 'string', default: '131072' },
+        'max-turns': { type: 'string', default: '25' },
+        think: { type: 'string' },
+        out: { type: 'string' },
+        ollama: { type: 'string', default: process.env.OLLAMA_HOST || 'localhost' }
+    }
+});
+
+/**
+ * OLLAMA_HOST is often the address Ollama binds to — `0.0.0.0`, no scheme, no port — so it is read
+ * the way Ollama's own CLI reads it.
+ */
+function ollamaUrl(raw) {
+    const url = new URL(/^https?:\/\//.test(raw) ? raw : `http://${raw}`);
+    if (url.hostname === '0.0.0.0') url.hostname = 'localhost';
+    if (!url.port && !/:\d+/.test(raw)) url.port = '11434';
+    return url.origin;
+}
+
+const RUNS = Number(opt.runs);
+const NUM_CTX = Number(opt.ctx);
+const MAX_TURNS = Number(opt['max-turns']);
+const OLLAMA = ollamaUrl(opt.ollama);
+const THINK = opt.think === undefined ? undefined : opt.think === 'true';
+/** One model turn may take minutes when the model does not fit the GPU. */
+const TURN_TIMEOUT_MS = 20 * 60_000;
+
+const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+const outFile = path.resolve(opt.out ?? path.join(os.tmpdir(), 'skyrim-eval',
+    `${stamp}-${opt.model.replace(/[^\w.-]/g, '_')}-${opt.profile}.json`));
+fs.mkdirSync(path.dirname(outFile), { recursive: true });
+
+function fail(message) {
+    console.error(`eval: ${message}`);
+    process.exit(1);
+}
+
+if (!fs.existsSync(path.join(root, 'dist', 'index.js'))) fail('dist/index.js is missing — run npm run build first.');
+
+// --- Ollama -------------------------------------------------------------------------------------
+
+async function ollama(route, body) {
+    const response = await fetch(`${OLLAMA}${route}`, {
+        method: body ? 'POST' : 'GET',
+        headers: body ? { 'content-type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(TURN_TIMEOUT_MS)
+    });
+    const text = await response.text();
+    if (!response.ok) throw new Error(`Ollama ${route} answered ${response.status}: ${text.slice(0, 500)}`);
+    return JSON.parse(text);
+}
+
+const tags = await ollama('/api/tags').catch(error => fail(`Ollama is not reachable at ${OLLAMA}: ${error.message}`));
+if (!tags.models.some(m => m.name === opt.model || m.model === opt.model)) {
+    fail(`Ollama has no model '${opt.model}'. Pulled: ${tags.models.map(m => m.name).join(', ')}.`);
+}
+
+// --- The server ---------------------------------------------------------------------------------
+
+const projectsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-eval-projects-'));
+const serverLog = outFile.replace(/\.json$/, '.server.log');
+const logStream = fs.createWriteStream(serverLog);
+
+const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [path.join(root, 'dist', 'index.js')],
+    cwd: root,
+    // The instance comes from the repository's .env, which the server loads itself; dotenv never
+    // overrides what is set here.
+    env: { ...process.env, MCP_TRANSPORT: 'stdio', MCP_PROFILE: opt.profile, SKYRIM_PROJECTS_DIR: projectsDir },
+    stderr: 'pipe'
+});
+transport.stderr?.pipe(logStream);
+const client = new Client({ name: 'eval-ollama', version: '1.0.0' });
+await client.connect(transport);
+
+const instructions = client.getInstructions() ?? '';
+const { tools: serverTools } = await client.listTools();
+const serverToolNames = new Set(serverTools.map(t => t.name));
+
+/** One call through the server, as text — what a client hands the model. */
+async function callServer(name, args) {
+    try {
+        const result = await client.callTool({ name, arguments: args });
+        const text = (result.content ?? []).map(part => part.text ?? '').join('');
+        let code;
+        if (result.isError) {
+            try { code = JSON.parse(text).code; } catch { /* not JSON */ }
+        }
+        return { text, isError: !!result.isError, code };
+    } catch (error) {
+        return { text: `Error: ${error.message}`, isError: true, code: error.code };
+    }
+}
+
+async function callServerJson(name, args) {
+    const { text, isError } = await callServer(name, args);
+    if (isError) throw new Error(`${name} ${JSON.stringify(args)} failed: ${text}`);
+    return JSON.parse(text);
+}
+
+// --- Ground truth, from the instance ------------------------------------------------------------
+
+function stat(yaml, name) {
+    const value = new RegExp(`^\\s+${name}:\\s*([\\d.]+)\\s*$`, 'm').exec(yaml)?.[1];
+    if (value === undefined) fail(`could not read ${name} from the record text`);
+    return Number(value);
+}
+
+async function weapon(editorId) {
+    const read = await callServerJson('readRecord', { record: editorId });
+    const yaml = read.versions[0].files.map(f => f.text).join('\n');
+    return { formId: read.formId, editorId, damage: stat(yaml, 'Damage'), weight: stat(yaml, 'Weight') };
+}
+
+console.log(`eval: ${opt.model} @ num_ctx ${NUM_CTX}, profile ${opt.profile}, ${RUNS} run(s) per task`);
+console.log('eval: reading the ground truth from the instance (the first lookup builds the index)…');
+const truth = {
+    ironSword: await weapon('IronSword'),
+    steelSword: await weapon('SteelSword')
+};
+
+// --- File tools, confined to the projects folder ------------------------------------------------
+
+const FILE_TOOLS = [
+    {
+        name: 'list_directory',
+        description: `List the files and folders in a directory of the projects folder (${projectsDir}).`,
+        parameters: {
+            type: 'object',
+            properties: { path: { type: 'string', description: 'An absolute path inside the projects folder, or one relative to it. "." is the projects folder.' } },
+            required: ['path']
+        }
+    },
+    {
+        name: 'read_file',
+        description: 'Read a text file in the projects folder.',
+        parameters: {
+            type: 'object',
+            properties: { path: { type: 'string', description: 'An absolute path inside the projects folder, or one relative to it.' } },
+            required: ['path']
+        }
+    },
+    {
+        name: 'write_file',
+        description: 'Create or overwrite a text file in the projects folder with the given content.',
+        parameters: {
+            type: 'object',
+            properties: {
+                path: { type: 'string', description: 'An absolute path inside the projects folder, or one relative to it.' },
+                content: { type: 'string', description: 'The whole new content of the file.' }
+            },
+            required: ['path', 'content']
+        }
+    },
+    {
+        name: 'edit_file',
+        description: 'Replace one exact piece of text in a file in the projects folder. old_text must occur exactly once.',
+        parameters: {
+            type: 'object',
+            properties: {
+                path: { type: 'string', description: 'An absolute path inside the projects folder, or one relative to it.' },
+                old_text: { type: 'string', description: 'The text to replace, copied exactly from the file.' },
+                new_text: { type: 'string', description: 'What to put in its place.' }
+            },
+            required: ['path', 'old_text', 'new_text']
+        }
+    }
+];
+const fileToolNames = new Set(FILE_TOOLS.map(t => t.name));
+
+function insideProjects(raw) {
+    if (typeof raw !== 'string' || !raw.trim()) throw new Error("'path' is required.");
+    const resolved = path.resolve(projectsDir, raw.trim());
+    const relative = path.relative(projectsDir, resolved);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+        throw new Error(`'${raw}' is outside the projects folder ${projectsDir}.`);
+    }
+    return resolved;
+}
+
+function runFileTool(name, args) {
+    const file = insideProjects(args?.path);
+    switch (name) {
+        case 'list_directory':
+            return fs.readdirSync(file, { withFileTypes: true })
+                .map(entry => `${entry.isDirectory() ? '[DIR] ' : '[FILE]'} ${entry.name}`).join('\n') || '(empty)';
+        case 'read_file':
+            return fs.readFileSync(file, 'utf8');
+        case 'write_file':
+            if (typeof args.content !== 'string') throw new Error("'content' must be a string.");
+            fs.mkdirSync(path.dirname(file), { recursive: true });
+            fs.writeFileSync(file, args.content);
+            return `Wrote ${Buffer.byteLength(args.content)} bytes to ${file}.`;
+        case 'edit_file': {
+            const text = fs.readFileSync(file, 'utf8');
+            const count = typeof args.old_text === 'string' && args.old_text ? text.split(args.old_text).length - 1 : 0;
+            if (count !== 1) throw new Error(`old_text occurs ${count} times in ${file}; it must occur exactly once.`);
+            fs.writeFileSync(file, text.replace(args.old_text, () => String(args.new_text ?? '')));
+            return `Edited ${file}.`;
+        }
+    }
+}
+
+// --- Tasks --------------------------------------------------------------------------------------
+
+function filesUnder(dir) {
+    if (!fs.existsSync(dir)) return [];
+    return fs.readdirSync(dir, { withFileTypes: true, recursive: true })
+        .filter(entry => entry.isFile())
+        .map(entry => path.join(entry.parentPath ?? entry.path, entry.name));
+}
+
+/** The text of the project's copy of a record, found by its FormKey. */
+function recordText(project, formId) {
+    for (const file of filesUnder(path.join(projectsDir, project, 'plugin'))) {
+        if (!file.endsWith('.yaml')) continue;
+        const text = fs.readFileSync(file, 'utf8');
+        if (text.includes(`FormKey: ${formId}`)) return text;
+    }
+    return undefined;
+}
+
+/** A number standing on its own: 7 in "damage 7." but not in "012EB7" or "7.5". */
+const has = (text, value) => new RegExp(`(^|[^\\w.])${String(value).replace(/\./g, '\\.')}(?![\\w]|\\.\\d)`, 'i').test(text);
+
+/** A FormID's local part however it is written: 012EB7, 00012EB7, 0x00012EB7. */
+const hasFormId = (text, formId) =>
+    new RegExp(`(^|[^0-9a-f])(0x)?0*${formId.split(':')[0].replace(/^0+/, '')}(?![0-9a-f])`, 'i').test(text);
+
+const TASKS = [
+    {
+        id: 'find',
+        prompt: 'Which plugin defines the Iron Sword, and what is its FormID?',
+        check: ({ answer }) => ({
+            formId: hasFormId(answer, truth.ironSword.formId),
+            plugin: /skyrim\.esm/i.test(answer)
+        })
+    },
+    {
+        id: 'read',
+        prompt: 'How much damage does the Iron Sword do in my load order, and how much does it weigh?',
+        check: ({ answer }) => ({
+            damage: has(answer, truth.ironSword.damage),
+            weight: has(answer, truth.ironSword.weight)
+        })
+    },
+    {
+        id: 'filter',
+        prompt: 'List three pieces of armor that Dawnguard.esm adds, each with its FormID.',
+        check: async ({ answer }) => {
+            const ids = [...new Set([...answer.matchAll(/\b([0-9A-F]{6}):Dawnguard\.esm\b/gi)]
+                .map(m => `${m[1].toUpperCase()}:Dawnguard.esm`))];
+            let armor = 0;
+            if (ids.length) {
+                const found = await callServerJson('findRecords', { records: ids, limit: 200 });
+                armor = found.records.filter(r => r.signature === 'ARMO' && r.definedIn === 'Dawnguard.esm').length;
+            }
+            return { threeFormIds: ids.length >= 3, allArmorFromDawnguard: ids.length >= 3 && armor === ids.length };
+        }
+    },
+    {
+        id: 'patch',
+        prompt: 'Make a patch mod called IronSwordBuff that raises the Iron Sword\'s damage to 12. ' +
+            'Leave everything else about the sword as it is. Do not build or deploy it yet.',
+        check: () => {
+            const text = recordText('IronSwordBuff', truth.ironSword.formId) ?? '';
+            return {
+                recordInProject: !!text,
+                damage12: /^\s+Damage:\s*12\s*$/m.test(text),
+                restKept: text.includes('EditorID: IronSword') &&
+                    new RegExp(`^\\s+Weight:\\s*${truth.ironSword.weight}\\s*$`, 'm').test(text)
+            };
+        }
+    },
+    {
+        id: 'build',
+        prompt: 'Make a patch mod called SteelSwordLight in which the Steel Sword weighs 5, and build it. Do not deploy it.',
+        check: ({ calls }) => {
+            const text = recordText('SteelSwordLight', truth.steelSword.formId) ?? '';
+            const built = filesUnder(path.join(projectsDir, 'SteelSwordLight', 'build')).some(f => /\.es[pml]$/i.test(f));
+            return {
+                recordInProject: !!text,
+                weight5: /^\s+Weight:\s*5\s*$/m.test(text),
+                built: built && calls.some(c => c.name === 'buildProject' && !c.isError)
+            };
+        }
+    }
+];
+
+const wanted = opt.tasks ? opt.tasks.split(',').map(s => s.trim()) : TASKS.map(t => t.id);
+const unknownTasks = wanted.filter(id => !TASKS.some(t => t.id === id));
+if (unknownTasks.length) fail(`unknown task(s) ${unknownTasks.join(', ')}; the tasks are ${TASKS.map(t => t.id).join(', ')}.`);
+const tasks = TASKS.filter(t => wanted.includes(t.id));
+
+// --- The agent loop -----------------------------------------------------------------------------
+
+const ollamaTools = [
+    ...serverTools.map(t => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.inputSchema } })),
+    ...FILE_TOOLS.map(t => ({ type: 'function', function: t }))
+];
+
+const systemPrompt =
+    'You are an assistant for Skyrim Special Edition modding. Use the tools to do what the user asks, ' +
+    'then answer briefly. Besides the Skyrim server\'s tools you have file tools (list_directory, ' +
+    `read_file, write_file, edit_file) for the projects folder ${projectsDir}.\n\n` +
+    `Instructions from the Skyrim server:\n${instructions}`;
+
+/** A tool call written into the text instead of made: the call the client never sees. */
+function callInText(content) {
+    if (!content) return false;
+    const names = [...serverToolNames, ...fileToolNames].join('|');
+    return new RegExp(`tool_call|"name"\\s*:\\s*"(${names})"|\\b(${names})\\s*[({]`).test(content);
+}
+
+function emptyProjects() {
+    for (const entry of fs.readdirSync(projectsDir)) fs.rmSync(path.join(projectsDir, entry), { recursive: true, force: true });
+}
+
+async function runTask(task, run) {
+    emptyProjects();
+    const messages = [{ role: 'system', content: systemPrompt }, { role: 'user', content: task.prompt }];
+    const calls = [];
+    const turns = [];
+    let answer = '';
+    let stop = 'maxTurns';
+    const started = Date.now();
+
+    for (let turn = 0; turn < MAX_TURNS; turn++) {
+        let reply;
+        try {
+            reply = await ollama('/api/chat', {
+                model: opt.model,
+                messages,
+                tools: ollamaTools,
+                stream: false,
+                ...(THINK === undefined ? {} : { think: THINK }),
+                options: { num_ctx: NUM_CTX, seed: 1000 + run }
+            });
+        } catch (error) {
+            stop = 'ollamaError';
+            answer = error.message;
+            break;
+        }
+        const message = reply.message ?? {};
+        turns.push({
+            promptTokens: reply.prompt_eval_count ?? 0,
+            outputTokens: reply.eval_count ?? 0,
+            seconds: (reply.total_duration ?? 0) / 1e9,
+            thinkingChars: message.thinking?.length ?? 0,
+            calls: message.tool_calls?.length ?? 0,
+            doneReason: reply.done_reason
+        });
+        messages.push(message);
+
+        const toolCalls = message.tool_calls ?? [];
+        if (!toolCalls.length) {
+            answer = message.content ?? '';
+            stop = callInText(answer) ? 'callInText' : 'answered';
+            break;
+        }
+
+        for (const toolCall of toolCalls) {
+            const name = toolCall.function?.name ?? '';
+            let args = toolCall.function?.arguments ?? {};
+            const argsWereText = typeof args === 'string';
+            if (argsWereText) {
+                try { args = JSON.parse(args); } catch { /* handed on as it came */ }
+            }
+            const record = { turn, name, args, argsWereText };
+            let text;
+
+            if (fileToolNames.has(name)) {
+                try {
+                    text = runFileTool(name, args);
+                    record.isError = false;
+                } catch (error) {
+                    text = `Error: ${error.message}`;
+                    record.isError = true;
+                }
+            } else if (name === 'deployProject') {
+                text = 'Error: deploying is switched off in this session. Tell the user the project is ready to deploy.';
+                record.isError = true;
+                record.deployRefused = true;
+            } else if (serverToolNames.has(name)) {
+                const result = await callServer(name, args);
+                text = result.text;
+                record.isError = result.isError;
+                record.code = result.code;
+                try { record.truncated = JSON.parse(text).status === 'truncated'; } catch { /* not JSON */ }
+            } else {
+                text = `Error: there is no tool named '${name}'.`;
+                record.isError = true;
+                record.unknownTool = true;
+            }
+            record.bytes = Buffer.byteLength(text);
+            record.result = text.length > 600 ? `${text.slice(0, 600)}…` : text;
+            calls.push(record);
+            messages.push({ role: 'tool', tool_name: name, content: text });
+        }
+    }
+
+    const checks = stop === 'answered' || stop === 'callInText' || stop === 'maxTurns'
+        ? await task.check({ answer, calls })
+        : {};
+    const historyBytes = Buffer.byteLength(JSON.stringify(messages));
+    return {
+        task: task.id,
+        run,
+        success: Object.keys(checks).length > 0 && Object.values(checks).every(Boolean),
+        checks,
+        stop,
+        turns: turns.length,
+        calls: calls.length,
+        invalidParams: calls.filter(c => c.code === -32602).length,
+        unknownTools: calls.filter(c => c.unknownTool).length,
+        otherErrors: calls.filter(c => c.isError && c.code !== -32602 && !c.unknownTool && !c.deployRefused).length,
+        deployRefused: calls.filter(c => c.deployRefused).length,
+        truncated: calls.filter(c => c.truncated).length,
+        argsAsText: calls.filter(c => c.argsWereText).length,
+        maxPromptTokens: Math.max(0, ...turns.map(t => t.promptTokens)),
+        outputTokens: turns.reduce((sum, t) => sum + t.outputTokens, 0),
+        historyBytes,
+        seconds: Math.round((Date.now() - started) / 100) / 10,
+        answer: answer.length > 1500 ? `${answer.slice(0, 1500)}…` : answer,
+        transcript: calls,
+        turnStats: turns
+    };
+}
+
+// --- Run ----------------------------------------------------------------------------------------
+
+const results = [];
+const toolListBytes = Buffer.byteLength(JSON.stringify(ollamaTools));
+console.log(`eval: ${serverTools.length} server tools + ${FILE_TOOLS.length} file tools, ${toolListBytes} bytes of tool schemas; ` +
+    `instructions ${instructions.length} chars`);
+
+try {
+    for (const task of tasks) {
+        for (let run = 1; run <= RUNS; run++) {
+            const result = await runTask(task, run);
+            results.push(result);
+            const failed = Object.entries(result.checks).filter(([, ok]) => !ok).map(([name]) => name);
+            console.log(`  ${task.id} #${run}: ${result.success ? 'PASS' : 'FAIL'} — ${result.stop}, ${result.turns} turns, ` +
+                `${result.calls} calls (${result.invalidParams} invalid, ${result.otherErrors} other errors), ` +
+                `${result.seconds}s${failed.length ? `; failed: ${failed.join(', ')}` : ''}`);
+        }
+    }
+} finally {
+    await client.close().catch(() => { });
+    fs.rmSync(projectsDir, { recursive: true, force: true });
+}
+
+const loaded = await ollama('/api/ps').catch(() => ({ models: [] }));
+const report = {
+    model: opt.model,
+    profile: opt.profile,
+    numCtx: NUM_CTX,
+    think: THINK ?? 'model default',
+    runs: RUNS,
+    when: new Date().toISOString(),
+    toolListBytes,
+    instructionsChars: instructions.length,
+    ollama: loaded.models.find(m => m.name === opt.model || m.model === opt.model) ?? null,
+    truth,
+    summary: tasks.map(task => {
+        const mine = results.filter(r => r.task === task.id);
+        const mean = key => Math.round(mine.reduce((sum, r) => sum + r[key], 0) / mine.length * 10) / 10;
+        return {
+            task: task.id,
+            passed: `${mine.filter(r => r.success).length}/${mine.length}`,
+            turns: mean('turns'),
+            calls: mean('calls'),
+            invalidParams: mine.reduce((s, r) => s + r.invalidParams, 0),
+            unknownTools: mine.reduce((s, r) => s + r.unknownTools, 0),
+            otherErrors: mine.reduce((s, r) => s + r.otherErrors, 0),
+            maxPromptTokens: Math.max(...mine.map(r => r.maxPromptTokens)),
+            seconds: mean('seconds')
+        };
+    }),
+    results
+};
+fs.writeFileSync(outFile, JSON.stringify(report, null, 2));
+
+console.log('');
+console.table(report.summary);
+const passed = results.filter(r => r.success).length;
+console.log(`eval: ${passed}/${results.length} passed. Full record: ${outFile}`);
+if (report.ollama) {
+    // A ratio rather than sizes: for gemma4, Ollama 0.40 reports sizes a tenth of the real ones.
+    console.log(`eval: Ollama ran it with context ${report.ollama.context_length ?? '?'}, ` +
+        `${Math.round((report.ollama.size_vram ?? 0) / (report.ollama.size || 1) * 100)}% on the GPU`);
+}

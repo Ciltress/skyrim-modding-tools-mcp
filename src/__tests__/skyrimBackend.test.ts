@@ -262,6 +262,10 @@ function scriptedHelper() {
                 case 'setLoadOrder': return { plugins: params.plugins.length, missing: [] };
                 case 'addOverrides': {
                     const file = 'Weapons/IronSword - 012EB7_Skyrim.esm.yaml';
+                    // As the helper does: a record the project already holds is reported, not copied again.
+                    if (fs.existsSync(path.join(params.projectPluginDir, file))) {
+                        return { added: [], alreadyInProject: [{ formId: '012EB7:Skyrim.esm', file }] };
+                    }
                     write(path.join(params.projectPluginDir, file), 'FormKey: 012EB7:Skyrim.esm\nEditorID: IronSword\n');
                     return { added: [{ formId: '012EB7:Skyrim.esm', editorId: 'IronSword', type: 'Weapon', from: 'Skyrim.esm', files: [file] }], alreadyInProject: [] };
                 }
@@ -378,14 +382,21 @@ describe('the Skyrim backend', () => {
         const copy = calls.find(c => c.method === 'addOverrides')!.params;
         expect(copy).toEqual(expect.objectContaining({ plugin: 'MyPatch.esp', records: ['IronSword'] }));
 
-        // A record written by hand gets its FormID in the build.
+        // Every file is named by a path a file tool opens as it stands. Given paths relative to the
+        // plugin folder, models joined them to the project folder instead and went looking.
         const pluginDir = path.join(fixture.projects, 'MyPatch', 'plugin');
+        const swordFile = path.join(pluginDir, 'Weapons', 'IronSword - 012EB7_Skyrim.esm.yaml');
+        expect(patch.added[0].files).toEqual([swordFile]);
+        const again = await backend.addPatch({ project: 'MyPatch', records: ['IronSword'] });
+        expect(again.alreadyInProject).toEqual([{ formId: '012EB7:Skyrim.esm', file: swordFile }]);
+
+        // A record written by hand gets its FormID in the build.
         write(path.join(pluginDir, 'Weapons', 'new sword.yaml'), 'EditorID: MyNewSword\n');
         await expect(backend.deployProject('MyPatch')).rejects.toThrow(/not been built yet/);
         age(path.join(fixture.projects, 'MyPatch'));
         const built = await backend.buildProject('MyPatch');
         expect(built.assignedFormIds).toEqual([
-            { formId: '000800:MyPatch.esp', editorId: 'MyNewSword', file: 'Weapons/MyNewSword - 000800_MyPatch.esp.yaml' }]);
+            { formId: '000800:MyPatch.esp', editorId: 'MyNewSword', file: path.join(pluginDir, 'Weapons', 'MyNewSword - 000800_MyPatch.esp.yaml') }]);
         expect(calls.find(c => c.method === 'build')!.params.headerVersion).toBe(1.71);
 
         // The build renamed a source file while assigning its FormID, but before writing the plugin,

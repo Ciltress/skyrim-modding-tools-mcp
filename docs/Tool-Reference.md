@@ -51,7 +51,7 @@ _writes · idempotent_
 
 `project`**\*** string · `plugin` string · `light` boolean
 
-**`addPatch`** — Start or extend a patch: copy existing records into a project as overrides, so they can be changed without touching the plugins they come from. Each record is copied from its current winning version — so other mods' changes are kept — or from `from`. Creates the project when it does not exist. Then edit the copied files and run buildProject. A record already in the project is reported under `alreadyInProject` and left alone.
+**`addPatch`** — Start or extend a patch: copy existing records into a project as overrides, so they can be changed without touching the plugins they come from. Each record is copied from its current winning version — so other mods' changes are kept — or from `from`. Creates the project when it does not exist. Then edit the copied files — their full paths are in `added[].files` — and run buildProject. A record already in the project is reported under `alreadyInProject` and left alone.
 
 _writes · idempotent_
 

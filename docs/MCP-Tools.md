@@ -51,8 +51,10 @@ arguments, see [`Tool-Reference.md`](./Tool-Reference.md), which is generated fr
    `nextStep` says instead.
 
 5. **Arguments are described, but not schema-validated at the door.** Every argument has a
-   description and a type, and closed value sets carry an `enum`. Handlers validate what they use
-   and answer `InvalidParams` with a message that says what to send instead.
+   description and a type, and closed value sets carry an `enum`. An argument sent as text for its
+   declared type is taken as that type: a list as JSON text (`"[\"IronSword\"]"`), one item where a
+   list is declared (`"IronSword"`), a number or `true`/`false` in quotes. Handlers validate the
+   rest and answer `InvalidParams` with a message that says what to send instead.
 
 6. **Read the annotations before you write.** Every tool states `readOnlyHint`, `destructiveHint`,
    `idempotentHint` and `openWorldHint`. `deployProject` and `pullProject` are destructive: they
@@ -150,7 +152,7 @@ is `BaseHandler`'s:
 | Member | What it does |
 | --- | --- |
 | `toolSpecs()` | The handler's tools, declared once. `getTools()` and the router are both derived from it. |
-| `handle(name, args)` | Dispatches to `run`, never with `undefined` args; times the call; wraps the payload; maps errors. |
+| `handle(name, args)` | Dispatches to `run`, never with `undefined` args, and with any argument sent as text for its declared type turned into that type (`coerceArgs` in [`args.ts`](../src/handlers/args.ts)); times the call; wraps the payload; maps errors. |
 | `envelope(payload)` | `{content:[{type:'text',text:<compact JSON>}]}`. Adds `status:'success'` to a plain object without a `status`; serialises a bare array as it stands. |
 | `asMcpError(error, onFailure)` | An `McpError` passes through untouched; anything else becomes `InternalError`, prefixed with the spec's `onFailure` and keeping the backend's own message. |
 | `backend` | The one `AppBackend` this server talks to. |
@@ -304,7 +306,7 @@ reference inside it is a FormID: resolve the ones you reason about with `findRec
 
 ```jsonc
 {"tool":"addPatch","args":{"project":"IronSwordBuff","records":["IronSword"]}}   // copies the winning version in
-// edit projects/IronSwordBuff/plugin/Weapons/IronSword - 012EB7_Skyrim.esm.yaml with your file tools
+// edit the file named in added[].files — projects/IronSwordBuff/plugin/Weapons/IronSword - 012EB7_Skyrim.esm.yaml — with your file tools
 {"tool":"buildProject","args":{"project":"IronSwordBuff"}}     // checks every link, writes the plugin
 {"tool":"deployProject","args":{"project":"IronSwordBuff"}}    // into the mod manager, at the end of the load order
 ```
@@ -435,7 +437,7 @@ own `inputSchema`, so **a new tool is covered the moment it is listed**.
 
 | Suite | Covers |
 | --- | --- |
-| `handlerContract.test.ts` | **Every tool**: one single-level MCP envelope; a backend failure reported as an `McpError`, never as `status:"success"`; delegation to the backend; `{}` and `undefined` arguments survived without a raw `TypeError`; all four annotations. Plus spot checks pinning the arguments handed to the backend. |
+| `handlerContract.test.ts` | **Every tool**: one single-level MCP envelope; a backend failure reported as an `McpError`, never as `status:"success"`; delegation to the backend; `{}` and `undefined` arguments survived without a raw `TypeError`; all four annotations; every argument sent as text for its declared type giving the same outcome as the real type, and text that is not that type refused with the argument named. Plus spot checks pinning the arguments handed to the backend. |
 | `toolDefinitions.test.ts` | The catalogue: unique camelCase names, routability, descriptions on every tool and argument, valid `required`, no `optional`, element schemas on arrays, structured arguments declared as such. |
 | `server.test.ts` | Through a real MCP client: `initialize` and `instructions`, `tools/list` per profile and the four hints on the wire, resources, routing and profile boundaries, the capability gate failing open, connect-on-demand, the single retry, the permanent-failure latch, `healthcheck`, the response budget, startup failure messages. |
 | `httpTransport.test.ts` | Streamable HTTP: bearer-token gate, one backend per caller, a session bound to its token, session-id routing, origin and host allow-lists, CORS preflight, the rate limit, and the shipped backend factory end to end. |
@@ -451,6 +453,16 @@ own `inputSchema`, so **a new tool is covered the moment it is listed**.
 
 `npm run smoke` drives the **built** server over real stdio and fails if anything but protocol frames
 reaches stdout.
+
+`npm run eval:ollama` measures how a local model drives the **built** server
+([`scripts/eval-ollama.mjs`](../scripts/eval-ollama.mjs)): five fixed tasks — find a record, read two
+of its values, list a plugin's armor, patch a record, patch and build — through Ollama's `/api/chat`,
+with the server's tools and four file tools confined to a temporary projects folder. It checks each
+task against the instance itself, deploys nothing (`deployProject` is listed, but a call to it is
+refused), and writes every call with its arguments and answer to a JSON file. `--model`, `--profile`,
+`--runs`, `--tasks` and `--ctx` choose what to measure. Run it after changing what a tool says or
+answers: the transcripts show where a model loses turns — they are how the relative paths
+`addPatch` used to answer with were found.
 
 ---
 

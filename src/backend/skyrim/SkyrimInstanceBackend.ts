@@ -148,7 +148,13 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             records: request.records,
             from: request.from
         }));
-        return { project: projectInfo(request.project, paths, created), ...copied };
+        // Full paths: given ones relative to the plugin folder, models joined them to the project folder.
+        const inPlugin = (file: string) => path.resolve(paths.plugin, file);
+        return {
+            project: projectInfo(request.project, paths, created),
+            added: copied.added.map(record => ({ ...record, files: record.files.map(inPlugin) })),
+            alreadyInProject: copied.alreadyInProject.map(record => ({ ...record, file: inPlugin(record.file) }))
+        };
     }
 
     async buildProject(project: string): Promise<BuildResult> {
@@ -184,7 +190,7 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             records: built.records,
             masters: built.masters,
             headerVersion: built.headerVersion,
-            assignedFormIds,
+            assignedFormIds: assignedFormIds.map(record => ({ ...record, file: path.resolve(paths.plugin, record.file) })),
             scripts: { compiled }
         };
     }

@@ -265,3 +265,69 @@ describe('argument mapping', () => {
         expect(call!.args.slice(0, mapping.expected.length)).toEqual(mapping.expected);
     });
 });
+
+/**
+ * Small models — and some clients — send an argument in the wrong JSON type: a list as the text of a
+ * list, a number in quotes. Refusing costs a turn the model may not recover from, and the intent is
+ * not in doubt, so every tool takes such a value as what its schema declares. Checked against each
+ * tool's own inputSchema: the call with the text form must come out exactly as the call with the
+ * real one — the same backend calls, the same answer.
+ */
+describe('every tool takes an argument sent as text for its declared type', () => {
+    async function outcome(handlerName: string, toolName: string, args: any) {
+        const stubs = recordingBackend();
+        const handler = handlersFrom(stubs).find(h => h.constructor.name === handlerName)!;
+        try {
+            const result = await handler.handle(toolName, args);
+            return { calls: stubs.calls, text: result.content[0].text };
+        } catch (error) {
+            return { calls: stubs.calls, error: (error as Error).message };
+        }
+    }
+
+    /** The tools with at least one argument of this kind, with those arguments sent as text. */
+    function asText(kind: (property: ToolProperty) => boolean, toText: (value: any) => string) {
+        return cases()
+            .filter(([, , tool]) => Object.values(tool.inputSchema.properties).some(kind))
+            .map(([handlerName, toolName, tool]) => {
+                const real = sampleArgs(tool);
+                const sent = Object.fromEntries(Object.entries(real).map(([name, value]) =>
+                    [name, kind(tool.inputSchema.properties[name]) ? toText(value) : value]));
+                return [handlerName, toolName, real, sent] as const;
+            });
+    }
+
+    const ofType = (type: ToolProperty['type']) => (property: ToolProperty) => property.type === type;
+    const listOfText = (property: ToolProperty) => property.type === 'array' && property.items?.type === 'string';
+
+    it.each(asText(ofType('array'), value => JSON.stringify(value)))(
+        '%s.%s takes a list sent as JSON text', async (handlerName, toolName, real, sent) => {
+            expect(await outcome(handlerName, toolName, sent)).toEqual(await outcome(handlerName, toolName, real));
+        });
+
+    it.each(asText(ofType('number'), value => ` ${value} `))(
+        '%s.%s takes a number sent in quotes', async (handlerName, toolName, real, sent) => {
+            expect(await outcome(handlerName, toolName, sent)).toEqual(await outcome(handlerName, toolName, real));
+        });
+
+    it.each(asText(ofType('boolean'), value => (String(value) === 'true' ? 'True' : 'False')))(
+        '%s.%s takes true or false sent in quotes', async (handlerName, toolName, real, sent) => {
+            expect(await outcome(handlerName, toolName, sent)).toEqual(await outcome(handlerName, toolName, real));
+        });
+
+    it.each(asText(listOfText, value => value[0]))(
+        '%s.%s takes one item sent where a list of them is declared', async (handlerName, toolName, real, sent) => {
+            expect(await outcome(handlerName, toolName, sent)).toEqual(await outcome(handlerName, toolName, real));
+        });
+
+    // Text that does not read as the declared type is not guessed at: the tool refuses it, naming
+    // the argument, and the model gets to send it again.
+    it.each([
+        ['findRecords', { limit: 'five' }, 'limit'],
+        ['findRecords', { records: '["IronSword"' }, 'records'],
+        ['readRecord', { record: SAMPLE, allVersions: 'yes' }, 'allVersions']
+    ] as const)('%s refuses %j, naming the argument', async (toolName, args, name) => {
+        const handler = handlersFrom(recordingBackend()).find(h => h.getTools().some(t => t.name === toolName))!;
+        await expect(handler.handle(toolName, args)).rejects.toThrow(new RegExp(`'${name}'`));
+    });
+});

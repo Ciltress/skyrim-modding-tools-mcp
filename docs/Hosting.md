@@ -176,5 +176,19 @@ with a throwaway project. Amethyst's deploy switches the game's `Data` to that p
 select the usual profile and press Deploy once.
 
 **Local models through Ollama.** Below 24 GiB of video memory Ollama defaults to a 4k-token context,
-too small for any agent: set `OLLAMA_CONTEXT_LENGTH` (131072 for 128k). Claude Code pointed at Ollama
-loads every tool up front; `MCP_PROFILE=core` lists fewer.
+too small for any agent: set `OLLAMA_CONTEXT_LENGTH` (131072 for 128k), or the client's own context
+setting. Claude Code pointed at Ollama loads every tool up front; `MCP_PROFILE=core` lists fewer.
+
+- **The model has to make real tool calls.** gemma4:26b does: it passed every task of
+  `npm run eval:ollama` — find, read, filter, patch, patch and build — in 30 of 30 runs.
+  qwen2.5-coder:3b does not: it writes the call into its answer as JSON text, which no client acts
+  on, and no profile changes that. Measure a model before relying on it:
+  `npm run eval:ollama -- --model <name>`.
+- **Records are edited with the client's file tools.** Claude Code has its own. A client that only
+  connects Ollama to MCP servers — ollmcp, oterm — needs a filesystem server beside this one, allowed
+  into the projects folder, e.g. `npx -y @modelcontextprotocol/server-filesystem <projects folder>`.
+- **Speed.** On a 16 GB RTX 5080, gemma4:26b does not fit: Ollama keeps a quarter of its expert
+  weights in system memory, the CPU works on those, and the GPU waits — 30–40% GPU load is what that
+  looks like, not a misconfiguration. It generates about 50 tokens/s at a 128k context and 62 at 32k,
+  and a tool-using turn takes about 3 s. `OLLAMA_FLASH_ATTENTION=1` and `OLLAMA_KV_CACHE_TYPE=q8_0`
+  are worth setting. Loading it takes 30–40 s, and a client asking for another context size reloads it.

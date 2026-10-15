@@ -27,7 +27,8 @@
     "docs:tools": "node scripts/generate-tool-docs.mjs",
     "smoke": "node scripts/smoke.mjs",
     "build:helper": "dotnet publish helper/SkyrimHelper -c Release -o helper/bin -nologo",
-    "check:helper": "node scripts/check-helper.mjs"
+    "check:helper": "node scripts/check-helper.mjs",
+    "eval:ollama": "node scripts/eval-ollama.mjs"
   },
   "keywords": [
     "mcp",

@@ -2,6 +2,51 @@ import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { HelperError } from '../backend/skyrim/helperClient.js';
 import { ProjectError } from '../backend/skyrim/projects.js';
 import { ScriptCompileError } from '../backend/skyrim/externalTools.js';
+import type { ToolDefinition, ToolProperty } from '../types/tools.js';
+
+/**
+ * The arguments, with each one a caller sent as text turned into the JSON type the tool's schema
+ * declares for it — the list `'["IronSword"]'` into `["IronSword"]`.
+ *
+ * Small models and some clients send that shape, and the intent is not in doubt, so refusing would
+ * only cost a turn the model may not recover from. Applied once, to every call, in BaseHandler — a
+ * tool added tomorrow is covered without being told. Text that does not read as the declared type
+ * is left alone, for the tool's own check to refuse with a message that names the argument.
+ */
+export function coerceArgs(schema: ToolDefinition['inputSchema'], args: any): any {
+    if (!args || typeof args !== 'object' || Array.isArray(args)) return args;
+    let coerced: Record<string, any> | undefined;
+    for (const [name, property] of Object.entries(schema.properties)) {
+        const value = args[name];
+        if (typeof value !== 'string') continue;
+        const typed = fromText(value, property);
+        if (typed !== value) (coerced ??= { ...args })[name] = typed;
+    }
+    return coerced ?? args;
+}
+
+function fromText(value: string, property: ToolProperty): unknown {
+    const text = value.trim();
+    switch (property.type) {
+        case 'array':
+            if (text.startsWith('[')) {
+                try {
+                    const parsed = JSON.parse(text);
+                    return Array.isArray(parsed) ? parsed : value;
+                } catch {
+                    return value;
+                }
+            }
+            // One item where a list of them is declared: ["IronSword"] meant as "IronSword".
+            return property.items?.type === 'string' && text ? [value] : value;
+        case 'number':
+            return /^-?\d+(\.\d+)?$/.test(text) ? Number(text) : value;
+        case 'boolean':
+            return /^(true|false)$/i.test(text) ? text.toLowerCase() === 'true' : value;
+        default:
+            return value;
+    }
+}
 
 /**
  * Argument checks shared by the handler families. Each throws `InvalidParams` with a message that

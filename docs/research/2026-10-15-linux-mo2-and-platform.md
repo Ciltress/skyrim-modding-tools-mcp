@@ -492,6 +492,38 @@ L288-303, L17394-17400, L17917; AUR RPC searches.
 - Client-side filtering exists in Kit (`allowedTools`), ollmcp and oterm (toggles); Claude Code's
   deferral (`ENABLE_TOOL_SEARCH`, `_meta["anthropic/alwaysLoad"]`) does not apply behind Ollama.
 
+### 10.5 Measured on this machine (2026-10-15)
+`scripts/eval-ollama.mjs` against the test instance; Ollama 0.40.4, RTX 5080 16 GB, 32 GB RAM,
+`OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0`, num_ctx 131072, model defaults otherwise
+(gemma4: thinking on, temperature 1). Three runs per task.
+
+| model, profile | passed | patch: calls, errors | build: calls, errors | malformed arguments |
+|---|---|---|---|---|
+| gemma4:26b, `all` — before the fix below | 15/15 | 8.7, 4 | 9.3, 3 | 0 |
+| gemma4:26b, `all` | 15/15 | 4.7, 1 | 5, 0 | 0 |
+| gemma4:26b, `core` | 15/15 | 4.3, 0 | 5, 0 | 0 |
+| qwen2.5-coder:3b, `all` and `core` | 0/30 | — | — | — |
+
+- **The one systematic loss was the server's.** `addPatch` named the copied files relative to the
+  plugin folder; in every patch run gemma4 joined them to the project folder, failed, and listed
+  folders for 2–6 calls. With full paths in the answer it goes `findRecords → addPatch → read_file →
+  edit_file (→ buildProject)`, the shortest route. The remaining error: once it read the record with
+  `readRecord` and used that answer's `path` — relative to a plugin folder — as a file path.
+- **No malformed arguments** from gemma4 through Ollama's native API, and no difference between `all`
+  (10 tools, ~2,700 tokens of schemas) and `core` (8). The largest prompt in any task was ~8k tokens.
+- **qwen2.5-coder:3b never makes a tool call**: it writes `{"name": "findRecords", "arguments": …}`
+  into its answer, with or without quotes around the name. A client could parse that; a server cannot.
+- **Speed of gemma4:26b** (Gemma-4-26B-A4B: 30 layers, 128 experts, 8 used per token, 15.8 GiB at
+  Q4_K_M). Ollama's fit moves expert tensors to system memory first: 10.4 GiB of weights on the GPU,
+  6.4 GiB in pinned host memory (Task Manager's "shared GPU memory"), 77% on the GPU. Only 5 of the 30
+  layers attend globally (the rest use a 1,024-token window), so the KV cache at 128k is 1.5 GiB.
+  It also carries a small draft model for speculative decoding (`gemma4-assistant`).
+  Prompt 2,349 tokens, 300 generated: **128k — ~900 tokens/s prompt, ~50 tokens/s output; 32k — ~1,290
+  and ~62**; loading 31–37 s. An eval turn averaged 2.9 s.
+- Concluded from these: no `local` profile with terse descriptions for now — the measured losses were
+  not about the tool list. Fixes that would have helped every client went in for all: full paths in
+  `addPatch`/`buildProject` answers, and arguments sent as text taken as their declared type.
+
 ## 11. Docker (second option, brief)
 - An image would need Node ≥ 24.18, the .NET 10 runtime **with ICU**, a Linux Papyrus compiler
   (russo, or papyrusc once released), git; bind mounts of the game folder, the staging root/MO2
