@@ -161,7 +161,9 @@ console.log(`eval: ${opt.model} @ num_ctx ${NUM_CTX}, profile ${opt.profile}, ${
 console.log('eval: reading the ground truth from the instance (the first lookup builds the index)…');
 const truth = {
     ironSword: await weapon('IronSword'),
-    steelSword: await weapon('SteelSword')
+    steelSword: await weapon('SteelSword'),
+    nordRace: (await callServerJson('findRecords', { records: ['NordRace'], limit: 1 })).records[0]?.formId
+        ?? fail('the instance has no NordRace')
 };
 
 // --- File tools, confined to the projects folder ------------------------------------------------
@@ -265,6 +267,60 @@ function recordText(project, formId) {
     return undefined;
 }
 
+/**
+ * Every record file of a project, with its group folder (`weapons`, `spells`, `npcs`…) and FormKey, and
+ * the project's own plugin. After a build, a new record's FormKey names that plugin; an override's
+ * names the plugin it comes from.
+ */
+function projectRecords(project) {
+    const pluginDir = path.join(projectsDir, project, 'plugin');
+    const header = path.join(pluginDir, 'RecordData.yaml');
+    const plugin = fs.existsSync(header) ? /^ModKey:\s*(.+?)\s*$/m.exec(fs.readFileSync(header, 'utf8'))?.[1] : undefined;
+    const records = filesUnder(pluginDir).filter(file => file.endsWith('.yaml') && file !== header).map(file => {
+        const text = fs.readFileSync(file, 'utf8');
+        return { group: path.relative(pluginDir, file).split(path.sep)[0].toLowerCase(), text, formKey: /^FormKey:\s*(\S+)/m.exec(text)?.[1] };
+    });
+    return { plugin, records };
+}
+
+/** The records of one group that the project's own plugin defines — new ones, not overrides. */
+function newRecords(project, group) {
+    const { plugin, records } = projectRecords(project);
+    return records.filter(r => r.group === group && plugin && r.formKey?.toLowerCase().endsWith(`:${plugin.toLowerCase()}`));
+}
+
+/** A record's in-game name, as Spriggit writes it (Name → Value) or as a plain string. */
+function nameOf(text) {
+    const nested = /^Name:[ \t]*\r?\n(?:[ \t]+.*\r?\n)*?[ \t]+Value:[ \t]*(.+?)[ \t]*\r?$/m.exec(text)?.[1];
+    const inline = /^Name:[ \t]*(\S.*?)[ \t]*\r?$/m.exec(text)?.[1];
+    return (nested ?? inline ?? '').replace(/^['"]|['"]$/g, '');
+}
+
+/** The magic effects a spell or an enchantment lists. */
+const effectsOf = text => [...text.matchAll(/BaseEffect:[ \t]*([0-9A-Fa-f]{6}:\S+)/g)].map(m => m[1]);
+
+/** A record's text wherever it is: written in the project, or in the load order (read through the server). */
+async function recordAnywhere(project, formKey) {
+    const own = projectRecords(project).records.find(r => r.formKey?.toLowerCase() === formKey.toLowerCase());
+    if (own) return own.text;
+    try {
+        const read = await callServerJson('readRecord', { record: formKey });
+        return read.versions[0].files.map(f => f.text).join('\n');
+    } catch {
+        return '';
+    }
+}
+
+/** The magic effects behind a spell or an enchantment, as text, wherever each is. */
+async function effectTexts(project, text) {
+    return Promise.all(effectsOf(text).map(effect => recordAnywhere(project, effect)));
+}
+
+/** Built: buildProject succeeded, and the project's build folder holds a plugin. */
+const builtProject = (project, calls) =>
+    calls.some(c => c.name === 'buildProject' && !c.isError) &&
+    filesUnder(path.join(projectsDir, project, 'build')).some(f => /\.es[pml]$/i.test(f));
+
 /** A number standing on its own: 7 in "damage 7." but not in "012EB7" or "7.5". */
 const has = (text, value) => new RegExp(`(^|[^\\w.])${String(value).replace(/\./g, '\\.')}(?![\\w]|\\.\\d)`, 'i').test(text);
 
@@ -327,6 +383,53 @@ const TASKS = [
                 recordInProject: !!text,
                 weight5: /^\s+Weight:\s*5\s*$/m.test(text),
                 built: built && calls.some(c => c.name === 'buildProject' && !c.isError)
+            };
+        }
+    },
+    // Authoring: new records written by hand into a new project, following vanilla ones, and built.
+    {
+        id: 'sword',
+        prompt: 'Make a new mod called FlameBlade with a new one-handed sword named "Flame Blade" that has a fire ' +
+            'damage enchantment, so it burns what it hits. Build it, but do not deploy it.',
+        check: async ({ calls }) => {
+            const sword = newRecords('FlameBlade', 'weapons').find(r => /^flame blade$/i.test(nameOf(r.text)));
+            const enchantment = sword && /^ObjectEffect:[ \t]*(\S+)/m.exec(sword.text)?.[1];
+            const effects = enchantment ? await effectTexts('FlameBlade', await recordAnywhere('FlameBlade', enchantment)) : [];
+            return {
+                newSword: !!sword,
+                oneHandedSword: !!sword && (/AnimationType:[ \t]*OneHandSword/.test(sword.text) || sword.text.includes('01E711:Skyrim.esm')),
+                fireEnchantment: effects.some(text => /^ResistValue:[ \t]*ResistFire[ \t]*\r?$/m.test(text)),
+                built: builtProject('FlameBlade', calls)
+            };
+        }
+    },
+    {
+        id: 'spell',
+        prompt: 'Make a new mod called StormBolt with a new Destruction spell named "Storm Bolt" that deals shock ' +
+            'damage to a target. Build it, but do not deploy it.',
+        check: async ({ calls }) => {
+            const spell = newRecords('StormBolt', 'spells').find(r => /^storm bolt$/i.test(nameOf(r.text)));
+            const effects = spell ? await effectTexts('StormBolt', spell.text) : [];
+            return {
+                newSpell: !!spell,
+                destruction: effects.some(text => /^MagicSkill:[ \t]*Destruction[ \t]*\r?$/m.test(text)),
+                shock: effects.some(text => /^ResistValue:[ \t]*ResistShock[ \t]*\r?$/m.test(text)),
+                built: builtProject('StormBolt', calls)
+            };
+        }
+    },
+    {
+        id: 'npc',
+        prompt: 'Make a new mod called HildaTheNord with one new NPC: a female Nord named "Hilda". Build it, but do ' +
+            'not deploy it.',
+        check: ({ calls }) => {
+            const npc = newRecords('HildaTheNord', 'npcs').find(r => /^hilda$/i.test(nameOf(r.text)));
+            const race = npc && /^Race:[ \t]*(\S+)/m.exec(npc.text)?.[1];
+            return {
+                newNpc: !!npc,
+                nord: race?.toLowerCase() === truth.nordRace.toLowerCase(),
+                female: !!npc && /^[ \t]+- Female[ \t]*\r?$/m.test(npc.text),
+                built: builtProject('HildaTheNord', calls)
             };
         }
     }

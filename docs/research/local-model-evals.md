@@ -28,6 +28,13 @@ script. Nothing is deployed: `deployProject` stays listed, but a call to it is r
 | filter | three armor pieces Dawnguard.esm adds, with FormIDs | three FormIDs that are ARMO records defined in Dawnguard.esm |
 | patch | a patch IronSwordBuff raising the Iron Sword's damage to 12, not built | the project's copy has `Damage: 12`, its editor ID and its weight unchanged |
 | build | a patch SteelSwordLight in which the Steel Sword weighs 5, built | the copy has `Weight: 5`, and buildProject succeeded and wrote the plugin |
+| sword | a new mod FlameBlade: a new one-handed sword "Flame Blade" with a fire damage enchantment, built | a new weapon of that name (its FormID in the project's own plugin), a one-handed sword, whose enchantment lists a fire effect (`ResistValue: ResistFire`), and the build succeeded |
+| spell | a new mod StormBolt: a new Destruction spell "Storm Bolt" that deals shock damage, built | a new spell of that name, with an effect of the Destruction school and a shock effect (`ResistShock`), and the build succeeded |
+| npc | a new mod HildaTheNord: one new NPC, a female Nord named "Hilda", built | a new NPC of that name, of the race NordRace (read from the instance), flagged Female, and the build succeeded |
+
+The last three (from round 9) author new records by hand, following vanilla ones. A link — the sword's
+enchantment, a spell's effects — is followed into the project when the model wrote the record there,
+and into the load order (through `readRecord`) when it used a vanilla one; either passes.
 
 **The columns.** *calls*: tool calls per run, file tools included. *invalid arguments*: calls refused
 with `InvalidParams`. *other errors*: every other failed call, file tools included. *largest prompt*:
@@ -64,6 +71,8 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-15 | gemma4:26b | `all` | 29d52de (again) | 15/15 | 2.99 s | ~970 tokens/s | ~53 tokens/s | 77% |
 | 2026-10-15 | gemma4:26b | `all` | 29d52de + round 8's changes | 15/15 | 2.82 s | ~969 tokens/s | ~43 tokens/s | 77% |
 | 2026-10-15 | gemma4:e4b | `all` | 29d52de + round 8's changes | 15/15 | 1.37 s | ~6,928 tokens/s | ~168 tokens/s | 100% |
+| 2026-10-15 | gemma4:26b | `all` | bc57a7b, eight tasks | 17/24 | 4.45 s | ~956 tokens/s | ~50 tokens/s | 77% |
+| 2026-10-15 | gemma4:e4b | `all` | bc57a7b, eight tasks | 15/24 | 1.67 s | ~6,483 tokens/s | ~169 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way (see [the speed section](#speed-on-this-machine-2026-10-15)) — they are the
@@ -316,6 +325,75 @@ gemma4:e4b, `all` (prompt ~6,928 tokens/s, generation ~168 tokens/s):
   once before, though `addPatch` had answered its text. Nothing a tool said asked for them.
 - No invalid argument and no failed call in 30 runs. 26b's generation (~43 tokens/s) was lower than
   usual, its prompt speed (~969 tokens/s) as usual.
+
+## Round 9 — authoring: a sword, a spell, an NPC (2026-10-15)
+
+**Changed before it:** three tasks that write new records by hand — `sword`, `spell` and `npc` (see
+the task table). The server is round 8's (bc57a7b adds only the CI runner pin); the five tasks before
+them are unchanged, so the round compares with round 8 there.
+
+gemma4:26b, `all` (prompt ~956 tokens/s, generation ~50 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 5644 | 17 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 6679 | 7.3 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 5826 | 6.7 |
+| patch | 3/3 | 4 | 3 | 0 | 0 | 7133 | 12.1 |
+| build | 3/3 | 5 | 4 | 0 | 0 | 7345 | 13.4 |
+| sword | 0/3 | 17.3 | 16.7 | 4 | 1 | 22234 | 101 |
+| spell | 1/3 | 9.3 | 8.3 | 0 | 0 | 10694 | 46 |
+| npc | 1/3 | 18.7 | 17.7 | 2 | 0 | 18866 | 82.7 |
+
+(26b's find includes loading the model.)
+
+gemma4:e4b, `all` (prompt ~6,483 tokens/s, generation ~169 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 5858 | 7.5 |
+| read | 3/3 | 2.7 | 1.7 | 0 | 0 | 7009 | 3.6 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 4480 | 2.6 |
+| patch | 3/3 | 4 | 3 | 0 | 0 | 7522 | 5.9 |
+| build | 3/3 | 5.3 | 4.3 | 0 | 0 | 8721 | 7.9 |
+| sword | 0/3 | 6.3 | 5.3 | 0 | 3 | 9704 | 14.9 |
+| spell | 0/3 | 4.7 | 3.7 | 0 | 0 | 6686 | 8.1 |
+| npc | 0/3 | 4.3 | 3.3 | 0 | 0 | 6187 | 7.4 |
+
+**Seen.**
+
+- The five earlier tasks passed 30 of 30, as in round 8. Authoring passed 2 of 18: 26b's spell once
+  and its NPC once, e4b never.
+- **Where the records went.** Of 31 writes of a record file (20 by 26b, 11 by e4b), 5 were into the
+  project's plugin folder. The rest went into the project folder (`FlameBlade/Weapons/…`,
+  `HildaTheNord/Npcs/…`, `StormBolt/Magic/Spells/…`) or the projects folder itself
+  (`Spells/StormBolt.yaml`). newProject's description gives the place as `Weapons/MySword.yaml`,
+  relative to the plugin folder, and its answer gives the plugin folder as a path of its own — the
+  models joined the example to the project folder: round 2's lesson about relative paths, again.
+- **And buildProject said success.** 22 of 26 successful builds had no records at all (14 of 18 for
+  26b, 8 of 8 for e4b): the files outside the plugin folder are not read, and a build of nothing
+  succeeds. The models took the success as done and told the user the mod was made. 26b's two
+  passes came from listing the project folder before writing (the spell), and from finding the plugin
+  folder after five builds of nothing (the NPC, in 25 turns).
+- **The format.** 26b wrote the records as Spriggit does — it read a vanilla one first (Iron Sword of
+  Embers, Firebolt, Lightning Bolt, Aela, Erik the Slayer). e4b never read a record of the kind it
+  wrote, and invented its fields (`name:`, `damage:`, `firedamage:`, `gender: female`, once the whole
+  file inside a Markdown code fence). Its one file in the right place failed the build with an internal error naming the
+  file — `FilePathedException: Exception occurred while processing related to a filepath` — but not
+  what was wrong with it; e4b repeated the same file and gave up.
+- Smaller: `MAGI`, `KWDA` and `Voice` as record types were refused with the closest real ones (round
+  5's change), and a skill asked for as `npc` or a collection named `magic` with what exists.
+
+**What it points at in the server** (not changed yet):
+
+1. buildProject should refuse a project with no records, and name record files it found outside the
+   plugin folder — a build of nothing is never what was asked.
+2. newProject (and the answers that create a project) should give the full path a record file goes
+   to, not an example relative to another folder.
+3. A record file the build cannot read should be refused as the request's fault (InvalidParams),
+   naming the file and what in it is wrong, with the advice to mirror a vanilla record.
+4. A field the build does not know should not be dropped silently: an invented `damage:` gives a
+   weapon with no damage, and a successful build.
 
 ## Speed on this machine (2026-10-15)
 

@@ -513,8 +513,9 @@ own `inputSchema`, so **a new tool is covered the moment it is listed**.
 reaches stdout.
 
 `npm run eval:ollama` measures how a local model drives the **built** server
-([`scripts/eval-ollama.mjs`](../scripts/eval-ollama.mjs)): five fixed tasks — find a record, read two
-of its values, list a plugin's armor, patch a record, patch and build — through Ollama's `/api/chat`,
+([`scripts/eval-ollama.mjs`](../scripts/eval-ollama.mjs)): eight fixed tasks — find a record, read two
+of its values, list a plugin's armor, patch a record, patch and build, and author and build a new
+enchanted sword, a new Destruction spell and a new NPC — through Ollama's `/api/chat`,
 with the server's tools and four file tools confined to a temporary projects folder. It checks each
 task against the instance itself, deploys nothing (`deployProject` is listed, but a call to it is
 refused), and writes every call with its arguments and answer to a JSON file. Then it measures the
