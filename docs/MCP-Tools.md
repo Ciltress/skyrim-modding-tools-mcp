@@ -77,7 +77,11 @@ arguments, see [`Tool-Reference.md`](./Tool-Reference.md), which is generated fr
    - **FormIDs are written `012EB7:Skyrim.esm`**, never as a load-order hex like `00012EB7`. Never
      guess one: find it with `findRecords`, which also turns the FormIDs in project text into names.
    - **A new record's file leaves `FormKey` out.** `buildProject` assigns one and writes it back;
-     after that it never changes.
+     after that it never changes. A `FormKey` copied from another record makes the file an override
+     of that record, so the build refuses one whose editor ID differs from the record it names.
+   - **A link may name its record by editor ID.** `buildProject` writes that record's FormID into the
+     file — the project's own record first, then the load order's — and lists it in `resolvedLinks`,
+     so a new record can point at another one written in the same go.
    - **Change other mods through a patch** (`addPatch`), never in their plugins: an override copied
      from the winning version keeps every other mod's changes, and survives their updates.
    - **Build, deploy and pull are explicit steps.** Deploy refuses a stale build and refuses to
@@ -330,7 +334,9 @@ list, keep every entry and add yours.
 ```jsonc
 {"tool":"newProject","args":{"project":"FrostBlade"}}
 // write projects/FrostBlade/plugin/Weapons/FrostBlade.yaml — no FormKey line; mirror a vanilla weapon read with readRecord
-{"tool":"buildProject","args":{"project":"FrostBlade"}}        // assigns 000800:FrostBlade.esp, renames the file
+// and its enchantment, ObjectEffects/FrostBladeEnch.yaml; the sword names it as `ObjectEffect: FrostBladeEnch`
+{"tool":"buildProject","args":{"project":"FrostBlade"}}        // assigns 000800 and 000801, writes 000800:FrostBlade.esp
+                                                               // in place of FrostBladeEnch; once built, renames the files
 {"tool":"deployProject","args":{"project":"FrostBlade"}}
 ```
 
@@ -447,10 +453,17 @@ Start with `healthcheck`.
 | "'WEPN' is not a record type. Did you mean WEAP (Weapon)?" | A misspelled signature or type name in `findRecords`' `types` | Send one the message suggests; a type that exists but has no records answers `total: 0` instead |
 | `buildProject` → "link(s) point at records that exist neither…" | A FormID typed by hand, or a master that is not active | Resolve each with `findRecords` and fix the file |
 | `buildProject` → "cannot be written from the project's text" | A record whose fields Mutagen cannot write | Compare it with a vanilla record of the same type (`readRecord`) and fix the fields |
-| `buildProject` → "has no records to build" | No record file in the plugin folder — often written into the project folder instead | Write each record where `newProject`'s `writeRecordsTo` says: `<project>/plugin/<group folder>/<name>.yaml` |
-| `buildProject` → "record file(s) … are outside its plugin folder" | Records written into the project folder, which no build reads | Move each into its group folder in the plugin folder, as the message names it |
+| `buildProject` → "has no records to build" | No record file in the plugin folder — often written into the project folder instead, which the message then names | Write each record where `newProject`'s `writeRecordsTo` says: `<project>/plugin/<group folder>/<name>.yaml` |
+| `buildProject` succeeds with `warnings`: "record file(s) outside the plugin folder were not built" | Record files in the project folder, which no build reads; with records in the plugin folder they stop nothing | Write a record meant for the mod into its group folder in the plugin folder; a copy of one already there can stay |
 | `buildProject` → "cannot be built as written: … has no field X (it goes under Y)" | A field the record type does not have — invented, misspelled, or one level too high; or a folder that is no group (`NPCs` for `Npcs`) | Write the record the way `readRecord` shows one of its type: the same field names, nesting and folder |
-| `buildProject` → "cannot be read as a record: …" | A value the YAML reader cannot read, such as text where a number belongs | Fix the value the message names, as a vanilla record of the type writes it |
+| `buildProject` → "… is in a folder below Spells/, where the build reads no record" | A record file nested below its group's folder (`Spells/Spells/…`); only cells, worldspaces and dialogue nest | Put it directly into its group's folder, as the message names it |
+| `buildProject` → "FormKey 012EB7:Skyrim.esm is IronSword of Skyrim.esm, so this file would change that record" / "names no record in the load order" / "have the same FormKey" / "is no record's FormID" | A `FormKey` line copied from the record read as an example, invented, or a placeholder like `000000` | For a new record remove the line — the build assigns one; to change that record, keep its editor ID |
+| `buildProject` → "FormKey is the first line of a record file" | A line written above `FormKey:` — the reader takes the first line for it | Move `FormKey:` to the top (below `MutagenObjectType:` where a record has one) |
+| `buildProject` → "field(s) cannot be built as written: … names X, and no record has that editor ID" | A link written as an editor ID that no record of the field's type has (`Race: Nord`), or a record of the project without an `EditorID` line | Use one of the editor IDs the message offers, give the project's record the `EditorID` line it names, or write the FormID from `findRecords` |
+| `buildProject` → "field(s) cannot be built as written: … Name is written as one value" | A text written as `Name: Hilda` | Write it on two indented lines below `Name:` — `TargetLanguage: English` and `Value: Hilda` |
+| `buildProject` → "field(s) cannot be built as written: … has no field X" / "is a field of several kinds" / "takes a list" / "takes fields of its own" / "the YAML breaks at line N" | A record's shape below its top level: a field one level off, a `Level:` without its `MutagenObjectType:`, a list where fields belong or the reverse, broken indentation | Read a vanilla record of the type (the message names one) and write the field with its nesting |
+| `buildProject` → "cannot be read as a record: … Line N is `…`" | A value the YAML reader cannot read: one value where the field takes fields of its own, text where a number belongs | Fix the line the message quotes, as a vanilla record of the type writes it |
+| `buildProject` → "The build read no record from …" | Record files the reader took for none — the plugin would have been empty | Put each file directly into its group's folder, written the way `readRecord` shows one |
 | `buildProject` → "no Papyrus compiler" / ".NET Framework 3.5" | The machine lacks what compiles scripts — not a fault in the project | Install what the message names, then build again |
 | `deployProject` → "changed since the last deploy" | The deployed plugin was saved in the Creation Kit or xEdit — perhaps into overwrite | `pullProject`, review, commit, then build and deploy; deploy then clears the pulled copy from overwrite |
 | `deployProject` → "… would hide this deploy from the game" | A plugin of the same name in overwrite would hide a first deploy | Pull it if it is this project's work; otherwise move it out of overwrite in the mod manager |
@@ -510,7 +523,7 @@ own `inputSchema`, so **a new tool is covered the moment it is listed**.
 | `nexus.test.ts` | The Nexus Mods catalogue against trimmed copies of real GraphQL answers: the search's filter and order, a mod page's description as text (BBCode), requirements and current files, a long description cut, an unknown mod, Nexus unreachable or refusing. The account behind `NEXUS_API_KEY` (never the key or e-mail in the answer; checked once, again after a failed check), and downloads: the file and its `.meta`, the key sent to the API but never to the CDN, a file already there kept, a short download leaving nothing, no key or no premium account said in words. |
 | `mo2Proton.test.ts` | Mod Organizer under Proton, against an MO2-LINT-style setup: the ini's Windows paths read through the Wine prefix, finding the prefix (`SKYRIM_WINE_PREFIX`, MO2-LINT's `state.json`), the deploy refused while this instance's Mod Organizer runs, `refresh` never started, the `healthcheck` notes. A real `dosdevices` folder only on Linux, since Windows forbids its `c:` names. |
 | `amethyst.test.ts` | Against an Amethyst setup laid out as Amethyst 2.5.4 does (Flatpak config, custom staging, a hardlink deploy with `Data_Core`): finding it, reading the profile, adding only new lines, its deploy command, and deploy, pull and install through the backend. |
-| `skyrimBackend.test.ts` | Against a real Mod Organizer instance laid out in a temp folder, with a scripted helper: reading the ini, mod priority and the load order; the profile edits deploy and install make; FormID assignment; text sync; the whole patch, build, deploy and pull cycle with each of its refusals — a build of no records, record files outside the plugin folder, files the helper refuses before any is renamed; and installing a downloaded file — the mod, its `meta.ini`, the download marked installed, a FOMOD's question writing nothing, `root`, `replace` keeping the mod order, missing masters, a project's mod refused. |
+| `skyrimBackend.test.ts` | Against a real Mod Organizer instance laid out in a temp folder, with a scripted helper: reading the ini, mod priority and the load order; the profile edits deploy and install make; FormID assignment; text sync; the whole patch, build, deploy and pull cycle with each of its refusals — a build of no records, record files outside the plugin folder, files the helper refuses before any is numbered, and a failed build that leaves every file under its name; and installing a downloaded file — the mod, its `meta.ini`, the download marked installed, a FOMOD's question writing nothing, `root`, `replace` keeping the mod order, missing masters, a project's mod refused. |
 | `installer.test.ts` | What installMod decides before writing: a plain file's Data folder, and a FOMOD installer's numbering, order, defaults, option types and steps decided by the load order or by flags, and the files a set of choices installs — paths relative to the installer's folder, folders and files placed as the schema says, priority, folder spelling, unknown or forbidden choices refused. The default mod name from the download's record or Nexus's file names. |
 
 `npm run smoke` drives the **built** server over real stdio and fails if anything but protocol frames

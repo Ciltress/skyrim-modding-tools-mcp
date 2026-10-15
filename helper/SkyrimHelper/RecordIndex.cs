@@ -105,7 +105,7 @@ public sealed class RecordIndex
         .Distinct()
         .Take(3);
 
-    private static int Distance(string a, string b)
+    public static int Distance(string a, string b)
     {
         var row = Enumerable.Range(0, b.Length + 1).ToArray();
         for (var i = 1; i <= a.Length; i++)

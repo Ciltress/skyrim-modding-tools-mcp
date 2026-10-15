@@ -249,7 +249,7 @@ function scriptedHelper() {
                 case 'setLoadOrder': return { plugins: params.plugins.length, missing: [] };
                 case 'build':
                     write(params.outputPath, `build ${++builds}`);
-                    return { records: 0, masters: ['Skyrim.esm'], headerVersion: params.headerVersion };
+                    return { records: 1, masters: ['Skyrim.esm'], headerVersion: params.headerVersion, resolvedLinks: [] };
                 case 'serialize':
                     write(path.join(params.outputDir, 'RecordData.yaml'), 'ModKey: MyPatch.esp\nGameRelease: SkyrimSE\n');
                     write(path.join(params.outputDir, 'Weapons', 'Sword - 000800_MyPatch.esp.yaml'), 'FormKey: 000800:MyPatch.esp\nEditorID: Sword\n');
@@ -296,7 +296,7 @@ describe('deploying into Amethyst', () => {
     it('deploys a project, has Amethyst link it in, and keeps a deployed hard link current', async () => {
         const { setup, backend, runs, project } = makeBackend();
         await backend.newProject({ project: 'MyPatch' });
-        write(path.join(project, 'plugin', 'Weapons', 'Sword - 000800_MyPatch.esp.yaml'), 'FormKey: 000800:MyPatch.esp\n');
+        write(path.join(project, 'plugin', 'Weapons', 'Sword - 000800_MyPatch.esp.yaml'), 'FormKey: 000800:MyPatch.esp\nEditorID: Sword\n');
         age(project);
         await backend.buildProject('MyPatch');
         const deployed = await backend.deployProject('MyPatch');
@@ -320,7 +320,7 @@ describe('deploying into Amethyst', () => {
     it('guards a plugin the Creation Kit saved over the link in Data, pulls it, and clears it on deploy', async () => {
         const { setup, backend, project } = makeBackend();
         await backend.newProject({ project: 'MyPatch' });
-        write(path.join(project, 'plugin', 'Weapons', 'Sword - 000800_MyPatch.esp.yaml'), 'FormKey: 000800:MyPatch.esp\n');
+        write(path.join(project, 'plugin', 'Weapons', 'Sword - 000800_MyPatch.esp.yaml'), 'FormKey: 000800:MyPatch.esp\nEditorID: Sword\n');
         age(project);
         await backend.buildProject('MyPatch');
         await backend.deployProject('MyPatch');

@@ -97,7 +97,7 @@ _writes · idempotent_
 
 `project`**\*** string · `records`**\*** array · `from` string · `plugin` string
 
-**`buildProject`** — Build a project's plugin from its text: gives new records their FormIDs (written back into their files), checks that every link (a FormID in a field) points at a record that exists, compiles the project's Papyrus scripts and writes the plugin with the header this game version needs. Refuses a project with no records, record files outside its plugin folder, and fields a record type does not have — each named; fails with the list of broken links, if any. Does not touch the mod manager — deployProject does.
+**`buildProject`** — Build a project's plugin from its text: gives new records their FormIDs (written back into their files, renamed once the build succeeds), turns a link written as an editor ID — a new record of the project, or one of the load order — into that record's FormID (`resolvedLinks`), checks that every link points at a record that exists, compiles the project's Papyrus scripts and writes the plugin with the header this game version needs. Refuses a project with no records, fields a record type does not have, files below a group's folder, and a FormKey copied from another record — each named. Record files outside the plugin folder are not built, and named in `warnings`. Does not touch the mod manager — deployProject does.
 
 _writes · idempotent_
 

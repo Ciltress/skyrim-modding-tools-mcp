@@ -138,7 +138,14 @@ export interface BuildResult {
     headerVersion: number;
     /** New records that got their FormID in this build, each with the full path of its renamed file. */
     assignedFormIds: { formId: string; editorId: string | null; file: string }[];
+    /**
+     * Links written by editor ID that the build replaced in their files with the FormID they name —
+     * `from` as written, `to` the FormID — each with the full path of its file.
+     */
+    resolvedLinks: { file: string; field: string; from: string; to: string }[];
     scripts: { compiled: number };
+    /** What did not stop the build but was not built: record files outside the plugin folder. */
+    warnings?: string[];
 }
 
 export interface DeployResult {

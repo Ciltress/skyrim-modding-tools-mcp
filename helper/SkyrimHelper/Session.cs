@@ -19,6 +19,7 @@ public sealed class Session : IDisposable
 {
     public const string Version = "0.1.0";
     private const int DefaultLimit = 25;
+    private static readonly ModKey SkyrimMaster = ModKey.FromFileName("Skyrim.esm");
 
     private SkyrimRelease release = SkyrimRelease.SkyrimSE;
     private readonly List<LoadedPlugin> plugins = [];
@@ -34,8 +35,9 @@ public sealed class Session : IDisposable
     public async Task<JsonNode?> Dispatch(string method, JsonObject p)
     {
         // Overlays are read by one thread at a time: whatever reads plugins waits for the background index.
-        // Downloaded files, plugin headers and record files are read from files of their own, and need not wait.
-        if (method is not ("hello" or "gameVersion" or "setLoadOrder" or "readArchive" or "extractArchive" or "pluginHeaders" or "checkRecords")
+        // Downloaded files and plugin headers are read from files of their own, and need not wait; record
+        // files do, since a FormKey of another plugin's is checked against the record it names.
+        if (method is not ("hello" or "gameVersion" or "setLoadOrder" or "readArchive" or "extractArchive" or "pluginHeaders")
             && indexing is { } running)
         {
             try { await running; } catch { /* surfaced by the call that needs the index */ }
@@ -56,7 +58,7 @@ public sealed class Session : IDisposable
         "readArchive" => Archives.Read(p),
         "extractArchive" => Archives.Extract(p),
         "pluginHeaders" => PluginHeaders(p),
-        "checkRecords" => new JsonObject { ["records"] = RecordFiles.Require(Required(p, "projectPluginDir")) },
+        "checkRecords" => CheckRecords(Required(p, "projectPluginDir")),
         _ => throw new HelperException("unknownMethod", $"No method '{method}'.")
     };
 
@@ -326,6 +328,17 @@ public sealed class Session : IDisposable
 
     // ---------------------------------------------------------------- build and pull
 
+    /// <summary>
+    /// Everything a build would refuse in the record files, said before the server gives new records
+    /// their FormIDs — so every file is still under the name its author wrote it under.
+    /// </summary>
+    private JsonNode CheckRecords(string dir)
+    {
+        var records = RecordFiles.Require(dir, Index);
+        RecordLinks.Resolve(dir, Index, write: false);
+        return new JsonObject { ["records"] = records };
+    }
+
     private async Task<JsonNode> Build(JsonObject p)
     {
         var dir = Required(p, "projectPluginDir");
@@ -334,8 +347,10 @@ public sealed class Session : IDisposable
         if (!File.Exists(Path.Combine(dir, "RecordData.yaml")))
             throw new HelperException("notFound", $"No RecordData.yaml in '{dir}': this is not a project's plugin folder.");
 
-        // What the reader would skip or fail on without saying why, named first (RecordFiles).
-        RecordFiles.Require(dir);
+        // What the reader would skip or fail on without saying why, named first (RecordFiles); then the
+        // links written by editor ID, made FormKeys the reader takes (RecordLinks).
+        RecordFiles.Require(dir, Index);
+        var resolvedLinks = RecordLinks.Resolve(dir, Index, write: true);
         IModGetter deserialized;
         try
         {
@@ -359,7 +374,9 @@ public sealed class Session : IDisposable
         {
             foreach (var link in record.EnumerateFormLinks())
             {
-                if (link.IsNull) continue;
+                // Skyrim.esm's numbers below 000800 are the engine's own: the player's reference, 000014,
+                // is in no plugin, and every Creation Club plugin points at it.
+                if (link.IsNull || (link.FormKey.ModKey == SkyrimMaster && link.FormKey.ID < 0x800)) continue;
                 var found = link.FormKey.ModKey == mod.ModKey
                     ? own.Contains(link.FormKey)
                     : lookup.TryResolve(link.FormKey, link.Type, out _);
@@ -394,7 +411,8 @@ public sealed class Session : IDisposable
             ["output"] = output,
             ["records"] = written.EnumerateMajorRecords().Count(),
             ["masters"] = new JsonArray(written.ModHeader.MasterReferences.Select(m => (JsonNode)m.Master.FileName.String).ToArray()),
-            ["headerVersion"] = written.ModHeader.Stats.Version
+            ["headerVersion"] = written.ModHeader.Stats.Version,
+            ["resolvedLinks"] = resolvedLinks
         };
     }
 

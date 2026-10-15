@@ -94,7 +94,8 @@ src/
 helper/SkyrimHelper/       the C# plugin helper: Session.cs (the methods), RecordIndex.cs, SpriggitFormat.cs,
                            PeVersion.cs (an exe's version, read the same way on Windows and Linux),
                            Archives.cs (downloaded files, through SharpCompress), Fomod.cs (ModuleConfig.xml as data),
-                           RecordFiles.cs (a project's record files checked before a build: folders, fields)
+                           RecordFiles.cs (a project's record files checked before a build: folders, fields,
+                           copied FormKeys), RecordLinks.cs (links written as editor IDs made FormIDs)
 skills/Domain              the modding skills — ours, edit freely
 projects/                  the user's projects (mods as text); created on first use
 scripts/generate-tool-docs.mjs   writes docs/Tool-Reference.md; run after changing any getTools()

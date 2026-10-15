@@ -51,10 +51,11 @@ Every authoring task runs this loop; each record-family skill adds what its reco
 3. **Edit** with your file tools — only the fields the task names; the rest stays as copied. Look up
    every FormID before you write it. Scripts and files such as meshes have folders of their own
    ([`REFERENCE.md`](REFERENCE.md), *What a project looks like*).
-4. **Build.** `buildProject`. A broken link fails it with the list of offenders: fix each and build
-   again. New records get their FormIDs here, answered in `assignedFormIds`; a record that points at
-   another new one is written after that build, with that FormID, and built again. Done when the
-   build succeeds.
+4. **Build.** `buildProject`. New records get their FormIDs here, answered in `assignedFormIds`. A
+   link to a record — a new one of the project, or a vanilla one — may be written as its editor ID
+   (`ObjectEffect: MyEnchantment`): the build writes that record's FormID into the file and lists it
+   in `resolvedLinks`. A link it cannot resolve, or a broken one, fails the build with the list of
+   offenders: fix each and build again. Done when the build succeeds.
 5. **Deploy**, when the user wants the mod in the game: `deployProject`. Done when it succeeds and the
    user has heard its `modManager.nextStep`, if it has one.
 6. **Pull** after the user worked on the deployed plugin in the Creation Kit or xEdit: commit the

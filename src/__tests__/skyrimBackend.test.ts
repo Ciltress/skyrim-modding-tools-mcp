@@ -7,7 +7,7 @@ import {
 } from '../backend/skyrim/mo2';
 import { InstallError, type FomodConfig } from '../backend/skyrim/installer';
 import { activatePlugins, enableMod } from '../backend/skyrim/mo2Profile';
-import { ProjectError, assignFormIds, projectPaths, readProjectHeader, syncYaml } from '../backend/skyrim/projects';
+import { ProjectError, assignFormIds, nameRecordFiles, projectPaths, readProjectHeader, syncYaml } from '../backend/skyrim/projects';
 import { SkyrimEngine } from '../backend/skyrim/engine';
 import { SkyrimInstanceBackend } from '../backend/skyrim/SkyrimInstanceBackend';
 import { Mo2Manager } from '../backend/skyrim/mo2Manager';
@@ -39,6 +39,8 @@ function write(file: string, text = ''): void {
 }
 
 const qt = (value: string) => value.replace(/\\/g, '\\\\');
+/** A path as a regular expression matches it. */
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** A Skyrim SE instance with a high- and a low-priority mod shipping the same plugin. */
 function makeInstance(options: { edition?: string; gameName?: string } = {}) {
@@ -187,7 +189,7 @@ describe('project files', () => {
         expect(projectPaths('projects', 'Iron Sword Buff_2').root).toBe(path.join('projects', 'Iron Sword Buff_2'));
     });
 
-    it('gives new records FormIDs after the highest in use, once, and names their files like Spriggit', () => {
+    it('gives new records FormIDs after the highest in use, once, in their files as they are named', () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-ids-'));
         roots.push(dir);
         write(path.join(dir, 'RecordData.yaml'), 'ModKey: MyMod.esp\n');
@@ -199,14 +201,55 @@ describe('project files', () => {
         const assigned = assignFormIds(dir, 'MyMod.esp', true);
         // Path order, so the same files always get the same numbers.
         expect(assigned).toEqual([
-            { formId: '000806:MyMod.esp', editorId: 'NewA', file: 'Spells/NewA - 000806_MyMod.esp.yaml' },
-            { formId: '000807:MyMod.esp', editorId: 'NewB', file: 'Weapons/NewB - 000807_MyMod.esp.yaml' }
+            { formId: '000806:MyMod.esp', editorId: 'NewA', file: 'Spells/a.yaml' },
+            { formId: '000807:MyMod.esp', editorId: 'NewB', file: 'Weapons/b.yaml' }
         ]);
-        expect(fs.readFileSync(path.join(dir, 'Spells', 'NewA - 000806_MyMod.esp.yaml'), 'utf8'))
-            .toBe('FormKey: 000806:MyMod.esp\nEditorID: NewA\n');
-        expect(fs.existsSync(path.join(dir, 'Spells', 'a.yaml'))).toBe(false);
+        expect(fs.readFileSync(path.join(dir, 'Spells', 'a.yaml'), 'utf8')).toBe('FormKey: 000806:MyMod.esp\nEditorID: NewA\n');
         // Assigned once: a second build changes nothing.
         expect(assignFormIds(dir, 'MyMod.esp', true)).toEqual([]);
+    });
+
+    it('names the files of the project\'s own records like Spriggit, and no other', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-names-'));
+        roots.push(dir);
+        write(path.join(dir, 'RecordData.yaml'), 'ModKey: MyMod.esp\n');
+        write(path.join(dir, 'Weapons', 'Old - 000805_MyMod.esp.yaml'), 'FormKey: 000805:MyMod.esp\nEditorID: Old\n');
+        write(path.join(dir, 'Weapons', 'my copy.yaml'), 'FormKey: 012EB7:Skyrim.esm\nEditorID: IronSword\n');
+        write(path.join(dir, 'Spells', 'a.yaml'), 'FormKey: 000806:MyMod.esp\nEditorID: NewA\n');
+        write(path.join(dir, 'Weapons', 'b.yaml'), 'FormKey: 000807:MyMod.esp\n');
+
+        expect(nameRecordFiles(dir, 'MyMod.esp')).toEqual([
+            { from: 'Spells/a.yaml', to: 'Spells/NewA - 000806_MyMod.esp.yaml', formId: '000806:MyMod.esp', editorId: 'NewA' },
+            { from: 'Weapons/b.yaml', to: 'Weapons/000807_MyMod.esp.yaml', formId: '000807:MyMod.esp', editorId: null }
+        ]);
+        expect(fs.readFileSync(path.join(dir, 'Spells', 'NewA - 000806_MyMod.esp.yaml'), 'utf8')).toBe('FormKey: 000806:MyMod.esp\nEditorID: NewA\n');
+        expect(fs.existsSync(path.join(dir, 'Spells', 'a.yaml'))).toBe(false);
+        // An override keeps the name it was given; a second call renames nothing.
+        expect(fs.existsSync(path.join(dir, 'Weapons', 'my copy.yaml'))).toBe(true);
+        expect(nameRecordFiles(dir, 'MyMod.esp')).toEqual([]);
+    });
+
+    it('takes the files that head a block of cells or a worldspace\'s folder for no new record', () => {
+        // As Spriggit writes a plugin with cells: blocks and sub-blocks have a GroupRecordData.yaml, a cell
+        // a folder with its RecordData.yaml. Numbered and renamed, they broke the next build of the project.
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-cells-'));
+        roots.push(dir);
+        write(path.join(dir, 'RecordData.yaml'), 'ModKey: MyMod.esp\n');
+        const headers = [
+            path.join(dir, 'Cells', 'GroupRecordData.yaml'),
+            path.join(dir, 'Cells', '1', 'GroupRecordData.yaml'),
+            path.join(dir, 'Cells', '1', '8', 'GroupRecordData.yaml'),
+            path.join(dir, 'Worldspaces', 'Tamriel - 00003C_Skyrim.esm', '0, -1', 'GroupRecordData.yaml')
+        ];
+        for (const header of headers) write(header, 'GroupType: InteriorCellBlock\n');
+        write(path.join(dir, 'Cells', '1', '8', 'MyCell - 000800_MyMod.esp', 'RecordData.yaml'), 'FormKey: 000800:MyMod.esp\nEditorID: MyCell\n');
+        write(path.join(dir, 'Weapons', 'new.yaml'), 'EditorID: NewSword\n');
+
+        // The cell's FormID is in use all the same.
+        expect(assignFormIds(dir, 'MyMod.esp', true)).toEqual([
+            { formId: '000801:MyMod.esp', editorId: 'NewSword', file: 'Weapons/new.yaml' }]);
+        expect(nameRecordFiles(dir, 'MyMod.esp').map(renamed => renamed.to)).toEqual(['Weapons/NewSword - 000801_MyMod.esp.yaml']);
+        for (const header of headers) expect(fs.readFileSync(header, 'utf8')).toBe('GroupType: InteriorCellBlock\n');
     });
 
     it('reads the light flag in either form YAML writes a list in', () => {
@@ -265,8 +308,10 @@ interface FakeArchive {
 /**
  * Plays the helper's part: records what it was asked, writes what the real one would. Downloaded
  * files are read from `archives` by their full path; a plugin's masters come from `masters`, by its name.
+ * A test that needs another answer to a method puts it into `answers`.
  */
-function scriptedHelper(archives = new Map<string, FakeArchive>(), masters: Record<string, string[]> = {}) {
+function scriptedHelper(
+    archives = new Map<string, FakeArchive>(), masters: Record<string, string[]> = {}, answers: Record<string, (params: any) => any> = {}) {
     const calls: { method: string; params: any }[] = [];
     const archive = (file: string) => {
         const found = archives.get(file);
@@ -280,6 +325,7 @@ function scriptedHelper(archives = new Map<string, FakeArchive>(), masters: Reco
         stop() { running = false; },
         async call(method: string, params: any = {}): Promise<any> {
             calls.push({ method, params });
+            if (answers[method]) return answers[method](params);
             switch (method) {
                 case 'hello': return { helper: 'test', protocol: 1 };
                 case 'gameVersion': return { version: '1.7.104.0' };
@@ -301,7 +347,7 @@ function scriptedHelper(archives = new Map<string, FakeArchive>(), masters: Reco
                     };
                 case 'build':
                     write(params.outputPath, `plugin built from ${params.projectPluginDir}`);
-                    return { records: 1, masters: ['Skyrim.esm'], headerVersion: params.headerVersion };
+                    return { records: 1, masters: ['Skyrim.esm'], headerVersion: params.headerVersion, resolvedLinks: [] };
                 case 'serialize':
                     write(path.join(params.outputDir, 'RecordData.yaml'), 'ModKey: MyPatch.esp\n');
                     write(path.join(params.outputDir, 'Weapons', 'IronSword - 012EB7_Skyrim.esm.yaml'), 'FormKey: 012EB7:Skyrim.esm\nEditorID: IronSword\nDamage: 12\n');
@@ -353,7 +399,8 @@ function makeBackend(options: { nexus?: NexusCatalogue } = {}) {
     const platform = linuxPlatform(procRoot, hostDrives);
     const archives = new Map<string, FakeArchive>();
     const masters: Record<string, string[]> = {};
-    const { helper, calls } = scriptedHelper(archives, masters);
+    const helperAnswers: Record<string, (params: any) => any> = {};
+    const { helper, calls } = scriptedHelper(archives, masters, helperAnswers);
     const engine = new SkyrimEngine(new Mo2Manager(fixture.instanceDir, platform, { env: {} }), helper, fixture.projects, { platform });
     const backend = new SkyrimInstanceBackend({ engine, nexus: options.nexus });
     /** Starts a Windows program in the table, as Wine does: its command line is the program's Windows path. */
@@ -366,13 +413,13 @@ function makeBackend(options: { nexus?: NexusCatalogue } = {}) {
         archives.set(file, content);
         return file;
     };
-    return { fixture, backend, calls, engine, startProgram, download, masters };
+    return { fixture, backend, calls, engine, startProgram, download, masters, helperAnswers };
 }
 
 /** A new project with one record in it: a build of a project without any is refused. */
 async function newProjectWithRecord(backend: SkyrimInstanceBackend, projects: string, project: string) {
     await backend.newProject({ project });
-    write(path.join(projects, project, 'plugin', 'Weapons', `Sword - 000800_${project}.esp.yaml`), `FormKey: 000800:${project}.esp\nEditorID: ${project}Sword\n`);
+    write(path.join(projects, project, 'plugin', 'Weapons', `${project}Sword - 000800_${project}.esp.yaml`), `FormKey: 000800:${project}.esp\nEditorID: ${project}Sword\n`);
 }
 
 /** Moves the clock of a folder's files and folders back, so a build made "now" is newer than the sources. */
@@ -468,25 +515,90 @@ describe('the Skyrim backend', () => {
         expect(created.writeRecordsTo).toMatch(/Npcs/);
     });
 
-    it('builds nothing from a project without records, or with record files outside its plugin folder — naming them', async () => {
+    it('builds nothing from a project without records — naming record files outside its plugin folder', async () => {
         // Where round 9's models put their records: the project folder, and the projects folder itself.
         const { backend, fixture, calls } = makeBackend();
         await backend.newProject({ project: 'FlameBlade' });
-        const plugin = path.join(fixture.projects, 'FlameBlade', 'plugin');
         await expect(backend.buildProject('FlameBlade')).rejects.toThrow(/has no records.*Weapons/);
 
         const misplaced = path.join(fixture.projects, 'FlameBlade', 'Weapons', 'FlameBlade.yaml');
         write(misplaced, 'EditorID: FlameBlade\n');
-        write(path.join(plugin, 'Weapons', 'Kept - 000800_FlameBlade.esp.yaml'), 'FormKey: 000800:FlameBlade.esp\n');
         await expect(backend.buildProject('FlameBlade')).rejects.toThrow(
-            new RegExp(`outside its plugin folder.*${misplaced.replace(/[\\.]/g, '\\$&')}`));
+            new RegExp(`has no records.*outside its plugin folder.*${escape(misplaced)}`));
 
-        fs.rmSync(path.join(plugin, 'Weapons'), { recursive: true });
         fs.rmSync(path.dirname(misplaced), { recursive: true });
         const loose = path.join(fixture.projects, 'Spells', 'StormBolt.yaml');
         write(loose, 'EditorID: StormBolt\n');
-        await expect(backend.buildProject('FlameBlade')).rejects.toThrow(new RegExp(`has no records.*${loose.replace(/[\\.]/g, '\\$&')}`));
+        await expect(backend.buildProject('FlameBlade')).rejects.toThrow(new RegExp(`has no records.*${escape(loose)}`));
         expect(calls.some(c => c.method === 'build')).toBe(false);
+    });
+
+    it('builds a project with records despite record files outside its plugin folder, and warns about them', async () => {
+        // Refused, a stray copy trapped a model whose file tools could not delete it (eval round 10).
+        const { backend, fixture } = makeBackend();
+        await newProjectWithRecord(backend, fixture.projects, 'FlameBlade');
+        const misplaced = path.join(fixture.projects, 'FlameBlade', 'Weapons', 'FlameBlade.yaml');
+        write(misplaced, 'EditorID: FlameBlade\n');
+
+        const built = await backend.buildProject('FlameBlade');
+
+        expect(built.records).toBe(1);
+        expect(built.warnings).toEqual([expect.stringMatching(new RegExp(`outside .*plugin folder.*${escape(misplaced)}`))]);
+        expect((await backend.buildProject('FlameBlade')).warnings).toHaveLength(1);
+        fs.rmSync(path.dirname(misplaced), { recursive: true });
+        expect((await backend.buildProject('FlameBlade')).warnings).toBeUndefined();
+    });
+
+    it('refuses a build that read no record from the files, and leaves no plugin to deploy', async () => {
+        // A file below its group's folder got a FormID but was not read: the build succeeded empty (round 10).
+        const { backend, fixture, helperAnswers } = makeBackend();
+        await newProjectWithRecord(backend, fixture.projects, 'StormBolt');
+        helperAnswers.build = params => {
+            write(params.outputPath, 'an empty plugin');
+            return { records: 0, masters: [], headerVersion: params.headerVersion, resolvedLinks: [] };
+        };
+
+        await expect(backend.buildProject('StormBolt')).rejects.toThrow(/read no record from .*1 record file.*directly in its group's folder/);
+        await expect(asRequestError(backend.buildProject('StormBolt'))).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
+        await expect(backend.deployProject('StormBolt')).rejects.toThrow(/not been built yet/);
+    });
+
+    it('leaves every file under its name when a build fails after numbering it, and names it in the next that succeeds', async () => {
+        // Renamed by a build the reader then refused, a record went on being fixed under its old name:
+        // a second file, a second record, and the first one still broken (eval round 11).
+        const { backend, fixture, helperAnswers } = makeBackend();
+        await backend.newProject({ project: 'HildaTheNord' });
+        const root = path.join(fixture.projects, 'HildaTheNord');
+        const hilda = path.join(root, 'plugin', 'Npcs', 'Hilda.yaml');
+        write(hilda, 'EditorID: Hilda\nName: Hilda\n');
+        helperAnswers.build = () => { throw new HelperError('badRecord', 'Npcs/Hilda.yaml cannot be read as a record'); };
+
+        await expect(backend.buildProject('HildaTheNord')).rejects.toThrow(/Hilda\.yaml cannot be read/);
+        expect(fs.readdirSync(path.dirname(hilda))).toEqual(['Hilda.yaml']);
+        expect(fs.readFileSync(hilda, 'utf8')).toBe('FormKey: 000800:HildaTheNord.esp\nEditorID: Hilda\nName: Hilda\n');
+
+        delete helperAnswers.build;
+        age(root);
+        const built = await backend.buildProject('HildaTheNord');
+        const named = path.join(path.dirname(hilda), 'Hilda - 000800_HildaTheNord.esp.yaml');
+        expect(built.assignedFormIds).toEqual([{ formId: '000800:HildaTheNord.esp', editorId: 'Hilda', file: named }]);
+        expect(fs.readdirSync(path.dirname(hilda))).toEqual([path.basename(named)]);
+        await expect(backend.deployProject('HildaTheNord')).resolves.toMatchObject({ plugin: 'HildaTheNord.esp' });
+    });
+
+    it('says which links written by editor ID the build replaced with a FormID, in which file', async () => {
+        const { backend, fixture, helperAnswers } = makeBackend();
+        await newProjectWithRecord(backend, fixture.projects, 'FlameBlade');
+        const link = { file: 'Weapons/FlameBladeSword - 000800_FlameBlade.esp.yaml', field: 'ObjectEffect', from: 'FlameBladeEnch', to: '000801:FlameBlade.esp' };
+        helperAnswers.build = params => {
+            write(params.outputPath, 'plugin');
+            return { records: 2, masters: ['Skyrim.esm'], headerVersion: params.headerVersion, resolvedLinks: [link] };
+        };
+
+        const built = await backend.buildProject('FlameBlade');
+
+        expect(built.resolvedLinks).toEqual([
+            { ...link, file: path.join(fixture.projects, 'FlameBlade', 'plugin', 'Weapons', 'FlameBladeSword - 000800_FlameBlade.esp.yaml') }]);
     });
 
     it('has the record files checked before any of them gets a FormID, so an unbuildable one keeps its name', async () => {
@@ -530,8 +642,8 @@ describe('the Skyrim backend', () => {
             { formId: '000800:MyPatch.esp', editorId: 'MyNewSword', file: path.join(pluginDir, 'Weapons', 'MyNewSword - 000800_MyPatch.esp.yaml') }]);
         expect(calls.find(c => c.method === 'build')!.params.headerVersion).toBe(1.71);
 
-        // The build renamed a source file while assigning its FormID, but before writing the plugin,
-        // so the build is still newer than every source and deploy accepts it.
+        // The build renamed a source file after writing the plugin — renaming changes no record — and
+        // the plugin still counts as newer than every source, so deploy accepts it.
         const deployed = await backend.deployProject('MyPatch');
         const modFolder = path.join(fixture.instanceDir, 'mods', 'MyPatch');
         expect(deployed).toEqual(expect.objectContaining({
@@ -675,12 +787,12 @@ describe('the Skyrim backend', () => {
         const { backend, fixture } = makeBackend();
         await backend.newProject({ project: 'Shrinking' });
         const root = path.join(fixture.projects, 'Shrinking');
-        write(path.join(root, 'plugin', 'Weapons', 'Sword - 000800_Shrinking.esp.yaml'), 'FormKey: 000800:Shrinking.esp\n');
+        write(path.join(root, 'plugin', 'Weapons', '000800_Shrinking.esp.yaml'), 'FormKey: 000800:Shrinking.esp\n');
         age(root);
         await backend.buildProject('Shrinking');
         age(path.join(root, 'build'), 30_000);
 
-        fs.rmSync(path.join(root, 'plugin', 'Weapons', 'Sword - 000800_Shrinking.esp.yaml'));
+        fs.rmSync(path.join(root, 'plugin', 'Weapons', '000800_Shrinking.esp.yaml'));
         await expect(backend.deployProject('Shrinking')).rejects.toThrow(/changed since its last build/);
     });
 

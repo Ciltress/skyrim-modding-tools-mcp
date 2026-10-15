@@ -18,9 +18,9 @@ The loop in `skyrim-modding-basics` — look up, get the text, edit, build, depl
   is its effects: resolve the `MGEF` FormIDs it lists with `findRecords` and `records`, and read the
   ones that matter, before reasoning about what it does.
 - **A new spell** starts from `readRecord` on a vanilla spell of the same cast type and delivery, and
-  reuses vanilla effects as they are. An effect that has to differ is a new `MGEF`: write it, build,
-  then list its FormID in the spell and build again. A vanilla `MGEF` itself changes only when every
-  spell, potion and enchantment using it should change with it.
+  reuses vanilla effects as they are. An effect that has to differ is a new `MGEF`: write it, and list
+  it in the spell by its editor ID — the build writes in its FormID. A vanilla `MGEF` itself changes
+  only when every spell, potion and enchantment using it should change with it.
 - **A script effect's** `.psc` goes into `scripts/`; `buildProject` compiles it and fails on a
   compile error.
 - **Done** when the spell is built, every effect's cast type and delivery match the spell's, and

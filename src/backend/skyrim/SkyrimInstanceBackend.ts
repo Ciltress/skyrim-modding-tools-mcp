@@ -13,7 +13,7 @@ import {
 import type { Instance } from './modManager.js';
 import { findCaseInsensitive } from './paths.js';
 import {
-    ProjectError, assignFormIds, createProject, fileHash, looseRecordFiles, newestSourceTime, projectExists,
+    ProjectError, assignFormIds, createProject, fileHash, looseRecordFiles, nameRecordFiles, newestSourceTime, projectExists,
     projectInfo, projectPaths, readDeployState, readProjectHeader, recordFiles, strayRecordFiles, syncFolder, syncYaml,
     whereRecordsGo, writeDeployState
 } from './projects.js';
@@ -265,20 +265,24 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         // A build of nothing succeeded, and small models took it for done (eval round 9): name what is
         // missing, and the record files no build would read.
         const strays = strayRecordFiles(paths);
-        if (strays.length > 0) {
-            throw new ProjectError(
-                `${strays.length} record file(s) of '${project}' are outside its plugin folder, where no build reads them: ` +
-                `${strays.join(', ')}. Move each into its group's folder in ${paths.plugin} — a weapon as ` +
-                `${path.join(paths.plugin, 'Weapons', path.basename(strays[0]))} — then build again.`);
-        }
-        if (recordFiles(paths.plugin).length === 0) {
+        const files = recordFiles(paths.plugin).length;
+        if (files === 0) {
             const loose = looseRecordFiles(this.engine.projectsDir);
             throw new ProjectError(
                 `'${project}' has no records to build: ${whereRecordsGo(paths)} Mirror a vanilla record of the same type ` +
                 `(readRecord), leaving FormKey out.` +
+                (strays.length > 0 ? ` Its record files outside its plugin folder, where no build reads them: ${strays.join(', ')} — ` +
+                    `write each into its group's folder there.` : '') +
                 (loose.length > 0 ? ` Record files that belong to no project: ${loose.join(', ')} — move those that are this project's.` : ''));
         }
-        // Fields a record type does not have, folders that are no group: named while the files keep the names given them.
+        // With records to build, files elsewhere are named but stop nothing: a refusal only deleting a
+        // file could satisfy trapped a model whose file tools could not delete (eval round 10).
+        const warnings = strays.length > 0
+            ? [`${strays.length} record file(s) outside the plugin folder were not built — no build reads them: ${strays.join(', ')}. ` +
+                `A record meant for this mod goes into its group's folder in ${paths.plugin}; a copy of one already there can stay.`]
+            : undefined;
+        // Fields a record type does not have, folders that are no group, copied FormKeys, links that name no
+        // record: named before any record is numbered.
         await this.engine.helper.call('checkRecords', { projectPluginDir: paths.plugin });
 
         const assignedFormIds = assignFormIds(paths.plugin, plugin, light);
@@ -298,19 +302,46 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         });
 
         const output = path.join(paths.build, plugin);
-        const built = await afterLocalWrites(this.engine.helper.call<{ records: number; masters: string[]; headerVersion: number }>('build', {
+        const built = await afterLocalWrites(this.engine.helper.call<{
+            records: number; masters: string[]; headerVersion: number; resolvedLinks: BuildResult['resolvedLinks'];
+        }>('build', {
             projectPluginDir: paths.plugin,
             outputPath: output,
             headerVersion: this.engine.headerVersion
         }, BUILD_TIMEOUT_MS));
+        // Whatever the files looked like, a plugin without records is never what was asked (eval round 10).
+        if (built.records === 0) {
+            fs.rmSync(output, { force: true });
+            throw new ProjectError(
+                `The build read no record from ${project}'s ${files} record file(s), and wrote no plugin. A record file sits ` +
+                `directly in its group's folder — ${path.join(paths.plugin, 'Weapons', 'MyWeapon.yaml')}, not in a folder ` +
+                `below it — and is written the way readRecord shows a record of its type.`);
+        }
+
+        // Only a build that succeeded renames its new records' files, so a refusal never leaves a file
+        // under a name its author does not know. Renaming changes no record: the plugin stays newer
+        // than its sources, and deploy takes it.
+        const renamed = nameRecordFiles(paths.plugin, plugin);
+        if (renamed.length > 0) {
+            // Past the renamed folders' times, which carry more than the milliseconds a Date holds.
+            const after = new Date(Math.ceil(Math.max(Date.now(), newestSourceTime(paths))) + 1);
+            fs.utimesSync(output, after, after);
+        }
+        const nameOf = new Map(renamed.map(file => [file.from, file.to]));
+        const finalPath = (file: string) => path.resolve(paths.plugin, nameOf.get(file) ?? file);
+        // A record numbered by an earlier build that then failed is named now; it is listed with this build's.
+        const numbered = new Set(assignedFormIds.map(record => record.file));
+        const earlier = renamed.filter(file => !numbered.has(file.from)).map(({ formId, editorId, from }) => ({ formId, editorId, file: from }));
 
         return {
             project, plugin, output,
             records: built.records,
             masters: built.masters,
             headerVersion: built.headerVersion,
-            assignedFormIds: assignedFormIds.map(record => ({ ...record, file: path.resolve(paths.plugin, record.file) })),
-            scripts: { compiled }
+            assignedFormIds: [...earlier, ...assignedFormIds].map(record => ({ ...record, file: finalPath(record.file) })),
+            resolvedLinks: (built.resolvedLinks ?? []).map(link => ({ ...link, file: finalPath(link.file) })),
+            scripts: { compiled },
+            ...(warnings ? { warnings } : {})
         };
     }
 

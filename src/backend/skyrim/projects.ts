@@ -158,9 +158,9 @@ export function recordFiles(pluginDir: string): string[] {
 
 /**
  * Gives every new record a FormID — a record file without a top-level `FormKey:` line, as an agent
- * writes one — and renames its file the way Spriggit names it. Once assigned, a FormID never moves:
- * other plugins and saves will point at it. Deterministic: files are numbered in path order after the
- * highest number in use.
+ * writes one — written at the top of its file, which keeps its name until the build succeeds
+ * (nameRecordFiles). Once assigned, a FormID never moves: other plugins and saves will point at it.
+ * Deterministic: files are numbered in path order after the highest number in use.
  */
 export function assignFormIds(pluginDir: string, plugin: string, light: boolean):
     { formId: string; editorId: string | null; file: string }[] {
@@ -173,7 +173,9 @@ export function assignFormIds(pluginDir: string, plugin: string, light: boolean)
         if (/^FormKey:/m.test(text)) {
             const own = ownKey.exec(text);
             if (own) used.push(parseInt(own[1], 16));
-        } else {
+        } else if (!/^(Group)?RecordData\.yaml$/.test(path.basename(file))) {
+            // The files Spriggit heads a block of cells or a cell's folder with are no new records:
+            // numbered and renamed, they broke the next build of every project with a cell in it.
             fresh.push({ file, text });
         }
     }
@@ -190,15 +192,38 @@ export function assignFormIds(pluginDir: string, plugin: string, light: boolean)
         }
         const id = next.toString(16).toUpperCase().padStart(6, '0');
         next++;
-        const editorId = /^EditorID:\s*(.+?)\s*$/m.exec(text)?.[1] ?? null;
-        const name = `${editorId ? `${safeFileName(editorId)} - ` : ''}${id}_${plugin}.yaml`;
-        const target = path.join(path.dirname(file), name);
-        fs.writeFileSync(target, `FormKey: ${id}:${plugin}\n${text}`);
-        if (target !== file) fs.rmSync(file);
-        assigned.push({ formId: `${id}:${plugin}`, editorId, file: path.relative(pluginDir, target).replace(/\\/g, '/') });
+        fs.writeFileSync(file, `FormKey: ${id}:${plugin}\n${text}`);
+        assigned.push({ formId: `${id}:${plugin}`, editorId: editorIdOf(text), file: relativeTo(pluginDir, file) });
     }
     return assigned;
 }
+
+/**
+ * Renames the files of the project's own records the way Spriggit names them — `<editor ID> -
+ * <FormID>_<plugin>.yaml` — so that a pull finds them where it would write them. Called once a build
+ * has succeeded: renamed by a build that then failed, a file went on being fixed under its old name,
+ * which made a second record (eval round 11). Overrides and the files heading cells keep their names.
+ */
+export function nameRecordFiles(pluginDir: string, plugin: string):
+    { from: string; to: string; formId: string; editorId: string | null }[] {
+    const ownKey = new RegExp(`^FormKey:\\s*([0-9A-Fa-f]{6}):${escapeRegExp(plugin)}\\s*$`, 'im');
+    const renamed: { from: string; to: string; formId: string; editorId: string | null }[] = [];
+    for (const file of recordFiles(pluginDir)) {
+        if (/^(Group)?RecordData\.yaml$/.test(path.basename(file))) continue;
+        const text = fs.readFileSync(file, 'utf8');
+        const id = ownKey.exec(text)?.[1].toUpperCase();
+        if (!id) continue;
+        const editorId = editorIdOf(text);
+        const target = path.join(path.dirname(file), `${editorId ? `${safeFileName(editorId)} - ` : ''}${id}_${plugin}.yaml`);
+        if (target === file || fs.existsSync(target)) continue;
+        fs.renameSync(file, target);
+        renamed.push({ from: relativeTo(pluginDir, file), to: relativeTo(pluginDir, target), formId: `${id}:${plugin}`, editorId });
+    }
+    return renamed;
+}
+
+const editorIdOf = (text: string) => /^EditorID:\s*(.+?)\s*$/m.exec(text)?.[1] ?? null;
+const relativeTo = (dir: string, file: string) => path.relative(dir, file).replace(/\\/g, '/');
 
 function safeFileName(name: string): string {
     return name.replace(/[<>:"/\\|?*]/g, '_');

@@ -155,7 +155,8 @@ export class InMemorySkyrimBackend implements AppBackend {
         project.built = true;
         return {
             project: name, plugin: project.plugin, output: `projects/${name}/build/${project.plugin}`,
-            records: project.records.size, masters: ['Skyrim.esm'], headerVersion: 1.71, assignedFormIds: [], scripts: { compiled: 0 }
+            records: project.records.size, masters: ['Skyrim.esm'], headerVersion: 1.71, assignedFormIds: [], resolvedLinks: [],
+            scripts: { compiled: 0 }
         };
     }
 

@@ -119,9 +119,15 @@ Spells/…   LeveledItems/…   Npcs/…
   same type in this format and mirror it.
 - **A new record's FormID comes from `buildProject`.** Write the file without a `FormKey` line, under
   any name. The build gives it the next free number after the highest the project uses — from
-  `000800`, files in path order — writes `FormKey: 000801:MyMod.esp` at its top, and renames the file
-  `<editor ID> - 000801_MyMod.esp.yaml`. The build's `assignedFormIds` lists them: that is the FormID
-  to write wherever another record points at the new one.
+  `000800`, files in path order — writes `FormKey: 000801:MyMod.esp` at its top, and once the build
+  has succeeded renames the file `<editor ID> - 000801_MyMod.esp.yaml`; a build that fails leaves
+  every file under its name. The build's `assignedFormIds` lists them, with their new paths.
+- **A link may be written as an editor ID** — `ObjectEffect: MyEnchantment`, an effect's
+  `BaseEffect: EnchFireDamageFFContact`, a keyword list's `- WeapTypeSword`. The build looks it up
+  among the project's records first, then the load order's, writes that record's FormID into the
+  file, and lists each in `resolvedLinks`; one that names no record of the type the field takes fails
+  the build with the closest editor IDs. A new record's `FormKey` line is never copied from another
+  record: that makes the file an override of the record it names.
 - **The build numbers a light project's records `000800`–`000FFF`** under either header version —
   2,048 new records. Past that it stops and says so; removing `Small` from the header's `Flags` makes
   the project a full plugin.
