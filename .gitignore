@@ -1,0 +1,11 @@
+.env
+coverage
+dist
+node_modules
+*.code-workspace
+
+# Credentials and key material — never commit them.
+*.p12
+*.pfx
+*.pem
+*.key

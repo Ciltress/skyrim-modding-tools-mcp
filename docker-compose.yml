@@ -1,0 +1,22 @@
+# The Streamable HTTP form, for a server several people connect to.
+# See docs/Hosting.md. Put TLS in front of it before it leaves this machine.
+name: mcp-template
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mcp-template:local
+    container_name: mcp-template
+
+    ports:
+      - "3000:3000"
+
+    environment:
+      MCP_TRANSPORT: http
+      # The names this server answers to — the DNS-rebinding guard.
+      MCP_HTTP_ALLOWED_HOSTS: localhost, 127.0.0.1
+      MCP_HTTP_RATE_LIMIT: 120
+      # TEMPLATE: the example backend accepts exactly these bearer tokens.
+      EXAMPLE_ACCEPTED_TOKENS: change-me

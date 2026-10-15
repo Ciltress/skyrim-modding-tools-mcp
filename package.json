@@ -1,0 +1,48 @@
+{
+  "name": "mcp-template",
+  "version": "0.1.0",
+  "mcpName": "io.github.your-org/mcp-template",
+  "description": "Template for a TypeScript MCP server: one-file tools, profiles, a response budget, self-serving docs and skills, stdio and Streamable HTTP",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "mcp-template": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "skills",
+    "AGENTS.md"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:types": "tsc -p tsconfig.json --noEmit",
+    "start": "node ./dist/index.js",
+    "dev": "npx @modelcontextprotocol/inspector ./dist/index.js",
+    "build": "tsc",
+    "docs:tools": "node scripts/generate-tool-docs.mjs",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "template"
+  ],
+  "author": "Andreas Breit",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.18.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "dotenv": "^18.0.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@vitest/coverage-v8": "^5.0.4",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
+  }
+}

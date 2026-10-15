@@ -1,0 +1,72 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.your-org/mcp-template",
+  "description": "Template MCP server: profiles, a response budget, self-serving docs and skills, stdio and HTTP",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/your-org/mcp-template",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "mcp-template",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "MCP_PROFILE",
+          "description": "Which tools are listed and callable: core (the smallest set that can read and change something, for small local models), readonly (never writes), or all. A tool outside the profile cannot be called.",
+          "choices": ["core", "readonly", "all"],
+          "default": "all"
+        },
+        {
+          "name": "MCP_MAX_RESPONSE_BYTES",
+          "description": "Ceiling on one tool answer, in bytes; 0 removes it. Defaults to the profile's: core 24000, readonly 32000, all none. An answer over it is replaced by valid JSON naming the next step."
+        },
+        {
+          "name": "MCP_GATE",
+          "description": "Set to off to skip asking the backend which optional features it supports. With it on, tools the backend cannot serve are withheld from tools/list.",
+          "default": "on"
+        },
+        {
+          "name": "MCP_TRANSPORT",
+          "description": "stdio (the default) for one client that starts this process, or http to serve Streamable HTTP at /mcp for many, each with its own bearer token.",
+          "choices": ["stdio", "http"],
+          "default": "stdio"
+        },
+        {
+          "name": "MCP_HTTP_PORT",
+          "description": "Port to listen on in HTTP mode.",
+          "default": "3000"
+        },
+        {
+          "name": "MCP_HTTP_HOST",
+          "description": "Address to bind in HTTP mode. Use 127.0.0.1 to serve this machine only.",
+          "default": "0.0.0.0"
+        },
+        {
+          "name": "MCP_HTTP_ALLOWED_ORIGINS",
+          "description": "Browser origins allowed to call /mcp in HTTP mode, comma-separated; * allows any. Empty serves none. MCP clients that are not web pages send no Origin and are unaffected."
+        },
+        {
+          "name": "MCP_HTTP_ALLOWED_HOSTS",
+          "description": "Host header values answered to in HTTP mode, comma-separated. Empty accepts any; set it to the published name as a DNS-rebinding guard."
+        },
+        {
+          "name": "MCP_HTTP_RATE_LIMIT",
+          "description": "Requests per minute per session in HTTP mode, as a token bucket. 0 turns it off.",
+          "default": "0"
+        },
+        {
+          "name": "EXAMPLE_ACCEPTED_TOKENS",
+          "description": "Example backend only: the bearer tokens HTTP callers may present, comma-separated. Unset, HTTP mode accepts nobody. Replace with your backend's own credential handling.",
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
