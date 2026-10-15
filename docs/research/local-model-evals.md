@@ -75,81 +75,14 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-15 | gemma4:e4b | `all` | bc57a7b, eight tasks | 15/24 | 1.67 s | ~6,483 tokens/s | ~169 tokens/s | 100% |
 | 2026-10-15 | gemma4:26b | `all` | 6517a6a + round 10's changes | 21/24 | 5.47 s | ~967 tokens/s | ~49 tokens/s | 77% |
 | 2026-10-15 | gemma4:e4b | `all` | 6517a6a + round 10's changes | 16/24 | 1.82 s | ~6,785 tokens/s | ~172 tokens/s | 100% |
+| 2026-10-15 | gemma4:26b | `all` | 4c87050 + round 11's changes | 22/24 | 6.71 s | ~996 tokens/s | ~40 tokens/s | 77% |
+| 2026-10-15 | gemma4:e4b | `all` | 4c87050 + round 11's changes | 15/24 | 2.01 s | ~6,838 tokens/s | ~169 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
 
 Only the latest two rounds keep their details below. The earlier ones — what changed before each and
 what its transcripts showed — are in this file's history: `git log -p -- docs/research/local-model-evals.md`.
-
-## Round 9 — authoring: a sword, a spell, an NPC (2026-10-15)
-
-**Changed before it:** three tasks that write new records by hand — `sword`, `spell` and `npc` (see
-the task table). The server is round 8's (bc57a7b adds only the CI runner pin); the five tasks before
-them are unchanged, so the round compares with round 8 there.
-
-gemma4:26b, `all` (prompt ~956 tokens/s, generation ~50 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 5644 | 17 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 6679 | 7.3 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 5826 | 6.7 |
-| patch | 3/3 | 4 | 3 | 0 | 0 | 7133 | 12.1 |
-| build | 3/3 | 5 | 4 | 0 | 0 | 7345 | 13.4 |
-| sword | 0/3 | 17.3 | 16.7 | 4 | 1 | 22234 | 101 |
-| spell | 1/3 | 9.3 | 8.3 | 0 | 0 | 10694 | 46 |
-| npc | 1/3 | 18.7 | 17.7 | 2 | 0 | 18866 | 82.7 |
-
-(26b's find includes loading the model.)
-
-gemma4:e4b, `all` (prompt ~6,483 tokens/s, generation ~169 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 5858 | 7.5 |
-| read | 3/3 | 2.7 | 1.7 | 0 | 0 | 7009 | 3.6 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 4480 | 2.6 |
-| patch | 3/3 | 4 | 3 | 0 | 0 | 7522 | 5.9 |
-| build | 3/3 | 5.3 | 4.3 | 0 | 0 | 8721 | 7.9 |
-| sword | 0/3 | 6.3 | 5.3 | 0 | 3 | 9704 | 14.9 |
-| spell | 0/3 | 4.7 | 3.7 | 0 | 0 | 6686 | 8.1 |
-| npc | 0/3 | 4.3 | 3.3 | 0 | 0 | 6187 | 7.4 |
-
-**Seen.**
-
-- The five earlier tasks passed 30 of 30, as in round 8. Authoring passed 2 of 18: 26b's spell once
-  and its NPC once, e4b never.
-- **Where the records went.** Of 31 writes of a record file (20 by 26b, 11 by e4b), 5 were into the
-  project's plugin folder. The rest went into the project folder (`FlameBlade/Weapons/…`,
-  `HildaTheNord/Npcs/…`, `StormBolt/Magic/Spells/…`) or the projects folder itself
-  (`Spells/StormBolt.yaml`). newProject's description gives the place as `Weapons/MySword.yaml`,
-  relative to the plugin folder, and its answer gives the plugin folder as a path of its own — the
-  models joined the example to the project folder: round 2's lesson about relative paths, again.
-- **And buildProject said success.** 22 of 26 successful builds had no records at all (14 of 18 for
-  26b, 8 of 8 for e4b): the files outside the plugin folder are not read, and a build of nothing
-  succeeds. The models took the success as done and told the user the mod was made. 26b's two
-  passes came from listing the project folder before writing (the spell), and from finding the plugin
-  folder after five builds of nothing (the NPC, in 25 turns).
-- **The format.** 26b wrote the records as Spriggit does — it read a vanilla one first (Iron Sword of
-  Embers, Firebolt, Lightning Bolt, Aela, Erik the Slayer). e4b never read a record of the kind it
-  wrote, and invented its fields (`name:`, `damage:`, `firedamage:`, `gender: female`, once the whole
-  file inside a Markdown code fence). Its one file in the right place failed the build with an internal error naming the
-  file — `FilePathedException: Exception occurred while processing related to a filepath` — but not
-  what was wrong with it; e4b repeated the same file and gave up.
-- Smaller: `MAGI`, `KWDA` and `Voice` as record types were refused with the closest real ones (round
-  5's change), and a skill asked for as `npc` or a collection named `magic` with what exists.
-
-**What it points at in the server** (not changed yet):
-
-1. buildProject should refuse a project with no records, and name record files it found outside the
-   plugin folder — a build of nothing is never what was asked.
-2. newProject (and the answers that create a project) should give the full path a record file goes
-   to, not an example relative to another folder.
-3. A record file the build cannot read should be refused as the request's fault (InvalidParams),
-   naming the file and what in it is wrong, with the advice to mirror a vanilla record.
-4. A field the build does not know should not be dropped silently: an invented `damage:` gives a
-   weapon with no damage, and a successful build.
 
 ## Round 10 — the build names what it cannot build (2026-10-15)
 
@@ -241,3 +174,118 @@ gemma4:e4b, `all` (prompt ~6,785 tokens/s, generation ~172 tokens/s):
 4. Files below a flat group's folder (`Spells/Spells/…`): name them; and refuse a build that read no
    record at all.
 5. Reader errors with a line number: quote that line of the file.
+
+## Round 11 — links by editor ID, copied FormKeys, files below a group (2026-10-15)
+
+**Changed before it:** round 10's five points, and two faults found while checking them against five
+Creation Club plugins serialized to project text.
+
+- With records in the plugin folder, record files elsewhere in the project no longer stop the build:
+  it succeeds and names them in `warnings`. Without records it still refuses, naming them.
+- **A link may name its record by editor ID** — bare (`BaseEffect: StormBoltDamage`), with a plugin
+  (`ObjectEffect: FlameBladeEnch:FlameBlade.esp`), in a field or a list (`Keywords: - WeapTypeSword`).
+  The helper finds the link fields through Mutagen's record classes, looks the editor ID up among the
+  project's records first, then the load order's, checks that the record is of a type the field
+  takes, writes its FormID into the file and answers it in `resolvedLinks`. One it cannot resolve is
+  refused with the closest editor IDs of the field's type (`Race: Nord` → NordRace, DLC1NordRace…).
+  The skills no longer describe a second build for new records that point at each other.
+- A record file whose FormKey names another plugin's record is refused when the load order has no such
+  record, or when its editor ID differs from that record's ("to make a new record, leave FormKey
+  out"). `checkRecords` waits for the load order's index for this.
+- A file below a group's own folder (`Spells/Spells/…`) is refused, naming where it goes; only cells,
+  worldspaces and dialogue nest. A build whose plugin holds no record is refused and leaves no plugin.
+- A reader error with a line number quotes that line, and says what the reader expected there.
+- Found on the way: the build numbered and renamed Spriggit's `GroupRecordData.yaml` (the head of a
+  block of cells or a worldspace's folder) as if it were a new record, which broke every project with
+  a cell in it; and the dangling-link check refused links to Skyrim.esm's numbers below `000800`,
+  which the engine keeps for itself (`000014`, the player's reference, which every Creation Club plugin
+  points at). Both fixed; all five plugins now build from their text, 5,991 records, no file changed.
+
+gemma4:26b, `all` (prompt ~996 tokens/s, generation ~40 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 5722 | 17.3 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 6731 | 7.8 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 5909 | 7 |
+| patch | 3/3 | 4.3 | 3.3 | 0 | 0 | 7536 | 14 |
+| build | 3/3 | 5.3 | 4.3 | 0 | 0 | 7776 | 16.9 |
+| sword | 2/3 | 15.3 | 14.7 | 2 | 2 | 17172 | 132.3 |
+| spell | 3/3 | 13 | 12 | 1 | 1 | 15714 | 86.9 |
+| npc | 2/3 | 8 | 7 | 1 | 0 | 12859 | 86.2 |
+
+(26b's find includes loading the model.)
+
+gemma4:e4b, `all` (prompt ~6,838 tokens/s, generation ~169 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 5948 | 2.8 |
+| read | 3/3 | 3.3 | 2.3 | 1 | 0 | 7128 | 4.1 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 4621 | 2.8 |
+| patch | 3/3 | 4.3 | 3.3 | 0 | 1 | 8187 | 7.9 |
+| build | 3/3 | 5.3 | 4.3 | 1 | 0 | 8363 | 8.3 |
+| sword | 0/3 | 12.3 | 11.3 | 11 | 2 | 12309 | 26.3 |
+| spell | 0/3 | 11.3 | 12 | 9 | 0 | 12807 | 23.4 |
+| npc | 0/3 | 13 | 12 | 14 | 0 | 18017 | 33.7 |
+
+**Seen.**
+
+- The five earlier tasks passed 30 of 30. Authoring: 26b 7 of 9 (round 10: 6), e4b 0 of 9 (round
+  10: 1). One of 26b's misses is the scorer's: its NPC #2 is a female Nord named Hilda that built, but
+  written in YAML's flow style (`Name: { TargetLanguage: English, Value: Hilda }`, `Flags: [Female,
+  …]`), which the build reads and the task's checks did not. Counted right, 26b made 8 of 9.
+- **26b's swords pass for the first time** (0 of 3 in round 10). It wrote a link by editor ID in all
+  six sword and spell runs — `ObjectEffect: EnchFlameBlade`, `BaseEffect: StormBoltEffect` — and five
+  of them passed in one build, with no second build for the link.
+- **A refusal after the FormIDs are assigned is a trap.** The links were checked in the build, after
+  the server had numbered the new records and renamed their files. e4b's NPC wrote `Race: Nord` into
+  `Hilda.yaml`, was offered NordRace, and wrote `Race: NordRace` into `Hilda.yaml` again — but the
+  refused record was now `000800_HildaTheNord.esp.yaml`, still with `Nord`, and the new `Hilda.yaml`
+  was a second record. It went round until the turns ran out. e4b's sword did the same after a reader
+  error, and 26b's sword #1 looked for its renamed files (`ENOENT`) before finding them.
+- 26b's sword #1 wrote its effect, enchantment and sword without an `EditorID` line and linked them
+  by the names it had in mind; refused, it added the `EditorID` lines — above the `FormKey:` the build
+  had written, and the reader takes the first line for the FormKey ("Malformed FormKey string").
+- 26b's spell #2 wrote `FormKey: 000000:StormBolt.esp` into both new records; the reader's "Two
+  records with the same FormKey" named no file. It removed both lines and built.
+- e4b still writes from memory and rarely reads a vanilla record first (3 `readRecord` calls in 9
+  runs, 26b 22). Of its 33 builds, 24 were refused for fields its record type does not have (`Weight`
+  at the top, `Gender`, `School`, `Enchantments`); it fixed some and invented others, round after
+  round. The quoted reader line (`Line 2 is Name: Flame Blade: its field takes fields of its own`)
+  sent it back to an earlier version of the file. Its sword #2 wrote the record relative to the
+  working folder, then copied the Akaviri Katana with addPatch and reported the override as a new
+  sword.
+- Record files now land in the plugin folder: 53 of 55 writes (17 of 18 for 26b, 36 of 37 for e4b).
+
+**Changed after it** (measured next round — and from round 12 on, a round starts with e4b alone):
+
+1. A file keeps the name its author knows until a build succeeds. `checkRecords` checks the links too
+   (only the build writes them), and the files of new records are renamed after the plugin is
+   written — a reader error or a broken link no longer leaves a file under a new name.
+2. Named with their files: a `FormKey` line below another line, the same FormKey in two files, and
+   `000000`.
+3. A link that names a record of the project written without an `EditorID` line names that file.
+4. A text written as one value (`Name: Hilda`) is refused before the reader, with the two lines to
+   write instead; a FormID in load-order form (`00013746`) is answered with its six digits and plugin;
+   YAML that does not parse is refused with the line it breaks on.
+5. A field a record type does not have names a vanilla record of that type to read first —
+   `readRecord {"record": "HousecarlWhiterun"}` for an NPC, IronSword for a weapon.
+6. Below the top level too, the build names a field the type does not have (`BasicStats` has no
+   `Speed`), a field of several kinds without its `MutagenObjectType:` (an NPC's `Level`, which made
+   the reader fail with "Object reference not set to an instance of an object"), and a list where
+   fields belong or the reverse. No false positive on the five Creation Club plugins.
+7. The scorer reads YAML's flow style.
+
+**What it points at next** — e4b; round 12 starts with it alone, and its probes since showed:
+
+- It still invents fields where it guesses a name — `Enchantment` for a weapon's `ObjectEffect`,
+  `Effect` for `Effects`, `Magnitude` on a magic effect (it belongs to the spell's effect) — even
+  after reading the vanilla record the refusal names. A singular/plural hint and a few synonyms would
+  catch most.
+- It copies a vanilla record with addPatch and renames it into its "new" one. Refused for the changed
+  editor ID, it took the refusal's second clause ("to change TrapDartWeapon01, keep its editor ID"),
+  restored the old one, and built an override of a vanilla weapon as its Flame Blade. The refusal
+  should offer only the way to a new record.
+- A record built without the field the task names (a spell with no `Name`) passes every check; only
+  the task's scorer sees it.

@@ -289,12 +289,20 @@ function newRecords(project, group) {
     return records.filter(r => r.group === group && plugin && r.formKey?.toLowerCase().endsWith(`:${plugin.toLowerCase()}`));
 }
 
-/** A record's in-game name, as Spriggit writes it (Name → Value) or as a plain string. */
+/**
+ * A record's in-game name, as Spriggit writes it (Name → Value), in YAML's flow style
+ * (`Name: { TargetLanguage: English, Value: Hilda }`, which the build reads too), or as a plain string.
+ */
 function nameOf(text) {
     const nested = /^Name:[ \t]*\r?\n(?:[ \t]+.*\r?\n)*?[ \t]+Value:[ \t]*(.+?)[ \t]*\r?$/m.exec(text)?.[1];
+    const flow = /^Name:[ \t]*\{[^}]*?\bValue:[ \t]*([^,}]+?)[ \t]*[,}]/m.exec(text)?.[1];
     const inline = /^Name:[ \t]*(\S.*?)[ \t]*\r?$/m.exec(text)?.[1];
-    return (nested ?? inline ?? '').replace(/^['"]|['"]$/g, '');
+    return (nested ?? flow ?? inline ?? '').replace(/^['"]|['"]$/g, '');
 }
+
+/** Whether a record's flags list one, as a block list (`- Female`) or a flow list (`Flags: [Female, Unique]`). */
+const hasFlag = (text, flag) =>
+    new RegExp(`^[ \\t]+- ${flag}[ \\t]*\\r?$`, 'm').test(text) || new RegExp(`Flags:[ \\t]*\\[[^\\]]*\\b${flag}\\b`).test(text);
 
 /** The magic effects a spell or an enchantment lists. */
 const effectsOf = text => [...text.matchAll(/BaseEffect:[ \t]*([0-9A-Fa-f]{6}:\S+)/g)].map(m => m[1]);
@@ -428,7 +436,7 @@ const TASKS = [
             return {
                 newNpc: !!npc,
                 nord: race?.toLowerCase() === truth.nordRace.toLowerCase(),
-                female: !!npc && /^[ \t]+- Female[ \t]*\r?$/m.test(npc.text),
+                female: !!npc && hasFlag(npc.text, 'Female'),
                 built: builtProject('HildaTheNord', calls)
             };
         }
