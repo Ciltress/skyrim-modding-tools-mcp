@@ -1,12 +1,103 @@
-# mcp-template
+# skyrim-modding-tools-mcp
 
-<!-- TEMPLATE: one paragraph on what your server lets an agent do, and for whom. Keep the glossary
-     below — it is the vocabulary the code, the docs and the tests use — and add your domain's terms. -->
-
-An MCP server that gives an AI agent access to a **backend**, shaped so the agent succeeds on the
-first try from a cold session — with whatever client it happens to run in.
+An MCP server that lets an AI agent author and analyse Skyrim Special Edition mods inside one Mod
+Organizer 2 **instance**, shaped so the agent succeeds on the first try from a cold session — with
+whatever client it happens to run in.
 
 ## Language
+
+### Skyrim modding
+
+**Instance**:
+One Mod Organizer 2 installation — its game folder, its mods, its downloads and its profiles.
+_Avoid_: setup, install, modlist
+
+**Profile**:
+One of an instance's named setups — which mods are enabled, the mod order, the load order, and
+optionally its own game settings and saves. The server follows whichever one Mod Organizer has
+selected.
+_Avoid_: preset, configuration, modlist, tool profile
+
+**Mod**:
+One folder in an instance, installed from one download or made by hand, holding loose files, archives
+and zero or more plugins.
+_Avoid_: package, addon, plugin
+
+**Mod order**:
+The priority of an instance's mods. When two mods ship the same file, the game sees the higher mod's.
+_Avoid_: install order, load order
+
+**Plugin**:
+An `.esm`, `.esp` or `.esl` file the game loads, holding records.
+_Avoid_: mod, data file, "ESP" as a generic name
+
+**Light plugin**:
+A plugin flagged ESL. It takes no slot in the game's 254-plugin limit, at the cost of holding at most
+4,096 new records (2,048 before game version 1.6.1130).
+_Avoid_: ESL file, small plugin
+
+**Load order**:
+The sequence in which the game loads the active plugins. For a record several plugins define, the
+last one loaded wins.
+_Avoid_: plugin order, mod order
+
+**Master**:
+A plugin another plugin depends on and must load after; a record can only override records of its
+plugin's masters.
+_Avoid_: dependency, requirement, parent
+
+**Record**:
+One entry in a plugin — an NPC, a spell, a cell, a placed object — of a record type named by a
+four-letter signature such as `NPC_` or `SPEL`.
+_Avoid_: form, object, entry
+
+**Reference**:
+A record that places a base record in a cell — one particular chest, one particular Lydia. Changing
+the base record changes every reference to it; changing a reference changes only that one.
+_Avoid_: instance (which means Mod Organizer's), placed object, ref
+
+**FormID**:
+The identity of a record: the plugin that first defined it plus a number local to that plugin. The
+hex value seen in game prefixes the plugin's load-order slot, so it moves when the load order does;
+the identity does not.
+_Avoid_: ID, ref ID, editor ID (a separate, human-readable name)
+
+**Override**:
+A plugin's version of a record that one of its masters defined.
+_Avoid_: edit, change, copy
+
+**Conflict**:
+Two mods or plugins supplying different versions of the same file or record. The later one in the
+mod order or load order wins, and the other's changes are lost.
+_Avoid_: clash, incompatibility
+
+**Nexus mod**:
+One mod page on Nexus Mods. It offers several Nexus files — a main file, optional files, patches.
+_Avoid_: mod (which always means the folder in an instance)
+
+**Nexus file**:
+One download offered on a Nexus mod. Installed, it becomes one mod.
+_Avoid_: archive, download, upload
+
+### Authoring
+
+**Project**:
+A mod we author, kept as text in git — one file per record, plus its scripts and assets — and
+built into a plugin. The project, not the plugin, is the source of truth.
+_Avoid_: source, workspace, repo
+
+**Build**:
+Turning a project into a plugin, compiled scripts and collected assets, inside the project.
+_Avoid_: compile, export, pack
+
+**Deploy**:
+Copying a project's build into its mod in the instance, enabling it and placing it in the load order.
+_Avoid_: install, publish, sync
+
+**Pull**:
+Bringing changes made to a deployed plugin outside the project — in the Creation Kit, in xEdit — back
+into the project's text. The reverse of deploy.
+_Avoid_: import, sync, update
 
 ### What the server offers
 
@@ -38,13 +129,14 @@ _Avoid_: index, glossary, table of contents, catalogue
 ### What the server wraps
 
 **Backend**:
-Whatever the server's tools act on, reached through one `AppBackend` instance per server instance —
-per process in stdio mode, per session in HTTP mode.
+Whatever the server's tools act on — here, one instance and the Nexus Mods catalogue — reached through
+one `AppBackend` per running server: per process in stdio mode, per session in HTTP mode.
 _Avoid_: API, service, upstream, provider
 
 **Binding**:
-The fixed pairing of one running server instance to exactly one backend, decided at startup and not
-changeable while it runs. Announced in the `instructions`.
+The fixed pairing of one running server to exactly one instance, decided at startup and not
+changeable while it runs. The active profile is not part of it: the server follows whichever one Mod
+Organizer has selected. Announced in the `instructions`.
 _Avoid_: connection, target, environment
 
 **Feature**:
@@ -53,19 +145,19 @@ _Avoid_: plugin, module, extension, flag
 
 **Gating**:
 The server withholding tools because the connected backend does not offer a feature they need, as
-the backend itself reports. Distinct from a profile: a profile is what the operator chose to offer,
-gating is what the backend can actually do.
+the backend itself reports. Distinct from a tool profile: a tool profile is what the operator chose
+to offer, gating is what the backend can actually do.
 _Avoid_: filtering, feature flag, capability check
 
 ### How the server adapts to its client
 
-**Profile**:
-A named subset of the tools a server lists, chosen by the operator at startup to fit a client tier. A
-tool outside the active profile is not merely hidden — it is not callable.
-_Avoid_: preset, mode, config, toolset
+**Tool profile**:
+A named subset of the tools a server lists, chosen by the operator at startup (`MCP_PROFILE`) to fit
+a client tier. A tool outside the active tool profile is not merely hidden — it is not callable.
+_Avoid_: profile (which means Mod Organizer's), preset, mode, config, toolset
 
 **Response budget**:
-The ceiling on the size of one tool answer, following the profile. An answer over it is replaced by a
+The ceiling on the size of one tool answer, following the tool profile. An answer over it is replaced by a
 valid, self-describing one that names the next step.
 _Avoid_: limit, truncation, max size
 
