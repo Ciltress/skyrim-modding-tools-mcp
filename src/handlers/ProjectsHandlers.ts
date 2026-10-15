@@ -91,7 +91,8 @@ export class ProjectsHandlers extends BaseHandler {
                             },
                             plugin: {
                                 type: 'string',
-                                description: 'Plugin file name, used only when this call creates the project. Defaults to "<project>.esp".'
+                                description: 'The new project\'s own plugin file name, used only when this call creates the ' +
+                                    'project. Defaults to "<project>.esp". Not the plugin to copy from — that is `from`.'
                             }
                         },
                         required: ['project', 'records']

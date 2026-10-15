@@ -438,6 +438,16 @@ describe('the Skyrim backend', () => {
         await expect(backend.newProject({ project: 'MyMod', plugin: 'Other.esp' })).rejects.toThrow(/already exists/);
     });
 
+    it('never gives a new project the name of a plugin the load order has — its deploy would hide that plugin', async () => {
+        // A small model sent addPatch's `plugin` as the plugin to copy from (round 7 of the evals).
+        const { backend, fixture } = makeBackend();
+        await expect(backend.newProject({ project: 'MyMod', plugin: 'skyrim.esm' })).rejects.toThrow(/Skyrim\.esm is already .*load order/);
+        await expect(backend.addPatch({ project: 'IronSwordBuff', plugin: 'Shared.esp', records: ['IronSword'] }))
+            .rejects.toThrow(/Shared\.esp is already .*`from`/);
+        expect(fs.existsSync(path.join(fixture.projects, 'MyMod'))).toBe(false);
+        expect(fs.existsSync(path.join(fixture.projects, 'IronSwordBuff'))).toBe(false);
+    });
+
     it('patches, builds, deploys and pulls a project — and guards each step', async () => {
         const { backend, calls, fixture } = makeBackend();
 

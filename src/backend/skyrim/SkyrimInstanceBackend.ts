@@ -183,9 +183,27 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             }
             return existing;
         }
+        const plugin = request.plugin ?? `${request.project}.esp`;
+        this.refuseTakenPlugin(plugin);
         prepareProjectsFolder(this.engine.projectsDir);
-        createProject(paths, request.plugin ?? `${request.project}.esp`, request.light ?? true);
+        createProject(paths, plugin, request.light ?? true);
         return projectInfo(request.project, paths, true);
+    }
+
+    /**
+     * A new project's plugin must not share its name with a plugin the load order has: deployed, it
+     * would hide that one from the game — a project's Skyrim.esm would take the game's own master's place.
+     */
+    private refuseTakenPlugin(plugin: string): void {
+        const modManager = this.engine.modManager;
+        const instance = modManager.readInstance();
+        const taken = modManager.resolvePluginFiles(instance, modManager.readModList(instance)).get(plugin.toLowerCase());
+        if (!taken) return;
+        const name = path.basename(taken);
+        throw new ProjectError(
+            `${name} is already a plugin in the load order; a project with that plugin would hide it from the game. ` +
+            `Leave \`plugin\` out — the project gets <project>.esp — or name a new file. To copy records from ${name}, ` +
+            `pass it to addPatch as \`from\`.`);
     }
 
     async addPatch(request: AddPatchRequest): Promise<AddPatchResult> {
@@ -193,8 +211,10 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         const paths = projectPaths(this.engine.projectsDir, request.project);
         let created = false;
         if (!projectExists(paths)) {
+            const plugin = request.plugin ?? `${request.project}.esp`;
+            this.refuseTakenPlugin(plugin);
             prepareProjectsFolder(this.engine.projectsDir);
-            createProject(paths, request.plugin ?? `${request.project}.esp`, true);
+            createProject(paths, plugin, true);
             created = true;
         }
         const { plugin } = readProjectHeader(paths);

@@ -59,6 +59,9 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-15 | gemma4:e4b | `all` | 37a2c1c + rounds 4 and 5's changes | 15/15 | 1.3 s | ~5,900 tokens/s | ~170 tokens/s | 100% |
 | 2026-10-15 | gemma4:26b | `all` | 37a2c1c + rounds 4 and 5's changes | 15/15 | 2.9 s | ~900 tokens/s | ~50 tokens/s | 77% |
 | 2026-10-15 | gemma4:26b | `all` | 2757aba + round 6's changes (find only, 1 run) | 1/1 | 3.07 s | ~907 tokens/s | ~48 tokens/s | 77% |
+| 2026-10-15 | gemma4:26b | `all` | 29d52de (the machine slowed, see round 7) | 15/15 | 4.4 s | ~385 tokens/s | ~50 tokens/s | 77% |
+| 2026-10-15 | gemma4:e4b | `all` | 29d52de | 15/15 | 1.33 s | ~7,137 tokens/s | ~177 tokens/s | 100% |
+| 2026-10-15 | gemma4:26b | `all` | 29d52de (again) | 15/15 | 2.99 s | ~970 tokens/s | ~53 tokens/s | 77% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way (see [the speed section](#speed-on-this-machine-2026-10-15)) — they are the
@@ -209,6 +212,68 @@ A check of the measurement, not of the server: gemma4:26b, `all`, find only, one
 
 **Seen.** Prompt ~907 tokens/s (1,727 tokens) and generation ~48 tokens/s, in line with the separate
 measurement below; the find run took the same single call as in every round before.
+
+## Round 7 — fourteen tools: the Nexus tools and installMod (2026-10-15)
+
+**Changed before it:** the `all` profile lists 14 tools instead of 10 — `searchNexus`, `readNexusMod`,
+`downloadNexusFile` (listed: `.env` holds a premium account's key) and `installMod` — and the
+instructions say the server installs mods. The tool list grew from 11,057 to 14,915 bytes, about
+1,000 tokens more in every turn: find's largest prompt went from 4,633 tokens (round 6) to 5,611.
+The tasks are the same five, and none of them asks for a Nexus tool.
+
+gemma4:26b, `all`, first run (prompt ~385 tokens/s, generation ~50 tokens/s — the machine was slow, see below):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 5611 | 12.2 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 6618 | 13.3 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 5801 | 11.2 |
+| patch | 3/3 | 4.3 | 3.3 | 0 | 0 | 7177 | 19.3 |
+| build | 3/3 | 5 | 4 | 0 | 0 | 7265 | 19.5 |
+
+gemma4:e4b, `all` (prompt ~7,137 tokens/s, generation ~177 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 5829 | 8.9 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 7000 | 3.7 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 4465 | 2.5 |
+| patch | 3/3 | 5 | 4 | 0 | 0 | 8449 | 6.8 |
+| build | 3/3 | 6 | 5 | 1 | 1 | 8666 | 8.8 |
+
+(e4b's find includes loading the model.)
+
+gemma4:26b, `all`, again (prompt ~970 tokens/s, generation ~53 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 5613 | 6 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 6615 | 7.4 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 5881 | 8.4 |
+| patch | 3/3 | 4.3 | 3.3 | 0 | 0 | 7994 | 17.2 |
+| build | 3/3 | 5.7 | 4.7 | 0 | 0 | 7376 | 13.3 |
+
+**Seen.**
+
+- All 45 runs passed, and no model called a tool the task did not need: no Nexus tool, no
+  `installMod`. Four more tools cost prompt, not choices.
+- gemma4:26b's first run was slow in every turn (4.4 s against round 5's 2.9 s), and its own speed
+  measurement read ~385 tokens/s. The machine, not the build: measured apart right after, the same
+  model read the same 2,344-token reference at ~944 tokens/s (round 6's 1,727-token one at ~900), and
+  the second run took 3.0 s a turn at ~970 tokens/s. The GPU split was 77% throughout.
+- New in this round: both models sometimes call `newProject` before `addPatch`, which creates the
+  project itself — e4b in 3 of its 6 patch and build runs, 26b in 1 of 6 and then 3 of 6. One wasted
+  call each, no error. In round 5, 26b never did it. The description says "Creates the project when it
+  does not exist" in its fourth sentence.
+- e4b once passed `plugin: "Skyrim.esm"` to `addPatch`, as if `plugin` named the plugin to copy from.
+  The project existed already, so it was ignored. On a new project it would have named the project's
+  plugin `Skyrim.esm`, and deploying it would have hidden the game's own master.
+- e4b's other slips were recovered at once: `types: ["WEPN"]` was refused with WEAP suggested (round 5's
+  change), and an edit of `Value: 10` where it meant `Weight: 10` failed and was redone.
+
+**Changed after it:** `newProject` and `addPatch` refuse a plugin name the load order already has, and
+say to pass a plugin to copy from as `from`; `addPatch`'s `plugin` argument says it is the new
+project's own plugin, not the one to copy from.
 
 ## Speed on this machine (2026-10-15)
 
