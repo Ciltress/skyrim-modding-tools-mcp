@@ -205,6 +205,8 @@ export interface RecordSearchResult {
     records: RecordSummary[];
     /** Exact lookups that matched nothing. */
     notFound?: string[];
+    /** With `notFound`: how to search what was not found — by `text`, which also reads in-game names. */
+    nextStep?: string;
 }
 
 export interface RecordRequest {

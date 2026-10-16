@@ -42,7 +42,7 @@ export class RecordsHandlers extends BaseHandler {
                             records: {
                                 type: 'array',
                                 items: { type: 'string', description: 'A FormID like 012EB7:Skyrim.esm, or an editor ID like IronSword.' },
-                                description: 'Exact lookups instead of a text search. Unknown ones come back under `notFound`.'
+                                description: 'Exact lookups by FormID or editor ID instead of a text search — not in-game names, which `text` finds. Unknown ones come back under `notFound`.'
                             },
                             types: {
                                 type: 'array',
@@ -86,7 +86,9 @@ export class RecordsHandlers extends BaseHandler {
                         'with `plugin`, that plugin\'s version; with `allVersions`, every plugin\'s version, winning ' +
                         'first — compare them to see a conflict. Each file carries `pathInPluginFolder`, where it ' +
                         'would sit in a project\'s plugin folder; to change a record, copy it in with addPatch rather ' +
-                        'than writing this text yourself. Links inside are FormIDs: resolve them with findRecords.',
+                        'than writing this text yourself. Links inside are FormIDs, each followed by the editor ID ' +
+                        'of the record it names as a comment (`Race: 013746:Skyrim.esm  # NordRace`); a project ' +
+                        'file may link by either.',
                     inputSchema: {
                         type: 'object',
                         properties: {

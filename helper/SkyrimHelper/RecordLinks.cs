@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Reflection;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Mutagen.Bethesda.Plugins;
+using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Strings;
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
@@ -18,14 +20,16 @@ namespace SkyrimHelper;
 /// <remarks>
 /// A value is a link when the field it is written under is one in Mutagen's record class — so a
 /// <c>Name</c> that happens to equal an editor ID stays as written. The project's own records are looked
-/// up first, then the load order's; the record found must be of a type the field takes. Only records
-/// directly in a group's folder are read; cells, worldspaces and dialogue are left as written.
+/// up first, then the load order's; the record found must be of a type the field takes. A link written
+/// as another plugin's FormKey is held to the same: a record of the load order, of a type the field takes.
+/// Only records directly in a group's folder are read; cells, worldspaces and dialogue are left as written.
 /// </remarks>
 public static class RecordLinks
 {
     private static readonly Regex ByEditorId = new(@"^(?<id>[A-Za-z0-9_]+)(?::(?<plugin>\S+\.es[mpl]))?$", RegexOptions.IgnoreCase);
     /// <summary>A FormID without its plugin, or with the load-order slot in front: 012EB7, 00012EB7, 00012EB7:Skyrim.esm.</summary>
-    private static readonly Regex LoadOrderFormId = new(@"^[0-9A-Fa-f]{0,2}(?<local>[0-9A-Fa-f]{6})(?::(?<plugin>\S+))?$");
+    /// A plugin is a plugin's file name: F000123:CustomFireEnchantment is none (eval round 11's probes).
+    private static readonly Regex LoadOrderFormId = new(@"^[0-9A-Fa-f]{0,2}(?<local>[0-9A-Fa-f]{6})(?::(?<plugin>\S+\.es[mpl]))?$", RegexOptions.IgnoreCase);
 
     /// <summary>A record a link may name; a new record of the project has no FormKey until the build assigns one.</summary>
     private sealed record Target(FormKey? FormKey, string EditorId, Type Type);
@@ -41,6 +45,7 @@ public static class RecordLinks
     public static JsonArray Resolve(string pluginDir, RecordIndex index, bool write)
     {
         var (own, unnamed) = OwnRecords(pluginDir);
+        var ownPlugin = RecordFiles.OwnPlugin(pluginDir);
         var resolved = new JsonArray();
         var problems = new List<string>();
         var rewrites = new List<(string File, string Text)>();
@@ -70,8 +75,17 @@ public static class RecordLinks
             void Link(YamlScalarNode value, Type takes, string field)
             {
                 var raw = value.Value?.Trim() ?? "";
-                if (raw.Length == 0 || raw is "~" || raw.Equals("null", StringComparison.OrdinalIgnoreCase) || FormKey.TryFactory(raw, out _)) return;
+                if (raw.Length == 0 || raw is "~" || raw.Equals("null", StringComparison.OrdinalIgnoreCase)) return;
                 var wanted = Kind(takes);
+                if (FormKey.TryFactory(raw, out var linked))
+                {
+                    // A FormID written from memory names another record, or none: Race: 011F7B:Skyrim.esm
+                    // (eval round 11's probes). The project's own are numbered by the build, and checked after it.
+                    if (linked.ModKey != ownPlugin && Mismatch(linked, takes, index) is { } mismatch)
+                        problems.Add($"{relative}: {field} is {raw}, {mismatch}; {field} takes {RecordFiles.Article(wanted)} — " +
+                            $"write the editor ID of the one meant, or its FormID as findRecords answers it");
+                    return;
+                }
                 if (LoadOrderFormId.Match(raw) is { Success: true } numbered)
                 {
                     // 00012EB7 as the console shows it: the load-order slot first, and no plugin.
@@ -138,7 +152,8 @@ public static class RecordLinks
     /// Follows a mapping through the record class's properties, calling <paramref name="link"/> on each
     /// link value, and <paramref name="problem"/> on what the reader would refuse or skip below the top
     /// level, which RecordFiles checks: a field the type does not have, a field of several kinds that
-    /// does not name its kind, a text written as one value, a list where fields belong and the reverse.
+    /// does not name its kind, a text written as one value, a list where fields belong and the reverse,
+    /// a value a field of names, numbers or truths does not take.
     /// </summary>
     private static void Walk(YamlMappingNode mapping, Type type, string path, Action<YamlScalarNode, Type, string> link,
         Action<string> problem)
@@ -202,13 +217,73 @@ public static class RecordLinks
                     }
                 }
             }
-            else if (propertyType != typeof(string) && !propertyType.IsPrimitive && !propertyType.IsEnum
-                && !typeof(System.Collections.IEnumerable).IsAssignableFrom(propertyType))
+            else if (propertyType.IsEnum || propertyType.IsPrimitive)
+            {
+                // The reader's own words name neither field nor line: "The input string '15.0' was not in a
+                // correct format", "Requested value 'Passive' was not found" (eval round 11's probes).
+                if (value is YamlScalarNode { Value: { Length: > 0 } one } && Unfit(propertyType, one) is { } expected)
+                    problem($"{field} is {one} — {expected}");
+                else if (value is YamlSequenceNode many && propertyType.IsDefined(typeof(FlagsAttribute), false))
+                    foreach (var item in many.Children.OfType<YamlScalarNode>())
+                        if (item.Value is { Length: > 0 } flag && Unfit(propertyType, flag) is { } flagExpected)
+                            problem($"{field} has {flag} — {flagExpected}");
+            }
+            else if (propertyType != typeof(string) && !typeof(System.Collections.IEnumerable).IsAssignableFrom(propertyType))
             {
                 if (value is YamlMappingNode nested) Walk(nested, propertyType, field, link, problem);
                 else if (value is YamlSequenceNode) problem($"{field} takes fields of its own, indented below it — not a list");
             }
         }
+    }
+
+    /// <summary>
+    /// What a value of a field of names, a number or a truth is not, as words after it — "it takes a whole
+    /// number, such as 15", "it takes one of Unaggressive, Aggressive…" — or null for one the reader takes.
+    /// </summary>
+    private static string? Unfit(Type type, string raw)
+    {
+        var invariant = CultureInfo.InvariantCulture;
+        if (type.IsEnum)
+        {
+            var names = Enum.GetNames(type);
+            var written = type.IsDefined(typeof(FlagsAttribute), false)
+                ? raw.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) : [raw.Trim()];
+            foreach (var name in written)
+            {
+                // A value without a name is written as a number — 0x4 for an unnamed flag.
+                if (names.Contains(name, StringComparer.Ordinal) || long.TryParse(name, NumberStyles.Integer, invariant, out _)
+                    || name.StartsWith("0x", StringComparison.OrdinalIgnoreCase) && long.TryParse(name[2..], NumberStyles.HexNumber, invariant, out _)) continue;
+                return names.FirstOrDefault(n => n.Equals(name, StringComparison.OrdinalIgnoreCase)) is { } spelled
+                    ? $"it is spelled {spelled}"
+                    : $"it takes one of {string.Join(", ", names.Take(16))}{(names.Length > 16 ? ", …" : "")}";
+            }
+            return null;
+        }
+        if (type == typeof(bool)) return bool.TryParse(raw, out _) ? null : "it takes True or False";
+        if (type == typeof(float) || type == typeof(double))
+            return double.TryParse(raw, NumberStyles.Float, invariant, out _) ? null : "it takes a number, such as 1.5";
+        if (type == typeof(char)) return null;
+        if (!decimal.TryParse(raw, NumberStyles.Integer, invariant, out var whole))
+            return decimal.TryParse(raw, NumberStyles.Float, invariant, out var number)
+                ? $"it takes a whole number, such as {decimal.Round(number)}" : "it takes a whole number";
+        var (min, max) = (Convert.ToDecimal(type.GetField("MinValue")!.GetValue(null), invariant),
+            Convert.ToDecimal(type.GetField("MaxValue")!.GetValue(null), invariant));
+        return whole < min || whole > max ? $"it takes a whole number from {min} to {max}" : null;
+    }
+
+    /// <summary>
+    /// What is wrong with a FormKey a link field holds, as words after it — "which is IronSword, a Weapon",
+    /// "which no record of the load order has" — or null when it names a record of a type the field takes.
+    /// </summary>
+    private static string? Mismatch(FormKey formKey, Type takes, RecordIndex index)
+    {
+        if (index.ByFormKey.TryGetValue(formKey, out var entry))
+            return takes.IsAssignableFrom(entry.GetterType) ? null
+                : $"which is {(entry.EditorId is { } id ? $"{id}, " : "")}{RecordFiles.Article(Kind(entry.GetterType))}";
+        // Skyrim.esm's numbers below 000800 are the engine's own: the player's reference, 000014, is in no
+        // plugin, and every Creation Club plugin points at it. References and navmeshes the index leaves out.
+        if (formKey.ModKey == Session.SkyrimMaster && formKey.ID < 0x800 || RecordIndex.SkippedTypes.Any(takes.IsAssignableFrom)) return null;
+        return "which no record of the load order has";
     }
 
     /// <summary>The kinds a field of several kinds can be — NpcLevel, PcLevelMult for an NPC's level.</summary>

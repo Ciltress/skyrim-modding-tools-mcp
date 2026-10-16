@@ -106,16 +106,92 @@ public static class RecordFiles
             .Append("MutagenObjectType").ToHashSet(StringComparer.Ordinal));
 
     /// <summary>
-    /// What an unknown field is likely meant to be: a field spelled otherwise (<c>name</c> → Name), or one
-    /// that belongs inside another (a weapon's <c>Weight</c> → under BasicStats).
+    /// Fields written under another name, by the record types they were written on — the names a small
+    /// model guessed after reading the vanilla record a refusal named (eval round 11's probes). Checked
+    /// before a field of that name further down: a weapon's <c>Effect</c> is its enchantment, not the
+    /// critical hit's Effect.
     /// </summary>
-    private static string? Hint(Type type, HashSet<string> known, string key)
+    private static readonly (string[] Types, string[] Keys, string? Field, string Hint)[] Synonyms =
+    [
+        (["Weapon", "Armor"], ["Enchantment", "Enchantments", "Enchant", "Effect", "Effects", "MagicEffect", "BaseEffect"], "ObjectEffect",
+            "an enchantment is ObjectEffect, naming an ObjectEffect record"),
+        (["MagicEffect"], ["Magnitude", "Damage", "DamageAmount", "Area", "Duration"], null,
+            "a magic effect has no strength of its own: Magnitude, Area and Duration go under Data, in the Effects item " +
+            "of the spell or ObjectEffect that names it as BaseEffect"),
+        (["MagicEffect"], ["DamageType", "Element", "Resist"], null,
+            "fire, frost and shock damage is ResistValue — ResistFire, ResistFrost, ResistShock — with Archetype's ActorValue Health"),
+        (["Spell", "ObjectEffect", "Scroll", "Ingestible", "Ingredient"], ["Damage", "DamageAmount", "Strength"], null,
+            "damage is Magnitude, under Data, in each item of Effects"),
+        (["EffectData"], ["Damage", "DamageAmount", "Strength"], "Magnitude", "damage is Magnitude"),
+        (["Spell", "ObjectEffect", "Scroll"], ["Delivery"], "TargetType", "it is TargetType: Self, Touch, Aimed, TargetActor or TargetLocation"),
+        (["Spell"], ["Cost", "MagickaCost"], "BaseCost", "it is BaseCost"),
+        (["Spell"], ["School", "MagicSkill", "Skill"], null, "a spell's school is the MagicSkill of the magic effects its Effects name"),
+        (["Weapon"], ["Type", "WeaponType"], null, "a weapon's type is AnimationType, under Data — OneHandSword, TwoHandAxe, Bow…"),
+        (["Npc"], ["Gender", "Sex", "Female"], null, "a female NPC has Female among the Flags under Configuration")
+    ];
+
+    /// <summary>
+    /// What an unknown field is likely meant to be: a field spelled otherwise (<c>name</c> → Name,
+    /// <c>Effect</c> → Effects), another name for one (a weapon's <c>Enchantment</c> → ObjectEffect), or
+    /// one that belongs inside another (a weapon's <c>Weight</c> → under BasicStats, a spell's
+    /// <c>Magnitude</c> → under Data, in each item of Effects). With the value written on the field's
+    /// line, a field of one value to rename is answered as the line to write: told "an enchantment is
+    /// ObjectEffect", a model wrote <c>EnchantmentID</c> (eval round 11's probes).
+    /// </summary>
+    private static string? Hint(Type type, HashSet<string> known, string key, string? value = null)
     {
-        if (known.FirstOrDefault(k => k.Equals(key, StringComparison.OrdinalIgnoreCase)) is { } spelled) return $"it is spelled {spelled}";
-        var parent = type.GetProperties(BindingFlags.Public | BindingFlags.Instance).FirstOrDefault(p =>
-            p.PropertyType is { IsPrimitive: false, IsEnum: false } inner && inner != typeof(string) &&
-            inner.GetProperty(key, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase) is not null);
-        return parent is null ? null : $"it goes under {parent.Name}";
+        string Rename(string field, string otherwise) =>
+            value is { Length: > 0 } && OneValue(type, field) ? $"write it as `{field}: {value}`" : otherwise;
+        if (known.FirstOrDefault(k => k.Equals(key, StringComparison.OrdinalIgnoreCase)) is { } spelled) return Rename(spelled, $"it is spelled {spelled}");
+        foreach (var (types, keys, field, hint) in Synonyms)
+            if (types.Contains(type.Name) && keys.Contains(key, StringComparer.OrdinalIgnoreCase)) return field is null ? hint : Rename(field, hint);
+        if (known.FirstOrDefault(k => k.Equals(key + "s", StringComparison.OrdinalIgnoreCase) || k.Equals(key + "es", StringComparison.OrdinalIgnoreCase)
+                || key.EndsWith('s') && k.Equals(key[..^1], StringComparison.OrdinalIgnoreCase)) is { } number)
+            return Rename(number, $"it is spelled {number}");
+        return Under(type, key) is { } path ? $"it goes {path}" : null;
+    }
+
+    /// <summary>The kinds a part of several kinds can be: the concrete classes Mutagen makes for Skyrim.</summary>
+    private static readonly Lazy<Type[]> Parts = new(() => typeof(Weapon).Assembly.GetTypes()
+        .Where(t => t.IsClass && !t.IsAbstract && t.Namespace == typeof(Weapon).Namespace).ToArray());
+
+    /// <summary>Whether a field is written as one value on its own line — a number, a name, a link — not as fields, a list or a text.</summary>
+    private static bool OneValue(Type type, string field) =>
+        type.GetProperties(BindingFlags.Public | BindingFlags.Instance).FirstOrDefault(p => p.Name == field) is { } property
+        && (Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType) is var t
+        && (t.IsPrimitive || t.IsEnum || t == typeof(string) || typeof(IFormLinkGetter).IsAssignableFrom(t));
+
+    /// <summary>
+    /// Where a field of the record's parts is, two levels deep at most, the nearest first, and at one
+    /// depth a part before a list's items: "under BasicStats", "under Data, in each item of Effects". A
+    /// magic effect's <c>Type</c> is its Archetype's, not a sound's. Only the parts Mutagen makes for
+    /// Skyrim are followed — a link's FormKey, a text's Value are no field a record is written with.
+    /// </summary>
+    private static string? Under(Type type, string key)
+    {
+        const BindingFlags Public = BindingFlags.Public | BindingFlags.Instance;
+        var level = new List<(Type Part, string Path, bool Listed)> { (type, "", false) };
+        for (var depth = 0; depth < 2 && level.Count > 0; depth++)
+        {
+            var next = new List<(Type Part, string Path, bool Listed)>();
+            foreach (var (part, path, listed) in level)
+                foreach (var property in part.GetProperties(Public))
+                {
+                    var inner = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+                    var list = inner != typeof(string) && inner.IsGenericType && typeof(System.Collections.IList).IsAssignableFrom(inner);
+                    if (list) inner = inner.GetGenericArguments()[0];
+                    if (inner.Namespace != typeof(Weapon).Namespace || !inner.IsClass || typeof(IMajorRecordGetter).IsAssignableFrom(inner)) continue;
+                    var at = (list ? $"in each item of {property.Name}" : $"under {property.Name}") + (path.Length > 0 ? $", {path}" : "");
+                    next.Add((inner, at, listed || list));
+                }
+            // By name, not GetProperty: that throws where a class redeclares a property of its base. A part
+            // of several kinds has the fields of each: Archetype's Type is MagicEffectArchetype's.
+            var hits = next.Where(n => (n.Part.IsAbstract ? Parts.Value.Where(n.Part.IsAssignableFrom) : [n.Part])
+                .Any(kind => kind.GetProperties(Public).Any(p => p.Name.Equals(key, StringComparison.OrdinalIgnoreCase)))).ToList();
+            if (hits.Count > 0) return hits.OrderBy(h => h.Listed).First().Path;
+            level = next;
+        }
+        return null;
     }
 
     /// <summary>
@@ -124,6 +200,27 @@ public static class RecordFiles
     /// </summary>
     public static string HintFor(Type type, string key) =>
         Hint(type, FieldsOf(type), key) is { } hint ? $" ({hint})" : "";
+
+    /// <summary>
+    /// The unknown fields of a record file, named for a message: those with one hint together — "Damage,
+    /// Weight (they go under BasicStats)" — and those without any last, set apart, so that "Type, Level
+    /// (it goes under Configuration)" does not send Type along (eval round 11's probes).
+    /// </summary>
+    private static string Unknown(Type type, HashSet<string> known, IEnumerable<string> keys, string text)
+    {
+        var hinted = keys.Select(key => (Key: key, Hint: Hint(type, known, key, ValueOf(text, key)))).ToList();
+        var named = hinted.Where(f => f.Hint is not null).GroupBy(f => f.Hint!).Select(group => group.Count() == 1
+            ? $"{group.First().Key} ({group.Key})"
+            : $"{string.Join(", ", group.Select(f => f.Key))} ({Regex.Replace(group.Key, @"^it (goes|is)\b", m => m.Groups[1].Value == "goes" ? "they go" : "they are")})");
+        var bare = hinted.Where(f => f.Hint is null).Select(f => f.Key).ToList();
+        return string.Join(", ", named.Append(bare.Count == 0 ? "" : $"{string.Join(", ", bare)} ({Article(type.Name)} has {(bare.Count == 1 ? "it" : "them")} nowhere)")
+            .Where(s => s.Length > 0));
+    }
+
+    /// <summary>The value written on a top-level field's own line — the FlameBladeEnch of <c>Enchantment: FlameBladeEnch</c> — or null.</summary>
+    private static string? ValueOf(string text, string key) =>
+        Regex.Match(text, $@"^{Regex.Escape(key)}:[ \t]*([^\s#|>{{\[][^#\r\n]*?)[ \t]*\r?$", RegexOptions.Multiline) is { Success: true } m
+            ? m.Groups[1].Value : null;
 
     /// <summary>The kind of a group's records a file names — GlobalFloat for a Global — or null; the same for any polymorphic field.</summary>
     public static Type? KindOf(Type group, string name) =>
@@ -200,11 +297,10 @@ public static class RecordFiles
             var known = FieldsOf(kind ?? type);
             var unknown = TopLevelKey.Matches(text).Select(m => m.Groups[1].Value).Where(key => !known.Contains(key)).Distinct().ToList();
             if (unknown.Count == 0) continue;
-            var named = unknown.Select(key => Hint(kind ?? type, known, key) is { } hint ? $"{key} ({hint})" : key);
             var read = index is not null && ExampleOf(kind ?? type, index) is { } example
                 ? $" — read a vanilla one first, readRecord {{\"record\": \"{example}\"}}, and write yours with its field names and nesting"
                 : "";
-            problems.Add($"{relative}: {Article(type.Name)} has no field {string.Join(", ", named)}{read}");
+            problems.Add($"{relative}: {Article(type.Name)} has no field {Unknown(kind ?? type, known, unknown, text)}{read}");
         }
         // Two files of one record: the reader names the FormKey but neither file (eval round 11: 000000 in each new record).
         foreach (var (formKey, holders) in formKeys.Where(pair => pair.Value.Count > 1))

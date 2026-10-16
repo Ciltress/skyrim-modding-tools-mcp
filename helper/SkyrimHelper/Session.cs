@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Text.Json.Nodes;
 using Mutagen.Bethesda;
 using Mutagen.Bethesda.Plugins;
@@ -19,7 +20,7 @@ public sealed class Session : IDisposable
 {
     public const string Version = "0.1.0";
     private const int DefaultLimit = 25;
-    private static readonly ModKey SkyrimMaster = ModKey.FromFileName("Skyrim.esm");
+    internal static readonly ModKey SkyrimMaster = ModKey.FromFileName("Skyrim.esm");
 
     private SkyrimRelease release = SkyrimRelease.SkyrimSE;
     private readonly List<LoadedPlugin> plugins = [];
@@ -177,7 +178,13 @@ public sealed class Session : IDisposable
         var rows = new JsonArray();
         foreach (var e in all.Take(limit)) rows.Add(e.ToJson());
         var answer = new JsonObject { ["total"] = all.Count, ["records"] = rows };
-        if (notFound.Count > 0) answer["notFound"] = notFound;
+        if (notFound.Count > 0)
+        {
+            answer["notFound"] = notFound;
+            // "Steel Sword" looked up as an editor ID found nothing, and a model gave up (eval round 11's probes).
+            answer["nextStep"] = "records takes exact FormIDs and editor IDs only; to search in-game names and parts of " +
+                $"editor IDs, send text instead: {{\"text\": \"{notFound[0]!.GetValue<string>().Replace("\"", "")}\"}}";
+        }
         return answer;
     }
 
@@ -204,7 +211,7 @@ public sealed class Session : IDisposable
         {
             var files = new JsonArray();
             foreach (var (path, text) in await Render([context], context.ModKey))
-                files.Add(new JsonObject { ["path"] = path, ["text"] = text });
+                files.Add(new JsonObject { ["path"] = path, ["text"] = Annotated(text) });
             versions.Add(new JsonObject
             {
                 ["plugin"] = context.ModKey.FileName.String,
@@ -226,6 +233,20 @@ public sealed class Session : IDisposable
             ["versions"] = versions
         };
     }
+
+    private static readonly Regex LinkLine = new(@"^(?!FormKey:)([ \t]*(?:- )?(?:\w+:[ \t]*)?)([0-9A-Fa-f]{6}:\S+\.es[mpl])[ \t]*$",
+        RegexOptions.Multiline | RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// A record's text to read, with the editor ID of each record it links to beside the FormID, as a
+    /// YAML comment the reader skips: <c>BaseEffect: 012F03:Skyrim.esm  # FireDamageFFAimed</c>. Bare
+    /// FormIDs said nothing: a model copied Firebolt's fire effects into its shock spell, and wrote an
+    /// invented race after reading Lydia's (eval round 11's probes).
+    /// </summary>
+    private string Annotated(string text) => LinkLine.Replace(text, line =>
+        FormKey.TryFactory(line.Groups[2].Value, out var key) && Index.ByFormKey.TryGetValue(key, out var entry) && entry.EditorId is { } id
+            ? $"{line.Groups[1].Value}{line.Groups[2].Value}  # {id}"
+            : line.Value);
 
     /// <summary>
     /// The given versions, as overrides in a plugin named <paramref name="asPlugin"/>, in project text:

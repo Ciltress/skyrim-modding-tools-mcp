@@ -125,7 +125,7 @@ _read-only_
 
 `text` string · `records` array · `types` array · `plugin` string · `limit` number, default `25`
 
-**`readRecord`** — One record as project text (YAML): by default the version that wins in the load order; with `plugin`, that plugin's version; with `allVersions`, every plugin's version, winning first — compare them to see a conflict. Each file carries `pathInPluginFolder`, where it would sit in a project's plugin folder; to change a record, copy it in with addPatch rather than writing this text yourself. Links inside are FormIDs: resolve them with findRecords.
+**`readRecord`** — One record as project text (YAML): by default the version that wins in the load order; with `plugin`, that plugin's version; with `allVersions`, every plugin's version, winning first — compare them to see a conflict. Each file carries `pathInPluginFolder`, where it would sit in a project's plugin folder; to change a record, copy it in with addPatch rather than writing this text yourself. Links inside are FormIDs, each followed by the editor ID of the record it names as a comment (`Race: 013746:Skyrim.esm  # NordRace`); a project file may link by either.
 
 _read-only_
 

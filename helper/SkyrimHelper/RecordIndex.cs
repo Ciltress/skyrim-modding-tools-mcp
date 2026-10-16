@@ -49,6 +49,11 @@ public sealed class RecordIndex
         "PlacedFlame", "PlacedHazard", "PlacedMissile", "PlacedTrap", "Landscape", "NavigationMesh"
     };
 
+    /// <summary>The getter types of the records the index leaves out, of which it cannot say that one is missing.</summary>
+    public static readonly Type[] SkippedTypes = Skipped
+        .Select(name => typeof(ISkyrimModGetter).Assembly.GetType($"Mutagen.Bethesda.Skyrim.I{name}Getter")!)
+        .ToArray();
+
     public static RecordIndex Build(IEnumerable<(ModKey Key, ISkyrimModGetter Mod)> loadOrder)
     {
         var index = new RecordIndex();
