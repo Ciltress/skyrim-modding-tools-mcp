@@ -134,6 +134,7 @@ public static class RecordLinks
 
             // The NPC's level is given whole once per file, however many of its fields are misplaced.
             var levelGiven = false;
+            var before = problems.Count;
             Walk(root, type, "", Link, problem =>
             {
                 if (problem.Contains(RecordFiles.NpcLevel))
@@ -143,6 +144,10 @@ public static class RecordLinks
                 }
                 problems.Add($"{relative}: {problem}");
             });
+            // A new record nothing else names can be dropped by writing its file empty (RecordFiles.Droppable).
+            if (problems.Count > before)
+                problems[^1] += RecordFiles.Droppable(type, relative, text, RecordFiles.FlatRecords(pluginDir)
+                    .Where(f => f.Relative != relative).Select(f => (f.Relative, File.ReadAllText(f.File))));
             if (replacements.Count == 0) continue;
             var rewritten = text;
             foreach (var r in replacements.OrderByDescending(r => r.Start))
@@ -187,6 +192,9 @@ public static class RecordLinks
                 (named is null ? "" : $"; {named} is none of them") + (type.Name == "ANpcLevel" ? $"; {RecordFiles.NpcLevel}" : ""));
             return;
         }
+        // The fields of the level above written here, named in one problem with what this part holds: told
+        // "move it up" eight times, field by field, a model moved them all and back, build after build (round 13).
+        var movedUp = new List<string>();
         foreach (var (keyNode, value) in mapping.Children)
         {
             if (keyNode is not YamlScalarNode { Value: { } key } || key == "MutagenObjectType") continue;
@@ -201,13 +209,15 @@ public static class RecordLinks
                 // which a model moved to the top level next, a build later (eval probe 8 after round 11).
                 if (path.Length > 0 && !type.IsInterface)
                 {
-                    var above = path.LastIndexOf('.') is var dot and >= 0 ? path[..dot] : "";
                     // A field of another part goes there: a weapon's Speed, written under BasicStats, is Data's.
                     // Only one the record has nowhere is deleted; "has no field" alone reads as one missing (eval probe 9).
                     // An NPC's level whole, before "move it up": moved one field at a time, it went back and forth (round 12).
+                    if (RecordFiles.LevelHint(type, key) is null && parent?.GetProperties(BindingFlags.Public | BindingFlags.Instance).Any(p => p.Name == key) == true)
+                    {
+                        movedUp.Add(key);
+                        continue;
+                    }
                     problem($"{path} has no field {key}" + (RecordFiles.LevelHint(type, key) is { } level ? $" ({level})"
-                        : parent?.GetProperties(BindingFlags.Public | BindingFlags.Instance).Any(p => p.Name == key) == true
-                        ? $" (move it up, {(above.Length == 0 ? "to the top level" : $"under {above}")})"
                         : RecordFiles.HintFor(type, key) is { Length: > 0 } hint ? hint
                         : record != type && RecordFiles.WhereIn(record, key) is { } at ? $" (move it: {RecordFiles.Article(record.Name)}'s {key} is {at})"
                         : " (delete it)"));
@@ -265,6 +275,15 @@ public static class RecordLinks
                 if (value is YamlMappingNode nested) Walk(nested, propertyType, field, link, problem, type, record);
                 else if (value is YamlSequenceNode) problem($"{field} takes fields of its own, indented below it — not a list");
             }
+        }
+        if (movedUp.Count > 0)
+        {
+            var above = path.LastIndexOf('.') is var dot and >= 0 ? path[..dot] : "";
+            var holds = movedUp.Count > 1
+                ? $"; {path} holds only {string.Join(", ", type.GetProperties(BindingFlags.Public | BindingFlags.Instance).Select(p => p.Name))}"
+                : "";
+            problem($"{path} has no field {string.Join(", ", movedUp)} (move {(movedUp.Count == 1 ? "it" : "them")} up, " +
+                $"{(above.Length == 0 ? "to the top level" : $"under {above}")}{holds})");
         }
     }
 

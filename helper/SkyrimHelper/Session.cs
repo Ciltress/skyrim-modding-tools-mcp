@@ -365,7 +365,8 @@ public sealed class Session : IDisposable
         return new JsonObject
         {
             ["records"] = records,
-            ["leftOut"] = new JsonArray(leftOut.Select(l => (JsonNode)new JsonObject { ["file"] = l.File, ["copy"] = l.Copy }).ToArray())
+            ["leftOut"] = new JsonArray(leftOut.Select(l => (JsonNode)new JsonObject { ["file"] = l.File, ["copy"] = l.Copy }).ToArray()),
+            ["notes"] = new JsonArray(ProjectNotes.Of(dir, Index, Cache).Select(n => (JsonNode)n).ToArray())
         };
     }
 
@@ -382,13 +383,19 @@ public sealed class Session : IDisposable
         RecordFiles.Require(dir, Index);
         var resolvedLinks = RecordLinks.Resolve(dir, Index, write: true);
         IModGetter deserialized;
+        var readable = WithoutEmptyFiles(dir);
         try
         {
-            deserialized = await MutagenYamlConverter.Instance.Deserialize(dir);
+            deserialized = await MutagenYamlConverter.Instance.Deserialize(readable);
         }
         catch (Exception e) when (e is not HelperException)
         {
-            throw RecordFiles.Unreadable(e, dir);
+            // The copy has the folder's layout, so the file is named as the project has it.
+            throw RecordFiles.Unreadable(e, readable);
+        }
+        finally
+        {
+            if (readable != dir) Directory.Delete(readable, recursive: true);
         }
         if (deserialized is not ISkyrimMod mod) throw new HelperException("badRequest", "The project is not a Skyrim plugin.");
         mod.ModHeader.Stats.Version = headerVersion;
@@ -500,6 +507,27 @@ public sealed class Session : IDisposable
     // ---------------------------------------------------------------- helpers
 
     /// <summary>
+    /// The plugin folder as the reader can take it: itself, or — where record files were written empty to
+    /// drop their records (RecordFiles.Check) — a copy without them, as the reader fails on an empty file.
+    /// The project's own files are never renamed or moved.
+    /// </summary>
+    private static string WithoutEmptyFiles(string dir)
+    {
+        var files = Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).ToList();
+        if (!files.Any(f => f.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase) && new FileInfo(f).Length < 64 && string.IsNullOrWhiteSpace(File.ReadAllText(f))))
+            return dir;
+        var copy = Path.Combine(Path.GetTempPath(), $"skyrim-helper-build-{Guid.NewGuid():N}");
+        foreach (var file in files)
+        {
+            if (file.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase) && new FileInfo(file).Length < 64 && string.IsNullOrWhiteSpace(File.ReadAllText(file))) continue;
+            var target = Path.Combine(copy, Path.GetRelativePath(dir, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target);
+        }
+        return copy;
+    }
+
+    /// <summary>
     /// Every version of a record, winning first. Resolved by its own type when the index knows it:
     /// resolving as "any record" makes the link cache index every record type there is.
     /// </summary>
@@ -513,9 +541,14 @@ public sealed class Session : IDisposable
     {
         if (raw.Contains(':')) return ParseFormKey(raw);
         if (Index.ByEditorId.TryGetValue(raw.Trim(), out var key)) return key;
-        var near = RecordLinks.Closest(raw.Trim(), Index);
+        // An in-game name, sent as an editor ID: "Lydia", whose editor ID is HousecarlWhiterun (eval probe 15).
+        var named = Index.ByFormKey.Values.Where(e => e.EditorId is not null && string.Equals(e.Name, raw.Trim(), StringComparison.OrdinalIgnoreCase))
+            .OrderBy(e => e.FormKey.ModKey == SkyrimMaster ? 0 : 1).Take(5)
+            .Select(e => $"{e.EditorId} ({e.Type}, {FormKeyText(e.FormKey)})").ToList();
+        var near = named.Count > 0 ? new List<string>() : RecordLinks.Closest(raw.Trim(), Index);
         throw new HelperException("notFound", $"No record with editor ID '{raw}' in the load order" +
-            (near.Count > 0 ? $" — the records closest to it: {string.Join(", ", near)}" : "") + ". Search with findRecords.");
+            (named.Count > 0 ? $" — the records named '{raw.Trim()}' in game: {string.Join(", ", named)}; read one by its editor ID"
+                : near.Count > 0 ? $" — the records closest to it: {string.Join(", ", near)}" : "") + ". Search with findRecords.");
     }
 
     private static FormKey ParseFormKey(string raw) =>

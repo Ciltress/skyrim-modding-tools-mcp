@@ -45,6 +45,17 @@ public static class RecordFiles
         ["MagicEffect"] = "FireDamageFFAimed", ["ObjectEffect"] = "EnchWeaponFireDamage01", ["Npc"] = "HousecarlWhiterun"
     };
 
+    /// <summary>The skill whose tables hold a record type's lines — the server's FAMILY_SKILLS — or null.</summary>
+    private static string? SkillOf(string type) => type switch
+    {
+        "Weapon" or "Armor" or "ArmorAddon" or "Ammunition" or "Ingestible" or "Ingredient" or "Book" or "MiscItem"
+            or "ConstructibleObject" or "ObjectEffect" => "items-and-crafting",
+        "Spell" or "MagicEffect" or "Scroll" or "Shout" => "magic",
+        "Npc" => "npcs",
+        "LeveledItem" or "LeveledNpc" or "LeveledSpell" => "leveled-lists",
+        _ => null
+    };
+
     /// <summary>The editor ID of a vanilla record of the type — the everyday one, else the first the load order has.</summary>
     private static string? ExampleOf(Type type, RecordIndex index) =>
         Examples.TryGetValue(type.Name, out var example) && index.ByEditorId.TryGetValue(example, out var key)
@@ -138,9 +149,11 @@ public static class RecordFiles
     /// a model moved CalcMinLevel into Level, Level to the top and LevelMult under Configuration, back and
     /// forth — nine builds for one NPC (eval round 12).
     /// </summary>
-    public const string NpcLevel = "an NPC's level is these lines under Configuration: `Level: {MutagenObjectType: PcLevelMult, " +
-        "LevelMult: 1}`, and beside it `CalcMinLevel: 1` and `CalcMaxLevel: 25`, the range it follows the player's level in — " +
-        "or `Level: {MutagenObjectType: NpcLevel, Level: 10}` for a fixed level";
+    // "Beside it" left a model nesting CalcMinLevel inside Level, or moving it to the top (eval probe 17): the
+    // three lines, each indented as Configuration's Flags line is.
+    public const string NpcLevel = "an NPC's level is three lines under Configuration, each indented as its Flags line is: " +
+        "`Level: {MutagenObjectType: PcLevelMult, LevelMult: 1}`, `CalcMinLevel: 1`, `CalcMaxLevel: 25` — the level follows " +
+        "the player's between those two; or, for a fixed level, the one line `Level: {MutagenObjectType: NpcLevel, Level: 10}`";
 
     /// <summary>The whole level, where a field of an NPC's level is written in the wrong place; else null.</summary>
     public static string? LevelHint(Type type, string key) =>
@@ -330,6 +343,7 @@ public static class RecordFiles
     {
         var problems = new List<string>();
         var leftOut = new List<(string File, string Copy)>();
+        var texts = new Lazy<List<(string Relative, string Text)>>(() => FlatRecords(pluginDir).Select(f => (f.Relative, File.ReadAllText(f.File))).ToList());
         var records = 0;
         if (!Directory.Exists(pluginDir)) return (0, problems, leftOut);
         var own = OwnPlugin(pluginDir);
@@ -345,7 +359,23 @@ public static class RecordFiles
                 problems.Add($"{relative} ends in .yml, which the build does not read: name it .yaml");
                 continue;
             }
-            if (!file.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase)) continue;
+            // Any other ending in a group's folder too: an enchantment saved as FlameBladeBurn.nhs went unread,
+            // and the link to it was refused as naming no record (eval probe 16).
+            if (!file.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase))
+            {
+                var folder = relative.Split('/')[0];
+                if (relative.Contains('/') && Groups.ContainsKey(folder))
+                    problems.Add($"{relative} ends in {Path.GetExtension(file)}, which the build does not read: write it as " +
+                        $"{Path.ChangeExtension(relative, ".yaml")}");
+                continue;
+            }
+            // An empty record file holds no record, and is left out: the way to drop a record without deleting
+            // its file — a broken one no longer needed trapped a model whose file tools could not delete (probe 16).
+            if (string.IsNullOrWhiteSpace(File.ReadAllText(file)))
+            {
+                leftOut.Add((relative, ""));
+                continue;
+            }
             records++;
 
             var parts = relative.Split('/');
@@ -406,10 +436,14 @@ public static class RecordFiles
                 if (OneValue(kind ?? type, key)) problems.Add($"{relative}: {Blocked(kind ?? type, key, text)}");
             var unknown = TopLevelKey.Matches(text).Select(m => m.Groups[1].Value).Where(key => !known.Contains(key)).Distinct().ToList();
             if (unknown.Count == 0) continue;
+            // The family's skill first: its tables have the lines of each kind — told only to read Firebolt, a
+            // model built its shock spell on Firebolt's fire effect (eval probe 15).
+            var skill = SkillOf((kind ?? type).Name) is { } family ? $"the {family} skill's tables, readSkill {{\"skill\": \"{family}\"}}, or " : "";
             var read = index is not null && ExampleOf(kind ?? type, index) is { } example
-                ? $" — read a vanilla one first, readRecord {{\"record\": \"{example}\"}}, and write yours with its field names and nesting"
+                ? $" — read {skill}a vanilla one, readRecord {{\"record\": \"{example}\"}}, and write yours with its field names and nesting"
                 : "";
-            problems.Add($"{relative}: {Article(type.Name)} has no field {Unknown(kind ?? type, known, unknown, text)}{read}");
+            problems.Add($"{relative}: {Article(type.Name)} has no field {Unknown(kind ?? type, known, unknown, text)}{read}" +
+                Droppable(kind ?? type, relative, text, texts.Value));
         }
         // Two files of one record: the reader names the FormKey but neither file (eval round 11: 000000 in each new record).
         foreach (var (formKey, holders) in formKeys.Where(pair => pair.Value.Count > 1))
@@ -436,6 +470,23 @@ public static class RecordFiles
             return $"{relative}: FormKey {Session.FormKeyText(key)} is {theirs} of {key.ModKey.FileName}, so this file would change " +
                 $"that record instead of making {editorId} — {fresh}";
         return null;
+    }
+
+    /// <summary>
+    /// For a new record of the project that no other record names, how to drop it without deleting its
+    /// file — written empty, it is left out; else nothing. A model wrote a magic effect of its own, then
+    /// named a vanilla one in its spell, and the broken file it no longer needed failed every build (probe 16).
+    /// </summary>
+    internal static string Droppable(Type type, string relative, string text, IEnumerable<(string Relative, string Text)> others)
+    {
+        // Only a part another record names — an effect, an enchantment, an addon — and beside other records:
+        // offered on an NPC that was the whole mod, emptying it would have left nothing to build.
+        if (type.Name is not ("MagicEffect" or "ObjectEffect" or "ArmorAddon")) return "";
+        var rest = others.Where(o => o.Relative != relative).ToList();
+        return rest.Count > 0 && Identity(text) is { FormKey: null, EditorId: { } id }
+            && !rest.Any(o => Regex.IsMatch(o.Text, $@"\b{Regex.Escape(id)}\b"))
+            ? $"; no other record names {id}: if it is not needed, write its file empty — the build leaves an empty record file out"
+            : "";
     }
 
     /// <summary>Throws what is wrong with the files, as the request's fault; answers how many there are, and those left out.</summary>
