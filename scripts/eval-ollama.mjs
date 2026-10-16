@@ -6,7 +6,12 @@
  *   npm run build
  *   node scripts/eval-ollama.mjs [--model gemma4:26b] [--profile all] [--runs 3] [--tasks find,read]
  *                                [--ctx 131072] [--max-turns 25] [--think true|false] [--out <file>]
- *                                [--ollama http://localhost:11434]
+ *                                [--with-skills] [--ollama http://localhost:11434]
+ *
+ * --with-skills runs each authoring task twice: as it is, the model choosing what to read, and as
+ * `<task>+skill`, the conversation starting with the task's skill already read — a readSkill call the
+ * harness makes and puts in as the model's, left out of the counts. The first measures whether a model
+ * finds a skill, the second what the skill's content does once read.
  *
  * It is its own minimal client — Ollama's /api/chat and an agent loop, nothing in between — so what
  * is measured is the server and the model, not a client's prompt. The model gets the server's tools
@@ -45,6 +50,7 @@ const { values: opt } = parseArgs({
         'max-turns': { type: 'string', default: '25' },
         think: { type: 'string' },
         out: { type: 'string' },
+        'with-skills': { type: 'boolean', default: false },
         ollama: { type: 'string', default: process.env.OLLAMA_HOST || 'localhost' }
     }
 });
@@ -397,6 +403,7 @@ const TASKS = [
     // Authoring: new records written by hand into a new project, following vanilla ones, and built.
     {
         id: 'sword',
+        skill: 'items-and-crafting',
         prompt: 'Make a new mod called FlameBlade with a new one-handed sword named "Flame Blade" that has a fire ' +
             'damage enchantment, so it burns what it hits. Build it, but do not deploy it.',
         check: async ({ calls }) => {
@@ -413,6 +420,7 @@ const TASKS = [
     },
     {
         id: 'spell',
+        skill: 'magic',
         prompt: 'Make a new mod called StormBolt with a new Destruction spell named "Storm Bolt" that deals shock ' +
             'damage to a target. Build it, but do not deploy it.',
         check: async ({ calls }) => {
@@ -428,6 +436,7 @@ const TASKS = [
     },
     {
         id: 'npc',
+        skill: 'npcs',
         prompt: 'Make a new mod called HildaTheNord with one new NPC: a female Nord named "Hilda". Build it, but do ' +
             'not deploy it.',
         check: ({ calls }) => {
@@ -446,7 +455,8 @@ const TASKS = [
 const wanted = opt.tasks ? opt.tasks.split(',').map(s => s.trim()) : TASKS.map(t => t.id);
 const unknownTasks = wanted.filter(id => !TASKS.some(t => t.id === id));
 if (unknownTasks.length) fail(`unknown task(s) ${unknownTasks.join(', ')}; the tasks are ${TASKS.map(t => t.id).join(', ')}.`);
-const tasks = TASKS.filter(t => wanted.includes(t.id));
+const tasks = TASKS.filter(t => wanted.includes(t.id))
+    .flatMap(t => opt['with-skills'] && t.skill ? [t, { ...t, id: `${t.id}+skill`, preread: t.skill }] : [t]);
 
 // --- The agent loop -----------------------------------------------------------------------------
 
@@ -475,6 +485,13 @@ function emptyProjects() {
 async function runTask(task, run) {
     emptyProjects();
     const messages = [{ role: 'system', content: systemPrompt }, { role: 'user', content: task.prompt }];
+    if (task.preread) {
+        // The skill read as the model would read it: its call and the server's answer, before the first turn.
+        const read = await callServer('readSkill', { skill: task.preread });
+        if (read.isError) fail(`readSkill ${task.preread} failed: ${read.text}`);
+        messages.push({ role: 'assistant', content: '', tool_calls: [{ function: { name: 'readSkill', arguments: { skill: task.preread } } }] },
+            { role: 'tool', tool_name: 'readSkill', content: read.text });
+    }
     const calls = [];
     const turns = [];
     let answer = '';
@@ -563,6 +580,7 @@ async function runTask(task, run) {
     return {
         task: task.id,
         run,
+        ...(task.preread ? { preread: task.preread } : {}),
         success: Object.keys(checks).length > 0 && Object.values(checks).every(Boolean),
         checks,
         stop,

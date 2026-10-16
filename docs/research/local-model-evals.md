@@ -8,7 +8,8 @@ they were taken on, what changed before it, and what the transcripts showed.
 
 ```bash
 npm run build                          # the eval drives the built server: dist/ must be current
-npm run eval:ollama -- --model gemma4:26b --runs 3
+npm run eval:ollama -- --model gemma4:e4b --with-skills    # probes, until its transcripts show nothing to fix
+npm run eval:ollama -- --model gemma4:26b --with-skills    # then both models: the round recorded here
 ```
 
 [`scripts/eval-ollama.mjs`](../../scripts/eval-ollama.mjs) runs the tasks below through the built
@@ -35,6 +36,11 @@ script. Nothing is deployed: `deployProject` stays listed, but a call to it is r
 The last three (from round 9) author new records by hand, following vanilla ones. A link — the sword's
 enchantment, a spell's effects — is followed into the project when the model wrote the record there,
 and into the load order (through `readRecord`) when it used a vanilla one; either passes.
+
+**With the skill read** (from round 12): `--with-skills` runs each authoring task again as `sword+skill`,
+`spell+skill`, `npc+skill` — the conversation starting with the task's family skill already read, a
+`readSkill` call the harness makes and puts in as the model's, left out of the counts. The plain task
+measures whether a model finds the skill; the `+skill` one, what the skill does once read.
 
 **The columns.** *calls*: tool calls per run, file tools included. *invalid arguments*: calls refused
 with `InvalidParams`. *other errors*: every other failed call, file tools included. *largest prompt*:
@@ -77,103 +83,14 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-15 | gemma4:e4b | `all` | 6517a6a + round 10's changes | 16/24 | 1.82 s | ~6,785 tokens/s | ~172 tokens/s | 100% |
 | 2026-10-15 | gemma4:26b | `all` | 4c87050 + round 11's changes | 22/24 | 6.71 s | ~996 tokens/s | ~40 tokens/s | 77% |
 | 2026-10-15 | gemma4:e4b | `all` | 4c87050 + round 11's changes | 15/24 | 2.01 s | ~6,838 tokens/s | ~169 tokens/s | 100% |
+| 2026-10-16 | gemma4:e4b | `all` | b058774 + round 12's changes, 8 tasks + 3 with the skill read | 33/33 | 1.77 s | ~6,937 tokens/s | ~175 tokens/s | 100% |
+| 2026-10-16 | gemma4:26b | `all` | b058774 + round 12's changes, 8 tasks + 3 with the skill read | 32/33 | 9.54 s | ~805 tokens/s | ~43 tokens/s | 77% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
 
 Only the latest two rounds keep their details below. The earlier ones — what changed before each and
 what its transcripts showed — are in this file's history: `git log -p -- docs/research/local-model-evals.md`.
-
-## Round 10 — the build names what it cannot build (2026-10-15)
-
-**Changed before it:** round 9's four points.
-
-- buildProject refuses a project with no record files, and record files in the project folder
-  outside its plugin folder, naming each with its full path (and, with no records, YAML files in the
-  projects folder that belong to no project).
-- newProject's answer (and addPatch's, when it creates the project) carries `writeRecordsTo`: the
-  full path of the plugin folder, a new weapon's file as a full path, and the group folders' names.
-  newProject's description and the basics skill point there instead of giving `Weapons/MySword.yaml`.
-- Before any record gets its FormID, the helper checks the record files (`checkRecords`): a file in no
-  group folder, a folder that is no group (`NPCs` — "spelled Npcs"), a FormKey that is none, and every
-  top-level field the record's type does not have — with a hint where one fits ("name: it is spelled
-  Name", "damage: it goes under BasicStats"). The fields are the Mutagen record class's properties; a
-  group of several kinds (Globals, game settings) is read by the kind the file names.
-- A file the YAML reader still cannot read is refused as the request's fault (InvalidParams), with
-  the file and the reader's innermost cause, not as an internal error.
-
-Checked before the round: the field check passes every record of five Creation Club plugins
-serialized by the helper (6,033 records, every common type, cells and worldspaces), and a patch of
-eight vanilla types (an NPC, a spell, a magic effect, an enchantment, a global, a game setting, a
-leveled list, an armor) builds.
-
-gemma4:26b, `all` (prompt ~967 tokens/s, generation ~49 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 5684 | 16.6 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 6691 | 7.5 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 5892 | 10.1 |
-| patch | 3/3 | 4.7 | 3.7 | 0 | 0 | 8075 | 13.5 |
-| build | 3/3 | 5 | 4 | 0 | 0 | 7476 | 12.8 |
-| sword | 0/3 | 25 | 25 | 12 | 4 | 22055 | 154.5 |
-| spell | 3/3 | 13 | 12 | 3 | 2 | 16236 | 98.8 |
-| npc | 3/3 | 10.7 | 9.7 | 1 | 1 | 15511 | 61.5 |
-
-(26b's find includes loading the model.)
-
-gemma4:e4b, `all` (prompt ~6,785 tokens/s, generation ~172 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 5883 | 7.3 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 6995 | 3.8 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 4486 | 2.6 |
-| patch | 3/3 | 4 | 3 | 0 | 0 | 8210 | 7.8 |
-| build | 3/3 | 5 | 4 | 0 | 0 | 8133 | 6.7 |
-| sword | 1/3 | 8.3 | 7.3 | 4 | 0 | 12299 | 20.2 |
-| spell | 0/3 | 8.3 | 7.3 | 6 | 0 | 10074 | 17 |
-| npc | 0/3 | 9.3 | 8.3 | 6 | 0 | 11805 | 16.9 |
-
-**Seen.**
-
-- Authoring went from 2 to 7 of 18: 26b 6 of 9 (its spell and NPC every time), e4b 1 of 9. The five
-  earlier tasks passed 30 of 30. The invalid arguments are now mostly the build's refusals, each
-  naming what to fix; the models acted on them.
-- **The files land in the plugin folder now**: 39 of 48 record-file writes (22 of 31 for 26b, all 17
-  for e4b), against 5 of 31 in round 9. No build succeeded with nothing in it — except one, below.
-- **A trap of this round's own making.** 26b's sword #1 wrote its enchantment into the project folder,
-  was refused, and wrote it again into the plugin folder — but the eval's file tools cannot delete,
-  so the stray copy stayed, and every later build was refused for it until the turns ran out. With
-  records in the plugin folder, the stray files should be a warning in the answer, not a refusal.
-- **Linking one new record to another.** 26b's other two swords wrote a new enchantment (and a new
-  magic effect) and pointed the sword at it by editor ID: `ObjectEffect: FlameBladeEnch:FlameBlade.esp`.
-  The refusal now said why ("Malformed FormKey string"), but not what to write instead — the FormID
-  the build had just assigned to that record. The skills describe a second build for this; the models
-  did not find it.
-- **A copied FormKey makes an override, not a new record.** e4b copied the `FormKey:` line of the
-  record it had read — the Iron Sword's, a guard's, an NPC's — into its "new" record: the build made
-  an override of that record under the new name, succeeded, and the model reported a new sword. A
-  deploy would have renamed every Iron Sword in the game. Once it invented `000200:Skyrim.esm`, a
-  record Skyrim.esm does not have.
-- **Nested a folder too deep.** e4b's spell #1 wrote `Spells/Spells/…` and `Spells/MagicEffects/…`.
-  The check leaves files below a group's own folder to the reader (cells, worldspaces and dialogue
-  keep their records so), the files got FormIDs, the reader did not take them as records, and the
-  build succeeded with no records — the one build of nothing in this round.
-- e4b still writes from memory before it reads a vanilla record; a refusal sent it to `readRecord` in
-  3 runs. One reader error stayed cryptic: `Name: Hilda` where a mapping belongs gave "Expected
-  'MappingStart', got 'Scalar' (Line: 2, Col: 7)".
-
-**What it points at next** (not changed yet):
-
-1. Stray record files with records in the plugin folder: build, and warn in the answer.
-2. A link to another record of the project written by its editor ID: resolve it at the build, or name
-   the FormID that record has.
-3. A record file with another plugin's FormKey: refuse it when that plugin has no such record, and
-   when its editor ID differs from that record's — "to make a new record, leave FormKey out".
-4. Files below a flat group's folder (`Spells/Spells/…`): name them; and refuse a build that read no
-   record at all.
-5. Reader errors with a line number: quote that line of the file.
 
 ## Round 11 — links by editor ID, copied FormKeys, files below a group (2026-10-15)
 
@@ -291,3 +208,104 @@ gemma4:e4b, `all` (prompt ~6,838 tokens/s, generation ~169 tokens/s):
   now offers only the way to a new record (8, above).
 - A record built without the field the task names (a spell with no `Name`) passes every check; only
   the task's scorer sees it.
+
+## Round 12 — refusals that say what to write, and skills with the vanilla values (2026-10-16)
+
+**Changed before it:** round 11's eight points, then what eight probes of gemma4:e4b alone showed
+(not recorded; 18/24 after round 11's changes, 23/24 at the last).
+
+- **Field refusals name the field meant**: by synonym (a weapon's `Enchantment` is `ObjectEffect`, an
+  effect item's `Effect` is `BaseEffect`, a weapon's `Type` is `AnimationType` under `Data`, an NPC's
+  `Gender` is `Female` among `Configuration.Flags`), by number (`Effect` → `Effects`), and by place —
+  "move it under BasicStats", "move it up, under Configuration", "move it: a Weapon's Speed is under
+  Data". With a value on the field's line, the refusal is the line to write (`ObjectEffect: FireBurn`).
+  A field the type has nowhere: "delete it" — "has no field Description" alone was read as one missing,
+  and written back build after build. A field of one value written with fields below it (an
+  enchantment written inside the weapon, under `ObjectEffect:`) is named before the reader runs.
+- **Links**: `readRecord` names each link's editor ID beside its FormID; a link that names no record,
+  and `readRecord` with an unknown editor ID, answer the closest editor IDs, by shared words too
+  (FireDamageEnchantment01 → EnchWeaponFireDamage01); `None` is the empty link.
+- **A spell, enchantment or scroll whose effect is cast otherwise is refused** — the effect would do
+  nothing in game. Fitted to Bethesda's own data: the 80 official plugins cast 15 of their 4,336
+  effects otherwise, in ten shapes, and those build. The refusal gives the lines to write, after the
+  player's spells that cast a like effect: "write StormBolt the way Thunderbolt is cast: `TargetType:
+  Aimed` and in Effects[0] `BaseEffect: ShockDamageFFAimed75`". Told "name an effect cast
+  FireAndForget instead, and give StormBolt its TargetType: … on Touch, … on Aimed", e4b had written
+  `CastType: Aimed`.
+- A refused build gives back the links it had written into the files as FormIDs. A record file in a
+  folder that is no group, whose record its group's folder holds too, is left out with a warning — the
+  refusal trapped a model whose file tools cannot delete.
+- `findRecords` ranks named records whose editor ID begins with the text among the name matches
+  ("shock" finds the Destruction effects before `EnchShockDamageFFContact`, a weapon's, which three of
+  three spells had copied); a misspelled type is answered by prefix and by the Creation Kit's names too
+  (`OBJECT`, `OBJEF`, `Enchantment` → ObjectEffect).
+- **Skills**: worked examples ("A new … as it builds") in items-and-crafting, magic and npcs, and
+  tables of vanilla values — Destruction's damage spells by element and casting (effect, cast,
+  delivery, menu art, perk), each weapon kind's lines (the iron one to mirror, animation, keyword,
+  equip type, impact set) and the weapon enchantment of each element. Every value was checked against
+  the load order, and every table row built. skyrim-modding-basics and the server's instructions name
+  the family skill to read for the records written; `readSkill` takes loose names (`npc`, `weapon`).
+- The eval: `--with-skills` (above), and the record keeps each turn's thinking.
+
+gemma4:e4b, `all` (prompt ~6,937 tokens/s, generation ~175 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 6179 | 3.1 |
+| read | 3/3 | 2.7 | 1.7 | 0 | 0 | 7239 | 3.7 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 4664 | 2.9 |
+| patch | 3/3 | 4.7 | 3.7 | 1 | 0 | 8506 | 8.1 |
+| build | 3/3 | 5 | 4 | 0 | 0 | 8581 | 8.5 |
+| sword | 3/3 | 9.3 | 8.3 | 4 | 0 | 11869 | 18.5 |
+| sword+skill | 3/3 | 5 | 4 | 0 | 0 | 9364 | 8.9 |
+| spell | 3/3 | 5 | 4 | 0 | 0 | 8675 | 8.5 |
+| spell+skill | 3/3 | 4.3 | 3.3 | 0 | 0 | 9193 | 7.6 |
+| npc | 3/3 | 14 | 13 | 10 | 5 | 15752 | 28.6 |
+| npc+skill | 3/3 | 9.3 | 8.3 | 5 | 1 | 11450 | 16.1 |
+
+gemma4:26b, `all` (prompt ~805 tokens/s, generation ~43 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 5821 | 18.3 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 6919 | 7.2 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 6034 | 8.3 |
+| patch | 3/3 | 4.7 | 3.7 | 0 | 0 | 8204 | 13.9 |
+| build | 3/3 | 6.3 | 5.3 | 2 | 0 | 8927 | 16.7 |
+| sword | 2/3 | 12 | 11 | 3 | 0 | 16225 | 209.6 |
+| sword+skill | 3/3 | 7 | 6 | 0 | 0 | 12606 | 108.1 |
+| spell | 3/3 | 8.3 | 7.3 | 0 | 0 | 10923 | 126.2 |
+| spell+skill | 3/3 | 4.7 | 3.7 | 0 | 0 | 10083 | 54.8 |
+| npc | 3/3 | 8.7 | 7.7 | 1 | 0 | 12068 | 43.1 |
+| npc+skill | 3/3 | 8 | 7 | 0 | 0 | 11583 | 43.2 |
+
+(26b's find includes loading the model. Its prompt speed measured lower than in round 11 too — ~805
+against ~996 tokens/s — so part of the slower turns is the machine's.)
+
+**Seen.**
+
+- On the eight tasks, **e4b passed 24 of 24** (round 11: 15) and 26b 23 of 24 (round 11: 22).
+  Authoring: e4b 9 of 9 (round 11: 0), 26b 8 of 9. With the skill read first, both passed 9 of 9.
+- **A run that reads its family skill passes.** e4b read it in all nine authoring runs, 26b in six; of
+  the fifteen, all passed. In the last e4b probe, the one failure was the one run that read only
+  skyrim-modding-basics — the pointer to the family skills was added after it.
+- **The tables replace the search.** e4b's spells read the magic skill and built in one build each,
+  with no `findRecords` at all; in round 11 its spells took 12 calls and none passed. Its swords wrote
+  the enchantment from the table and built in two or three.
+- With the skill read first, both used fewer calls — e4b's swords 4 against 8.3 and NPCs 8.3 against
+  13; 26b's spells 3.7 against 7.3 and swords 6 against 11.
+- 26b's sword #2 is a question for the scorer. It read no skill, mirrored the vanilla enchanted
+  `EnchIronSwordFire01` — `Template: IronSword`, its name, its enchantment, its damage — and built. The
+  game takes a templated weapon from its template, but the record has no `AnimationType` or
+  `WeapTypeSword` of its own, which the check looks for; it stays a fail.
+- e4b's NPCs still add fields from memory beyond the skill's example and fix them refusal by refusal —
+  a `Level` block at the wrong depth, `Aggression: Average` (a `Confidence` value): npc #2 took nine
+  builds. Every refusal named the right field or value.
+
+**What it points at next:**
+
+- 26b skipped the family skill in three of nine runs, though the instructions name it. `newProject`'s
+  answer, which every authoring run reads, could name the skill for the records it is about to hold.
+- e4b's NPC levels: the refusals go back and forth between the levels of `Configuration` and `Level`;
+  one refusal giving the whole block (`Level:` with its kind, `CalcMinLevel` beside it) would end it.
+- Whether a weapon with a `Template` should pass the sword check.
