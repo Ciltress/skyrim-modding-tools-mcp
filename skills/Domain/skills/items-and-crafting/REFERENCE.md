@@ -200,7 +200,8 @@ Conditions:
 - The weight slider shows here as the `_1` mesh path; the `_0` file must exist beside it.
 - The tempering conditions read "not enchanted, *or* has Arcane Blacksmith": a condition carrying the
   `OR` flag is or-ed with the one after it; all others are and-ed.
-- The comments name what each FormID is. Project files carry no such comments — look FormIDs up.
+- The comments name what each FormID is, as `readRecord` writes them. A project's files carry none —
+  look a FormID there up with `findRecords`.
 
 ## Typical bugs
 

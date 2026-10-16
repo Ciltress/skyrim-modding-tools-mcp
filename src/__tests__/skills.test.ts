@@ -7,6 +7,7 @@ import {
     findSkill,
     parseFrontmatter,
     readSkillFile,
+    resolveSkill,
     skillByUri,
     skillUri
 } from '../lib/skills';
@@ -58,6 +59,34 @@ describe('discoverSkills', () => {
     });
 });
 
+describe('resolveSkill', () => {
+    // Small models asked for `npc`, `weapon`, and `items` as a collection (eval probes after round 11).
+    const named = (request: string) => resolveSkill(request)?.name;
+
+    it('takes an exact name in any case', () => {
+        expect(named('magic')).toBe('magic');
+        expect(named('Npcs')).toBe('npcs');
+    });
+
+    it('takes a singular, or words of the name', () => {
+        expect(named('npc')).toBe('npcs');
+        expect(named('items')).toBe('items-and-crafting');
+        expect(named('leveled list')).toBe('leveled-lists');
+    });
+
+    it('takes a word of a description, the one that names it earliest', () => {
+        expect(named('weapon')).toBe('items-and-crafting');
+        expect(named('follower')).toBe('npcs');
+        // leveled-lists names spell lists too, but magic leads with spells.
+        expect(named('spell')).toBe('magic');
+    });
+
+    it('answers nothing for a word no skill has', () => {
+        expect(resolveSkill('dialogue')).toBeUndefined();
+        expect(resolveSkill('')).toBeUndefined();
+    });
+});
+
 describe('readSkillFile', () => {
     const example = () => findSkill('skyrim-modding-basics')!;
 
@@ -101,6 +130,13 @@ describe('readSkill', () => {
         expect((await run({ skill: 'skyrim-modding-basics' })).content).toMatch(/FormID/);
         expect((await run({ skill: 'skyrim-modding-basics', file: 'REFERENCE.md' })).file)
             .toBe('REFERENCE.md');
+    });
+
+    it('reads the skill a loose name or a skill sent as a collection means, under its real name', async () => {
+        const npc = await run({ skill: 'npc' });
+        expect(npc.skill.name).toBe('npcs');
+        expect(npc.content).toMatch(/^---/);
+        expect((await run({ collection: 'items' })).skill.name).toBe('items-and-crafting');
     });
 
     it('turns a bad request into an argument error, not a fault', async () => {

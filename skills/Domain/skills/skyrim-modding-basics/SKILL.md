@@ -36,8 +36,12 @@ does not.
 
 ## The workflow
 
-Every authoring task runs this loop; each record-family skill adds what its records need.
+Every authoring task runs this loop.
 
+0. **Read the skill of the records you will write**, with `readSkill`: `items-and-crafting` for weapons,
+   armor, other items, their enchantments and recipes; `magic` for spells, magic effects and
+   enchantments; `npcs`; `leveled-lists`. Each holds the vanilla records and values its records are
+   written with. Done when you have read every family the task touches.
 1. **Look up.** `findRecords` by name — `text`, narrowed with `types` such as `["WEAP"]` — or by
    FormID and editor ID with `records`. Done when you hold the FormID of every record you will change
    or point at.
@@ -48,8 +52,8 @@ Every authoring task runs this loop; each record-family skill adds what its reco
      the project's plugin folder, in the type's group folder — mirroring a vanilla record of the same
      type read with `readRecord`: the same field names and nesting, other values. Leave out `FormKey`.
    - One of the project's own records: its file is already there.
-3. **Edit** with your file tools — only the fields the task names; the rest stays as copied. Look up
-   every FormID before you write it. Scripts and files such as meshes have folders of their own
+3. **Edit** with your file tools — only the fields the task names; the rest stays as copied. Take every
+   link — FormID or editor ID — from a record you read or a `findRecords` answer. Scripts and files such as meshes have folders of their own
    ([`REFERENCE.md`](REFERENCE.md), *What a project looks like*).
 4. **Build.** `buildProject`. New records get their FormIDs here, answered in `assignedFormIds`. A
    link to a record — a new one of the project, or a vanilla one — may be written as its editor ID

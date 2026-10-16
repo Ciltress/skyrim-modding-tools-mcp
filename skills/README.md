@@ -23,7 +23,13 @@ one, at any depth; every directory containing a `SKILL.md` is one skill, and eve
 | `leveled-lists` | Leveled items, NPCs and spells: how a pick works, the conflict problem | `REFERENCE.md` |
 
 Each `SKILL.md` stays short and points at its `REFERENCE.md`, where the record family's fields,
-gotchas, real project text and typical bugs live. The tool workflow every task follows is in
+gotchas, real project text and typical bugs live. The `SKILL.md` of items, magic and NPCs holds one
+complete new record of the family, linked by editor IDs, as it builds, and those of items and magic
+tables of the vanilla values their records are written with — damage spells by element and casting,
+weapon kinds, weapon enchantments; models read `SKILL.md` and seldom its `REFERENCE.md`. Change an
+example or a table row only after building it, as written, against a test instance. Keep the examples
+unlike the authoring tasks of `scripts/eval-ollama.mjs` — another element, another kind — so the eval
+measures a model working its record out of the tables rather than copying one. The tool workflow every task follows is in
 `skyrim-modding-basics`; each record family's `SKILL.md` adds what its records need, naming the real
 tools.
 

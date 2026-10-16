@@ -179,6 +179,39 @@ export function findSkill(name: string, collection?: string): Skill | undefined 
         s.name.toLowerCase() === wanted && (!inCollection || s.collection === inCollection));
 }
 
+/** A text's words, each without a plural `s`, so `NPCs` and `npc` compare equal. */
+const wordsOf = (text: string) =>
+    text.toLowerCase().split(/[^a-z0-9]+/).filter(word => word.length >= 3).map(word => word.replace(/s$/, ''));
+
+/**
+ * The skill a request means, also when it names it loosely — small models asked for `npc`, `weapon`,
+ * and sent `items` as a collection (eval probes after round 11). An exact name wins; then the one skill
+ * whose name holds every word asked for (`npc`, `items`); then the skill whose description holds them
+ * all and names one earliest, since a description leads with what its skill covers (`weapon`).
+ * Undefined when nothing matches, or two skills match equally well.
+ */
+export function resolveSkill(name: string, collection?: string): Skill | undefined {
+    const exact = findSkill(name, collection);
+    if (exact) return exact;
+
+    const wanted = wordsOf(String(name ?? ''));
+    if (!wanted.length) return undefined;
+    const inCollection = collection ? String(collection).trim().toLowerCase() : undefined;
+    const candidates = discoverSkills().filter(s => !inCollection || s.collection === inCollection);
+
+    const byName = candidates.filter(s => wanted.every(word => wordsOf(s.name).includes(word)));
+    if (byName.length === 1) return byName[0];
+
+    const ranked = candidates
+        .map(skill => {
+            const words = wordsOf(skill.description);
+            return { skill, at: wanted.every(word => words.includes(word)) ? Math.min(...wanted.map(word => words.indexOf(word))) : -1 };
+        })
+        .filter(c => c.at >= 0)
+        .sort((a, b) => a.at - b.at);
+    return ranked.length && (ranked.length === 1 || ranked[0].at < ranked[1].at) ? ranked[0].skill : undefined;
+}
+
 export function skillByUri(uri: string): Skill | undefined {
     if (!String(uri ?? '').startsWith(SKILL_URI_PREFIX)) return undefined;
     const [collection, ...rest] = String(uri).slice(SKILL_URI_PREFIX.length).split('/');

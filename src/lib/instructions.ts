@@ -21,7 +21,9 @@ export function serverInstructions(target: string): string {
         'and installs downloaded mods — with a Nexus Mods API key, it also finds them on Nexus Mods. ' +
         'Records are changed by editing the project\'s YAML files with your ordinary file tools.',
         `It is bound to ${target} and cannot be switched to another at runtime.`,
-        'Before modding, read the skill skyrim-modding-basics (readSkill).',
+        'Before modding, read the skill skyrim-modding-basics, then the skill of the records you will write: ' +
+        'items-and-crafting (weapons, armor, other items, their enchantments and recipes), magic (spells, magic ' +
+        'effects, enchantments), npcs, leveled-lists (readSkill).',
         'If you know the job but not the tool, call readServerGuide with {"guide":"router"}; with no ' +
         'arguments it lists every guide and its sections. healthcheck reports what this server is bound ' +
         'to, the active tool profile, and anything withheld.',

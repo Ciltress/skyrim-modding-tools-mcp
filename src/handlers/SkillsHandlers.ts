@@ -4,11 +4,12 @@ import type { ToolSpec } from './BaseHandler.js';
 import {
     SkillFileError,
     discoverSkills,
-    findSkill,
     readSkillFile,
+    resolveSkill,
     skillCollections,
     skillUri
 } from '../lib/skills.js';
+import type { Skill } from '../lib/skills.js';
 
 /**
  * Serves the bundled agent skills.
@@ -103,7 +104,7 @@ export class SkillsHandlers extends BaseHandler {
         try {
             // 3. One skill.
             if (skillName) {
-                const skill = findSkill(skillName, collection);
+                const skill = resolveSkill(skillName, collection);
                 if (!skill) {
                     throw new McpError(
                         ErrorCode.InvalidParams,
@@ -111,25 +112,16 @@ export class SkillsHandlers extends BaseHandler {
                         `Call readSkill with no arguments for the list.`
                     );
                 }
-                return {
-                    skill: {
-                        name: skill.name,
-                        collection: skill.collection,
-                        category: skill.category || undefined,
-                        description: skill.description,
-                        uri: skillUri(skill),
-                        path: skill.dir,
-                        files: skill.files
-                    },
-                    file: file ?? 'SKILL.md',
-                    content: readSkillFile(skill, file)
-                };
+                return this.oneSkill(skill, file);
             }
 
             // 2. One collection, with descriptions.
             if (collection) {
                 const inCollection = all.filter(s => s.collection === collection);
                 if (!inCollection.length) {
+                    // A skill's name sent as the collection (`items`): read that skill.
+                    const meant = resolveSkill(collection);
+                    if (meant) return this.oneSkill(meant, file);
                     throw new McpError(
                         ErrorCode.InvalidParams,
                         `There is no collection '${collection}'. Available: ` +
@@ -164,5 +156,22 @@ export class SkillsHandlers extends BaseHandler {
             }
             throw error;
         }
+    }
+
+    /** One skill's SKILL.md, or one of its files, under the skill's real name. */
+    private oneSkill(skill: Skill, file?: string): Record<string, any> {
+        return {
+            skill: {
+                name: skill.name,
+                collection: skill.collection,
+                category: skill.category || undefined,
+                description: skill.description,
+                uri: skillUri(skill),
+                path: skill.dir,
+                files: skill.files
+            },
+            file: file ?? 'SKILL.md',
+            content: readSkillFile(skill, file)
+        };
     }
 }
