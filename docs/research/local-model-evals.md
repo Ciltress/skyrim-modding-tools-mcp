@@ -85,129 +85,14 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-15 | gemma4:e4b | `all` | 4c87050 + round 11's changes | 15/24 | 2.01 s | ~6,838 tokens/s | ~169 tokens/s | 100% |
 | 2026-10-16 | gemma4:e4b | `all` | b058774 + round 12's changes, 8 tasks + 3 with the skill read | 33/33 | 1.77 s | ~6,937 tokens/s | ~175 tokens/s | 100% |
 | 2026-10-16 | gemma4:26b | `all` | b058774 + round 12's changes, 8 tasks + 3 with the skill read | 32/33 | 9.54 s | ~805 tokens/s | ~43 tokens/s | 77% |
+| 2026-10-16 | gemma4:e4b | `all` | 9272165 + round 13's changes, 8 tasks + 3 with the skill read | 31/33 | 1.75 s | ~7,062 tokens/s | ~169 tokens/s | 100% |
+| 2026-10-16 | gemma4:26b | `all` | 9272165 + round 13's changes, 8 tasks + 3 with the skill read | 33/33 | 4.66 s | ~1,012 tokens/s | ~44 tokens/s | 77% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
 
 Only the latest two rounds keep their details below. The earlier ones — what changed before each and
 what its transcripts showed — are in this file's history: `git log -p -- docs/research/local-model-evals.md`.
-
-## Round 11 — links by editor ID, copied FormKeys, files below a group (2026-10-15)
-
-**Changed before it:** round 10's five points, and two faults found while checking them against five
-Creation Club plugins serialized to project text.
-
-- With records in the plugin folder, record files elsewhere in the project no longer stop the build:
-  it succeeds and names them in `warnings`. Without records it still refuses, naming them.
-- **A link may name its record by editor ID** — bare (`BaseEffect: StormBoltDamage`), with a plugin
-  (`ObjectEffect: FlameBladeEnch:FlameBlade.esp`), in a field or a list (`Keywords: - WeapTypeSword`).
-  The helper finds the link fields through Mutagen's record classes, looks the editor ID up among the
-  project's records first, then the load order's, checks that the record is of a type the field
-  takes, writes its FormID into the file and answers it in `resolvedLinks`. One it cannot resolve is
-  refused with the closest editor IDs of the field's type (`Race: Nord` → NordRace, DLC1NordRace…).
-  The skills no longer describe a second build for new records that point at each other.
-- A record file whose FormKey names another plugin's record is refused when the load order has no such
-  record, or when its editor ID differs from that record's ("to make a new record, leave FormKey
-  out"). `checkRecords` waits for the load order's index for this.
-- A file below a group's own folder (`Spells/Spells/…`) is refused, naming where it goes; only cells,
-  worldspaces and dialogue nest. A build whose plugin holds no record is refused and leaves no plugin.
-- A reader error with a line number quotes that line, and says what the reader expected there.
-- Found on the way: the build numbered and renamed Spriggit's `GroupRecordData.yaml` (the head of a
-  block of cells or a worldspace's folder) as if it were a new record, which broke every project with
-  a cell in it; and the dangling-link check refused links to Skyrim.esm's numbers below `000800`,
-  which the engine keeps for itself (`000014`, the player's reference, which every Creation Club plugin
-  points at). Both fixed; all five plugins now build from their text, 5,991 records, no file changed.
-
-gemma4:26b, `all` (prompt ~996 tokens/s, generation ~40 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 5722 | 17.3 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 6731 | 7.8 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 5909 | 7 |
-| patch | 3/3 | 4.3 | 3.3 | 0 | 0 | 7536 | 14 |
-| build | 3/3 | 5.3 | 4.3 | 0 | 0 | 7776 | 16.9 |
-| sword | 2/3 | 15.3 | 14.7 | 2 | 2 | 17172 | 132.3 |
-| spell | 3/3 | 13 | 12 | 1 | 1 | 15714 | 86.9 |
-| npc | 2/3 | 8 | 7 | 1 | 0 | 12859 | 86.2 |
-
-(26b's find includes loading the model.)
-
-gemma4:e4b, `all` (prompt ~6,838 tokens/s, generation ~169 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 5948 | 2.8 |
-| read | 3/3 | 3.3 | 2.3 | 1 | 0 | 7128 | 4.1 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 4621 | 2.8 |
-| patch | 3/3 | 4.3 | 3.3 | 0 | 1 | 8187 | 7.9 |
-| build | 3/3 | 5.3 | 4.3 | 1 | 0 | 8363 | 8.3 |
-| sword | 0/3 | 12.3 | 11.3 | 11 | 2 | 12309 | 26.3 |
-| spell | 0/3 | 11.3 | 12 | 9 | 0 | 12807 | 23.4 |
-| npc | 0/3 | 13 | 12 | 14 | 0 | 18017 | 33.7 |
-
-**Seen.**
-
-- The five earlier tasks passed 30 of 30. Authoring: 26b 7 of 9 (round 10: 6), e4b 0 of 9 (round
-  10: 1). One of 26b's misses is the scorer's: its NPC #2 is a female Nord named Hilda that built, but
-  written in YAML's flow style (`Name: { TargetLanguage: English, Value: Hilda }`, `Flags: [Female,
-  …]`), which the build reads and the task's checks did not. Counted right, 26b made 8 of 9.
-- **26b's swords pass for the first time** (0 of 3 in round 10). It wrote a link by editor ID in all
-  six sword and spell runs — `ObjectEffect: EnchFlameBlade`, `BaseEffect: StormBoltEffect` — and five
-  of them passed in one build, with no second build for the link.
-- **A refusal after the FormIDs are assigned is a trap.** The links were checked in the build, after
-  the server had numbered the new records and renamed their files. e4b's NPC wrote `Race: Nord` into
-  `Hilda.yaml`, was offered NordRace, and wrote `Race: NordRace` into `Hilda.yaml` again — but the
-  refused record was now `000800_HildaTheNord.esp.yaml`, still with `Nord`, and the new `Hilda.yaml`
-  was a second record. It went round until the turns ran out. e4b's sword did the same after a reader
-  error, and 26b's sword #1 looked for its renamed files (`ENOENT`) before finding them.
-- 26b's sword #1 wrote its effect, enchantment and sword without an `EditorID` line and linked them
-  by the names it had in mind; refused, it added the `EditorID` lines — above the `FormKey:` the build
-  had written, and the reader takes the first line for the FormKey ("Malformed FormKey string").
-- 26b's spell #2 wrote `FormKey: 000000:StormBolt.esp` into both new records; the reader's "Two
-  records with the same FormKey" named no file. It removed both lines and built.
-- e4b still writes from memory and rarely reads a vanilla record first (3 `readRecord` calls in 9
-  runs, 26b 22). Of its 33 builds, 24 were refused for fields its record type does not have (`Weight`
-  at the top, `Gender`, `School`, `Enchantments`); it fixed some and invented others, round after
-  round. The quoted reader line (`Line 2 is Name: Flame Blade: its field takes fields of its own`)
-  sent it back to an earlier version of the file. Its sword #2 wrote the record relative to the
-  working folder, then copied the Akaviri Katana with addPatch and reported the override as a new
-  sword.
-- Record files now land in the plugin folder: 53 of 55 writes (17 of 18 for 26b, 36 of 37 for e4b).
-
-**Changed after it** (measured next round — and from round 12 on, a round starts with e4b alone):
-
-1. A file keeps the name its author knows until a build succeeds. `checkRecords` checks the links too
-   (only the build writes them), and the files of new records are renamed after the plugin is
-   written — a reader error or a broken link no longer leaves a file under a new name.
-2. Named with their files: a `FormKey` line below another line, the same FormKey in two files, and
-   `000000`.
-3. A link that names a record of the project written without an `EditorID` line names that file.
-4. A text written as one value (`Name: Hilda`) is refused before the reader, with the two lines to
-   write instead; a FormID in load-order form (`00013746`) is answered with its six digits and plugin;
-   YAML that does not parse is refused with the line it breaks on.
-5. A field a record type does not have names a vanilla record of that type to read first —
-   `readRecord {"record": "HousecarlWhiterun"}` for an NPC, IronSword for a weapon.
-6. Below the top level too, the build names a field the type does not have (`BasicStats` has no
-   `Speed`), a field of several kinds without its `MutagenObjectType:` (an NPC's `Level`, which made
-   the reader fail with "Object reference not set to an instance of an object"), and a list where
-   fields belong or the reverse. No false positive on the five Creation Club plugins.
-7. The scorer reads YAML's flow style.
-8. A FormKey copied from a record of another plugin, under a new editor ID, is refused with only the
-   way to a new record — remove the line (below: the second way it offered was the one taken).
-
-**What it points at next** — e4b; round 12 starts with it alone, and its probes since showed:
-
-- It still invents fields where it guesses a name — `Enchantment` for a weapon's `ObjectEffect`,
-  `Effect` for `Effects`, `Magnitude` on a magic effect (it belongs to the spell's effect) — even
-  after reading the vanilla record the refusal names. A singular/plural hint and a few synonyms would
-  catch most.
-- It copies a vanilla record with addPatch and renames it into its "new" one. Refused for the changed
-  editor ID, it took the refusal's second clause ("to change TrapDartWeapon01, keep its editor ID"),
-  restored the old one, and built an override of a vanilla weapon as its Flame Blade. The refusal
-  now offers only the way to a new record (8, above).
-- A record built without the field the task names (a spell with no `Name`) passes every check; only
-  the task's scorer sees it.
 
 ## Round 12 — refusals that say what to write, and skills with the vanilla values (2026-10-16)
 
@@ -309,3 +194,78 @@ against ~996 tokens/s — so part of the slower turns is the machine's.)
 - e4b's NPC levels: the refusals go back and forth between the levels of `Configuration` and `Level`;
   one refusal giving the whole block (`Level:` with its kind, `CalcMinLevel` beside it) would end it.
 - Whether a weapon with a `Template` should pass the sword check.
+
+## Round 13 — the family skill named in newProject's answer, an NPC's level whole, templates (2026-10-16)
+
+**Changed before it:** round 12's three points.
+
+- `newProject` answers `readFirst`: the skill of each record family, and what it covers — the list the
+  server's instructions name too, kept in one place (`FAMILY_SKILLS`).
+- A field of an NPC's level written in the wrong place — at the top, inside `Level`, or a `Level`
+  without its kind — is answered with the whole level once per file, in the flow style the build
+  reads: `Level: {MutagenObjectType: PcLevelMult, LevelMult: 1}` with `CalcMinLevel` and
+  `CalcMaxLevel` beside it, or `NpcLevel` for a fixed level. Both forms were built and read back.
+- **Templates, decided by the official plugins**: 3,258 of their 3,823 weapons have a `Template`, and
+  every one carries the template's `Data`, keywords, `Model` and `EquipmentType` itself; every
+  templated armor (2,679) its `Armature`, keywords and `BodyTemplate`; every weapon has `Data`. The
+  Creation Kit copies them in. So round 12's templated sword is no sword, the check stays as it is, and
+  the build refuses a project's weapon without `Data`, or a templated weapon or armor without the
+  template's lines, naming them and the template to read. It is checked with the links, so it never
+  hides the refusal a file was written for.
+
+gemma4:e4b, `all` (prompt ~7,062 tokens/s, generation ~169 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 6195 | 8.4 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 7353 | 3.6 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 4748 | 2.7 |
+| patch | 3/3 | 4.7 | 3.7 | 0 | 0 | 9378 | 7.3 |
+| build | 3/3 | 5.3 | 4.3 | 1 | 0 | 8646 | 8.1 |
+| sword | 3/3 | 6 | 5 | 0 | 0 | 10329 | 12.9 |
+| sword+skill | 3/3 | 5 | 4 | 0 | 0 | 9841 | 10.2 |
+| spell | 3/3 | 5 | 4 | 0 | 0 | 9246 | 9.7 |
+| spell+skill | 2/3 | 6 | 5 | 2 | 0 | 10267 | 10.7 |
+| npc | 3/3 | 12.3 | 11.3 | 6 | 0 | 14991 | 20.6 |
+| npc+skill | 2/3 | 9.7 | 8.7 | 9 | 0 | 13272 | 20.3 |
+
+gemma4:26b, `all` (prompt ~1,012 tokens/s, generation ~44 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 5847 | 16.8 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 6945 | 7.3 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 6027 | 7.7 |
+| patch | 3/3 | 4.3 | 3.3 | 0 | 0 | 7810 | 14.6 |
+| build | 3/3 | 5.3 | 4.3 | 0 | 0 | 7974 | 14.6 |
+| sword | 3/3 | 13 | 12 | 3 | 0 | 18761 | 82.8 |
+| sword+skill | 3/3 | 6 | 5 | 0 | 0 | 11552 | 45.2 |
+| spell | 3/3 | 6.3 | 5.3 | 0 | 0 | 10648 | 33.1 |
+| spell+skill | 3/3 | 6.3 | 5.3 | 0 | 0 | 10526 | 31.2 |
+| npc | 3/3 | 10.7 | 9.7 | 2 | 0 | 12783 | 49 |
+| npc+skill | 3/3 | 11.7 | 10.7 | 3 | 0 | 15325 | 40.7 |
+
+(26b's find includes loading the model. Its turns took half the time of round 12's — 4.66 s against
+9.54 — at round 11's prompt speed again, so round 12's slowness was the machine's.)
+
+**Seen.**
+
+- **26b passed 33 of 33**, and read the family skill in all nine authoring runs where it chose (round
+  12: six of nine) — the skill `newProject`'s answer names. e4b passed the eight tasks 24 of 24 again,
+  read the skill in all nine, and made its swords and spells in one build each.
+- **The level whole ends the back and forth for 26b**: five refusals carried it, and each next build
+  succeeded. e4b's NPC #2 took it and went on to its next mistake (a voice type it made up).
+- e4b missed two runs with the skill already read. Its spell #2 also wrote a spell tome, as the skill's
+  example does, with an `InventoryArt` it made up (`HighPolyBook`); offered the closest five, it
+  answered after one refusal. Its NPC #2 wrote the NPC in two shapes by turns — every field under
+  `Configuration` (refused with eight "move it up, to the top level", one per field), then every field
+  at the top (refused: `Flags` and the level go under `Configuration`) — five builds of the same two
+  files.
+- No model wrote a weapon from a template this round; the new check went unused.
+
+**What it points at next:**
+
+- The eight "move it up" lines for one part: one line naming them all, and what the part does hold
+  (`Configuration`: its flags, level and offsets), would show e4b where the boundary is.
+- The skill's spell tome is copied into spells nobody asked a tome for; its `InventoryArt` could be
+  named in the example's prose as the one for its school.
