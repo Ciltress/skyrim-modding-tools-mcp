@@ -93,17 +93,31 @@ public sealed class RecordIndex
     public static string Signature(IMajorRecordGetter record) =>
         Signatures.TryGetValue(TypeName(record), out var signature) ? signature : "";
 
+    /// <summary>The Creation Kit's names for record types Mutagen names otherwise, each with Mutagen's.</summary>
+    private static readonly Dictionary<string, string> EditorNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Enchantment"] = "ObjectEffect",
+    };
+
     /// <summary>Whether a filter names a record type: a signature like WEAP, or a type name like Weapon.</summary>
     public static bool IsRecordType(string name) =>
         Signatures.Keys.Any(k => k.Equals(name, StringComparison.OrdinalIgnoreCase))
         || Signatures.Values.Any(s => s.Equals(name, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>The real record types closest to a misspelled one, e.g. WEAP (Weapon) for WEPN.</summary>
+    /// <summary>
+    /// The real record types closest to a misspelled one, e.g. WEAP (Weapon) for WEPN; first those whose name
+    /// begins with it — OBJECT for ObjectEffect (eval probe 8 after round 11) — and the Creation Kit's names;
+    /// and those beginning with its first four letters — OBJEF for ObjectEffect, which three calls in a row
+    /// sent without a suggestion (eval probe 11).
+    /// </summary>
     public static IEnumerable<string> Closest(string name) => Signatures
+        .Where(pair => RecordClasses.Contains(pair.Key)) // not OBND (ObjectBounds), a part of records
         .SelectMany(pair => new[] { (Text: pair.Value, Shown: $"{pair.Value} ({pair.Key})"), (Text: pair.Key, Shown: $"{pair.Value} ({pair.Key})") })
-        .Select(c => (c.Shown, Distance: Distance(c.Text.ToUpperInvariant(), name.ToUpperInvariant()),
+        .Concat(EditorNames.Where(e => Signatures.ContainsKey(e.Value)).Select(e => (Text: e.Key, Shown: $"{Signatures[e.Value]} ({e.Value})")))
+        .Select(c => (c.Shown, Distance: name.Length >= 3 && c.Text.StartsWith(name, StringComparison.OrdinalIgnoreCase)
+                ? 0 : Distance(c.Text.ToUpperInvariant(), name.ToUpperInvariant()),
             Prefix: c.Text.Zip(name).TakeWhile(p => char.ToUpperInvariant(p.First) == char.ToUpperInvariant(p.Second)).Count()))
-        .Where(c => c.Distance <= Math.Max(2, name.Length / 3))
+        .Where(c => c.Distance <= Math.Max(2, name.Length / 3) || c.Prefix >= 4)
         .OrderBy(c => c.Distance)
         .ThenByDescending(c => c.Prefix)
         .Select(c => c.Shown)
@@ -135,4 +149,9 @@ public sealed class RecordIndex
         .Where(x => x.Value is RecordType)
         .GroupBy(x => x.Name)
         .ToDictionary(g => g.Key, g => ((RecordType)g.First().Value!).Type, StringComparer.Ordinal);
+
+    /// <summary>The names in <see cref="Signatures"/> that are records' classes, not parts of records.</summary>
+    private static readonly HashSet<string> RecordClasses = typeof(ISkyrimModGetter).Assembly.GetTypes()
+        .Where(t => t.IsClass && typeof(IMajorRecordGetter).IsAssignableFrom(t) && Signatures.ContainsKey(t.Name))
+        .Select(t => t.Name).ToHashSet(StringComparer.Ordinal);
 }

@@ -162,12 +162,17 @@ public sealed class Session : IDisposable
                     || e.EditorId?.Contains(text, StringComparison.OrdinalIgnoreCase) == true
                     || e.Name?.Contains(text, StringComparison.OrdinalIgnoreCase) == true)
                 // Exact matches first, then the in-game names people speak in — "steel" finds the Steel
-                // Sword before 1stPersonSteelSword, a static only the editor ID mentions.
+                // Sword before 1stPersonSteelSword, a static only the editor ID mentions — and the named records
+                // whose editor IDs begin with the text, which name the thing itself: "shock" finds
+                // ShockDamageFFAimed, Lightning Bolt's effect, before EnchShockDamageFFContact, a weapon's, which
+                // three of three spells copied (eval probe 9 after round 11); SteelBootsAA, nameless, stays back.
                 .OrderBy(e => string.Equals(e.EditorId, text, StringComparison.OrdinalIgnoreCase) ? 0
                     : string.Equals(e.Name, text, StringComparison.OrdinalIgnoreCase) ? 1
-                    : e.Name?.Contains(text, StringComparison.OrdinalIgnoreCase) == true ? 2 : 3)
-                // Among equals, the editor ID spelling the text out: SteelSword before the quest's
-                // FFRiften16HarraldSword, both named "Steel Sword".
+                    : e.Name?.Contains(text, StringComparison.OrdinalIgnoreCase) == true
+                        || e.Name is { Length: > 0 } && e.EditorId?.StartsWith(text.Replace(" ", ""), StringComparison.OrdinalIgnoreCase) == true ? 2 : 3)
+                // Among equals, the editor ID beginning with the text, then the one spelling it out: SteelSword
+                // before the quest's FFRiften16HarraldSword, both named "Steel Sword".
+                .ThenBy(e => e.EditorId?.StartsWith(text.Replace(" ", ""), StringComparison.OrdinalIgnoreCase) == true ? 0 : 1)
                 .ThenBy(e => e.EditorId?.Contains(text.Replace(" ", ""), StringComparison.OrdinalIgnoreCase) == true ? 0 : 1)
                 .ThenBy(e => e.EditorId, StringComparer.OrdinalIgnoreCase);
         }
@@ -355,9 +360,13 @@ public sealed class Session : IDisposable
     /// </summary>
     private JsonNode CheckRecords(string dir)
     {
-        var records = RecordFiles.Require(dir, Index);
+        var (records, leftOut) = RecordFiles.Require(dir, Index);
         RecordLinks.Resolve(dir, Index, write: false);
-        return new JsonObject { ["records"] = records };
+        return new JsonObject
+        {
+            ["records"] = records,
+            ["leftOut"] = new JsonArray(leftOut.Select(l => (JsonNode)new JsonObject { ["file"] = l.File, ["copy"] = l.Copy }).ToArray())
+        };
     }
 
     private async Task<JsonNode> Build(JsonObject p)
@@ -408,6 +417,12 @@ public sealed class Session : IDisposable
             throw new HelperException("danglingLinks",
                 $"{dangling.Count} link(s) point at records that exist neither in the project nor in the load order: " +
                 string.Join("; ", dangling.Distinct().Take(20)) + (dangling.Count > 20 ? "; …" : ""));
+
+        // A new spell's effects cast as it is, or the spell does nothing in game (EffectCasting).
+        var miscast = EffectCasting.Mismatches(mod, lookup, Index, dir);
+        if (miscast.Count > 0)
+            throw new HelperException("badRecord",
+                $"{miscast.Count} effect(s) would do nothing in game: {string.Join("; ", miscast.Take(12))}" + (miscast.Count > 12 ? "; …" : ""));
 
         Directory.CreateDirectory(Path.GetDirectoryName(output)!);
         try
@@ -497,9 +512,10 @@ public sealed class Session : IDisposable
     private FormKey Resolve(string raw)
     {
         if (raw.Contains(':')) return ParseFormKey(raw);
-        return Index.ByEditorId.TryGetValue(raw.Trim(), out var key)
-            ? key
-            : throw new HelperException("notFound", $"No record with editor ID '{raw}' in the load order. Search with findRecords.");
+        if (Index.ByEditorId.TryGetValue(raw.Trim(), out var key)) return key;
+        var near = RecordLinks.Closest(raw.Trim(), Index);
+        throw new HelperException("notFound", $"No record with editor ID '{raw}' in the load order" +
+            (near.Count > 0 ? $" — the records closest to it: {string.Join(", ", near)}" : "") + ". Search with findRecords.");
     }
 
     private static FormKey ParseFormKey(string raw) =>

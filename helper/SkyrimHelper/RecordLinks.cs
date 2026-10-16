@@ -79,6 +79,8 @@ public static class RecordLinks
                 var wanted = Kind(takes);
                 if (FormKey.TryFactory(raw, out var linked))
                 {
+                    // None and Null are the reader's no record: DefaultOutfit: None was refused as missing (eval probe 8).
+                    if (linked.IsNull) return;
                     // A FormID written from memory names another record, or none: Race: 011F7B:Skyrim.esm
                     // (eval round 11's probes). The project's own are numbered by the build, and checked after it.
                     if (linked.ModKey != ownPlugin && Mismatch(linked, takes, index) is { } mismatch)
@@ -153,11 +155,14 @@ public static class RecordLinks
     /// link value, and <paramref name="problem"/> on what the reader would refuse or skip below the top
     /// level, which RecordFiles checks: a field the type does not have, a field of several kinds that
     /// does not name its kind, a text written as one value, a list where fields belong and the reverse,
-    /// a value a field of names, numbers or truths does not take.
+    /// a value a field of names, numbers or truths does not take. <paramref name="parent"/> is the type of the
+    /// mapping this one is a field of, where a field written a level too deep belongs; <paramref name="record"/>
+    /// the record's, where one written in the wrong part does.
     /// </summary>
     private static void Walk(YamlMappingNode mapping, Type type, string path, Action<YamlScalarNode, Type, string> link,
-        Action<string> problem)
+        Action<string> problem, Type? parent = null, Type? record = null)
     {
+        record ??= type;
         // A field of several kinds names its kind, as a group of several does.
         var named = mapping.Children.TryGetValue(new YamlScalarNode("MutagenObjectType"), out var kindNode)
             && kindNode is YamlScalarNode { Value: { Length: > 0 } kindName } ? kindName : null;
@@ -179,7 +184,19 @@ public static class RecordLinks
             if (property is null)
             {
                 // The top level is RecordFiles' to name; below it, the reader skips the field without a word.
-                if (path.Length > 0 && !type.IsInterface) problem($"{path} has no field {key}{RecordFiles.HintFor(type, key)}");
+                // A field of the level above, written below one of its fields: Configuration.Level.CalcMinLevel,
+                // which a model moved to the top level next, a build later (eval probe 8 after round 11).
+                if (path.Length > 0 && !type.IsInterface)
+                {
+                    var above = path.LastIndexOf('.') is var dot and >= 0 ? path[..dot] : "";
+                    // A field of another part goes there: a weapon's Speed, written under BasicStats, is Data's.
+                    // Only one the record has nowhere is deleted; "has no field" alone reads as one missing (eval probe 9).
+                    problem($"{path} has no field {key}" + (parent?.GetProperties(BindingFlags.Public | BindingFlags.Instance).Any(p => p.Name == key) == true
+                        ? $" (move it up, {(above.Length == 0 ? "to the top level" : $"under {above}")})"
+                        : RecordFiles.HintFor(type, key) is { Length: > 0 } hint ? hint
+                        : record != type && RecordFiles.WhereIn(record, key) is { } at ? $" (move it: {RecordFiles.Article(record.Name)}'s {key} is {at})"
+                        : " (delete it)"));
+                }
                 continue;
             }
             var propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
@@ -213,7 +230,7 @@ public static class RecordLinks
                     }
                     else if (item is YamlMappingNode inner)
                     {
-                        Walk(inner, element, at, link, problem);
+                        Walk(inner, element, at, link, problem, record: record);
                     }
                 }
             }
@@ -230,7 +247,7 @@ public static class RecordLinks
             }
             else if (propertyType != typeof(string) && !typeof(System.Collections.IEnumerable).IsAssignableFrom(propertyType))
             {
-                if (value is YamlMappingNode nested) Walk(nested, propertyType, field, link, problem);
+                if (value is YamlMappingNode nested) Walk(nested, propertyType, field, link, problem, type, record);
                 else if (value is YamlSequenceNode) problem($"{field} takes fields of its own, indented below it — not a list");
             }
         }
@@ -292,7 +309,7 @@ public static class RecordLinks
         .Select(t => t.Name).Order(StringComparer.Ordinal).Take(8).ToList();
 
     /// <summary>The record type a link field takes — IMagicEffectGetter for an effect's BaseEffect — or null for a field that is no link.</summary>
-    private static Type? LinkTarget(Type type) =>
+    internal static Type? LinkTarget(Type type) =>
         typeof(IFormLinkGetter).IsAssignableFrom(type)
             ? type.GetInterfaces().Append(type)
                 .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IFormLinkGetter<>))?.GetGenericArguments()[0]
@@ -305,7 +322,7 @@ public static class RecordLinks
                 .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>))?.GetGenericArguments()[0];
 
     /// <summary>A record type as people say it: IMagicEffectGetter → MagicEffect.</summary>
-    private static string Kind(Type type)
+    internal static string Kind(Type type)
     {
         var name = type.Name;
         if (type.IsInterface && name.StartsWith('I')) name = name[1..];
@@ -345,13 +362,59 @@ public static class RecordLinks
             .ToList();
     }
 
-    /// <summary>Lower is closer: one editor ID inside the other, else a few letters apart; int.MaxValue for neither.</summary>
+    /// <summary>
+    /// Up to five records of any type an editor ID the load order lacks may have meant, the closest first,
+    /// each with its type and FormID. Told only "search with findRecords", a model that guessed
+    /// FireDamageEnchantment01 searched for any enchantment and read a Creation Club axe's, though
+    /// EnchWeaponFireDamage01 shares three of its words (eval probe 9 after round 11).
+    /// </summary>
+    public static List<string> Closest(string editorId, RecordIndex index) => index.ByFormKey.Values
+        .Where(e => e.EditorId is not null)
+        .Select(e => (Entry: e, Score: Closeness(editorId, e.EditorId!)))
+        .Where(c => c.Score < int.MaxValue)
+        .OrderBy(c => c.Score).ThenBy(c => c.Entry.EditorId!.Length).ThenBy(c => c.Entry.EditorId, StringComparer.Ordinal)
+        .Take(5)
+        .Select(c => $"{c.Entry.EditorId} ({c.Entry.Type}, {Session.FormKeyText(c.Entry.FormKey)})")
+        .ToList();
+
+    /// <summary>
+    /// Lower is closer: one editor ID inside the other, at least half its length — not the quest T01 in
+    /// FireDamageEnchantment01; else a few letters apart; else sharing two or more
+    /// of its words — one of four letters or more, for a name of two words or fewer — most first, and
+    /// among as many the ones beginning as it does, which names the kind
+    /// (WPNz… for a weapon's impact set) — WeapTypeOneHanded has none a few letters away, but the WeapType
+    /// keywords share two of its words (eval probe 6 after round 11). int.MaxValue for none of these.
+    /// </summary>
     private static int Closeness(string written, string candidate)
     {
-        if (candidate.Contains(written, StringComparison.OrdinalIgnoreCase) || written.Contains(candidate, StringComparison.OrdinalIgnoreCase))
+        if (2 * Math.Min(candidate.Length, written.Length) >= Math.Max(candidate.Length, written.Length)
+            && (candidate.Contains(written, StringComparison.OrdinalIgnoreCase) || written.Contains(candidate, StringComparison.OrdinalIgnoreCase)))
             return Math.Abs(candidate.Length - written.Length);
-        if (Math.Abs(candidate.Length - written.Length) > 2) return int.MaxValue;
-        var distance = RecordIndex.Distance(candidate.ToUpperInvariant(), written.ToUpperInvariant());
-        return distance <= 2 ? 100 + distance : int.MaxValue;
+        if (Math.Abs(candidate.Length - written.Length) <= 2
+            && RecordIndex.Distance(candidate.ToUpperInvariant(), written.ToUpperInvariant()) is var distance and <= 2)
+            return 100 + distance;
+        // A name of one or two words shares one: Warrior1F the WARRIOR1 of CombatWarrior1H (eval probe 7).
+        var mine = WordsOf(written);
+        var shared = SharedWords(mine, WordsOf(candidate));
+        if (shared.Count < 2 && !(mine.Count <= 2 && shared.Any(word => word.Length >= 4))) return int.MaxValue;
+        var prefix = written.Zip(candidate).TakeWhile(p => char.ToUpperInvariant(p.First) == char.ToUpperInvariant(p.Second)).Count();
+        return 1000 - 2 * shared.Count - (prefix >= 3 ? 1 : 0);
     }
+
+    /// <summary>
+    /// The words of one editor ID another has too, or a word one begins the other with, of four letters or
+    /// more: ENCH for ENCHANTMENT, DAMAGE for DAMAGE01 — the way Bethesda shortens and numbers its words.
+    /// </summary>
+    internal static List<string> SharedWords(HashSet<string> mine, HashSet<string> theirs) => mine
+        .Where(word => theirs.Contains(word) || theirs.Any(other => Math.Min(word.Length, other.Length) >= 4
+            && (word.StartsWith(other, StringComparison.Ordinal) || other.StartsWith(word, StringComparison.Ordinal))))
+        .ToList();
+
+    /// <summary>
+    /// An editor ID's words, upper-cased: WeapTypeOneHanded -> WEAP, TYPE, ONE, HANDED; a run of capitals
+    /// ends before a capitalised word, so WPNZFireImpactSet -> WPNZ, FIRE, IMPACT, SET.
+    /// </summary>
+    internal static HashSet<string> WordsOf(string editorId) =>
+        Regex.Split(editorId, @"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|_").Where(w => w.Length > 0)
+            .Select(w => w.ToUpperInvariant()).ToHashSet();
 }

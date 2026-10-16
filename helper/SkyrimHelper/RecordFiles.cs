@@ -123,6 +123,8 @@ public static class RecordFiles
         (["Spell", "ObjectEffect", "Scroll", "Ingestible", "Ingredient"], ["Damage", "DamageAmount", "Strength"], null,
             "damage is Magnitude, under Data, in each item of Effects"),
         (["EffectData"], ["Damage", "DamageAmount", "Strength"], "Magnitude", "damage is Magnitude"),
+        // An item of Effects names its magic effect as BaseEffect; told "has no field Effect", a model kept it (eval probe 10).
+        (["Effect"], ["Effect", "MagicEffect", "EffectID", "MGEF", "Base", "Spell"], "BaseEffect", "it is BaseEffect, naming the MagicEffect"),
         (["Spell", "ObjectEffect", "Scroll"], ["Delivery"], "TargetType", "it is TargetType: Self, Touch, Aimed, TargetActor or TargetLocation"),
         (["Spell"], ["Cost", "MagickaCost"], "BaseCost", "it is BaseCost"),
         (["Spell"], ["School", "MagicSkill", "Skill"], null, "a spell's school is the MagicSkill of the magic effects its Effects name"),
@@ -148,7 +150,9 @@ public static class RecordFiles
         if (known.FirstOrDefault(k => k.Equals(key + "s", StringComparison.OrdinalIgnoreCase) || k.Equals(key + "es", StringComparison.OrdinalIgnoreCase)
                 || key.EndsWith('s') && k.Equals(key[..^1], StringComparison.OrdinalIgnoreCase)) is { } number)
             return Rename(number, $"it is spelled {number}");
-        return Under(type, key) is { } path ? $"it goes {path}" : null;
+        // "Move", not "it goes": told Value and Weight go under BasicStats, a model added BasicStats and kept
+        // them at the top level, build after build (eval probe 7 after round 11).
+        return Under(type, key) is { } path ? $"move it {path}" : null;
     }
 
     /// <summary>The kinds a part of several kinds can be: the concrete classes Mutagen makes for Skyrim.</summary>
@@ -194,6 +198,10 @@ public static class RecordFiles
         return null;
     }
 
+    /// <summary>Where a record type has a field: "at the top level", "under Data", or null for nowhere.</summary>
+    public static string? WhereIn(Type record, string key) =>
+        record.GetProperties(BindingFlags.Public | BindingFlags.Instance).Any(p => p.Name == key) ? "at the top level" : Under(record, key);
+
     /// <summary>
     /// What a field a type does not have is likely meant to be, as words to append to its name — " (it
     /// is spelled Name)" — or nothing.
@@ -203,40 +211,78 @@ public static class RecordFiles
 
     /// <summary>
     /// The unknown fields of a record file, named for a message: those with one hint together — "Damage,
-    /// Weight (they go under BasicStats)" — and those without any last, set apart, so that "Type, Level
-    /// (it goes under Configuration)" does not send Type along (eval round 11's probes).
+    /// Weight (move them under BasicStats)" — and those without any last, set apart, so that "Type, Level
+    /// (move it under Configuration)" does not send Type along (eval round 11's probes). Those the type has
+    /// nowhere are to be deleted, and said so first: "has no field Description" alone was read as one
+    /// missing, and a model wrote it back build after build (eval probe 9 after round 11).
     /// </summary>
     private static string Unknown(Type type, HashSet<string> known, IEnumerable<string> keys, string text)
     {
         var hinted = keys.Select(key => (Key: key, Hint: Hint(type, known, key, ValueOf(text, key)))).ToList();
         var named = hinted.Where(f => f.Hint is not null).GroupBy(f => f.Hint!).Select(group => group.Count() == 1
             ? $"{group.First().Key} ({group.Key})"
-            : $"{string.Join(", ", group.Select(f => f.Key))} ({Regex.Replace(group.Key, @"^it (goes|is)\b", m => m.Groups[1].Value == "goes" ? "they go" : "they are")})");
+            : $"{string.Join(", ", group.Select(f => f.Key))} ({Regex.Replace(group.Key, @"^(move it|it is)\b", m => m.Groups[1].Value == "move it" ? "move them" : "they are")})");
         var bare = hinted.Where(f => f.Hint is null).Select(f => f.Key).ToList();
-        return string.Join(", ", named.Append(bare.Count == 0 ? "" : $"{string.Join(", ", bare)} ({Article(type.Name)} has {(bare.Count == 1 ? "it" : "them")} nowhere)")
+        var them = bare.Count == 1 ? "it" : "them";
+        return string.Join(", ", named.Append(bare.Count == 0 ? "" : $"{string.Join(", ", bare)} (delete {them}: {Article(type.Name)} has {them} nowhere)")
             .Where(s => s.Length > 0));
     }
 
-    /// <summary>The value written on a top-level field's own line — the FlameBladeEnch of <c>Enchantment: FlameBladeEnch</c> — or null.</summary>
-    private static string? ValueOf(string text, string key) =>
-        Regex.Match(text, $@"^{Regex.Escape(key)}:[ \t]*([^\s#|>{{\[][^#\r\n]*?)[ \t]*\r?$", RegexOptions.Multiline) is { Success: true } m
-            ? m.Groups[1].Value : null;
+    /// <summary>
+    /// The value written on a top-level field's own line — the FlameBladeEnch of <c>Enchantment: FlameBladeEnch</c> —
+    /// or the EditorID written in its block, where it names a record as one (<c>Enchantment:</c> above
+    /// <c>EditorID: FireEnchantment</c>, eval probe 7 after round 11); else null.
+    /// </summary>
+    private static string? ValueOf(string text, string key)
+    {
+        if (Regex.Match(text, $@"^{Regex.Escape(key)}:[ \t]*([^\s#|>{{\[][^#\r\n]*?)[ \t]*\r?$", RegexOptions.Multiline) is { Success: true } m)
+            return m.Groups[1].Value;
+        return Regex.Match(text, $@"^{Regex.Escape(key)}:[ \t]*\r?\n(?:[ \t]+.*\r?\n)*?[ \t]+EditorID:[ \t]*(\w+)[ \t]*\r?$", RegexOptions.Multiline)
+            is { Success: true } block ? block.Groups[1].Value : null;
+    }
+
+    /// <summary>A top-level field with no value on its line, and a field indented below it.</summary>
+    private static readonly Regex BlockFields = new(@"^([A-Za-z_]\w*):[ \t]*(?:#.*)?\r?\n[ \t]+[A-Za-z_]\w*[ \t]*:", RegexOptions.Multiline);
+
+    /// <summary>
+    /// What a field of one value written with fields below it takes instead. The reader fails on the first
+    /// of them with "Expected 'MappingEnd', got 'Scalar'", which sent a model through five builds with an
+    /// enchantment written inside the weapon, under ObjectEffect (eval probe 10 after round 11).
+    /// </summary>
+    private static string Blocked(Type type, string key, string text)
+    {
+        var property = type.GetProperties(BindingFlags.Public | BindingFlags.Instance).First(p => p.Name == key);
+        var named = ValueOf(text, key);
+        var example = named is null ? "" : $": `{key}: {named}`";
+        if (RecordLinks.LinkTarget(Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType) is not { } target)
+            return $"{key} is written with fields below it — it takes one value on its own line{example}";
+        var kind = RecordLinks.Kind(target);
+        var folder = Groups.FirstOrDefault(g => g.Value?.Name == kind).Key;
+        return $"{key} is written with fields below it — it takes one value on its own line, the editor ID or FormID of " +
+            $"{Article(kind)}{example}" + (folder is null ? "" : $"; a new {kind} is a file of its own in {folder}/, named here by its EditorID");
+    }
 
     /// <summary>The kind of a group's records a file names — GlobalFloat for a Global — or null; the same for any polymorphic field.</summary>
     public static Type? KindOf(Type group, string name) =>
         group.Assembly.GetTypes().FirstOrDefault(t => t.Name == name && !t.IsInterface && group.IsAssignableFrom(t));
 
     /// <summary>
-    /// How many record files the plugin folder holds, and what is wrong with any of them. With the load
-    /// order's index, a FormKey of another plugin is checked against the record it names.
+    /// How many record files the plugin folder holds, what is wrong with any of them, and the files left
+    /// out: in a folder that is no group, whose record a group's folder holds too — by file name or editor
+    /// ID. The reader skips such a folder; refused, the file trapped a model whose file tools could not
+    /// delete it, after it had written the record again in the right folder (eval probe 10 after round 11).
+    /// With the load order's index, a FormKey of another plugin is checked against the record it names.
     /// </summary>
-    public static (int Records, List<string> Problems) Check(string pluginDir, RecordIndex? index = null)
+    public static (int Records, List<string> Problems, List<(string File, string Copy)> LeftOut) Check(string pluginDir, RecordIndex? index = null)
     {
         var problems = new List<string>();
+        var leftOut = new List<(string File, string Copy)>();
         var records = 0;
-        if (!Directory.Exists(pluginDir)) return (0, problems);
+        if (!Directory.Exists(pluginDir)) return (0, problems, leftOut);
         var own = OwnPlugin(pluginDir);
         var formKeys = new Dictionary<FormKey, List<string>>();
+        var grouped = new Lazy<List<(string Relative, string Name, string? EditorId)>>(() => FlatRecords(pluginDir)
+            .Select(f => (f.Relative, Path.GetFileName(f.File), Identity(File.ReadAllText(f.File)).EditorId)).ToList());
         foreach (var file in Directory.EnumerateFiles(pluginDir, "*.*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
         {
             var relative = Path.GetRelativePath(pluginDir, file).Replace('\\', '/');
@@ -257,6 +303,14 @@ public static class RecordFiles
             }
             if (!Groups.TryGetValue(parts[0], out var type))
             {
+                var editorId = parts.Length == 2 ? Identity(File.ReadAllText(file)).EditorId : null;
+                if (parts.Length == 2 && grouped.Value.FirstOrDefault(g => g.Name.Equals(parts[1], StringComparison.OrdinalIgnoreCase)
+                        || editorId is not null && editorId.Equals(g.EditorId, StringComparison.OrdinalIgnoreCase)) is { Relative: { } copy })
+                {
+                    leftOut.Add((relative, copy));
+                    records--;
+                    continue;
+                }
                 var spelled = Groups.Keys.FirstOrDefault(g => g.Equals(parts[0], StringComparison.OrdinalIgnoreCase));
                 problems.Add(spelled is not null
                     ? $"{relative}: the folder is spelled {spelled}, not {parts[0]}"
@@ -295,6 +349,8 @@ public static class RecordFiles
             // A group of several kinds — Globals: GlobalFloat, GlobalShort… — names the kind in the file.
             var kind = KindIn(type, text);
             var known = FieldsOf(kind ?? type);
+            foreach (var key in BlockFields.Matches(text).Select(m => m.Groups[1].Value).Where(known.Contains).Distinct())
+                if (OneValue(kind ?? type, key)) problems.Add($"{relative}: {Blocked(kind ?? type, key, text)}");
             var unknown = TopLevelKey.Matches(text).Select(m => m.Groups[1].Value).Where(key => !known.Contains(key)).Distinct().ToList();
             if (unknown.Count == 0) continue;
             var read = index is not null && ExampleOf(kind ?? type, index) is { } example
@@ -306,7 +362,7 @@ public static class RecordFiles
         foreach (var (formKey, holders) in formKeys.Where(pair => pair.Value.Count > 1))
             problems.Add($"{string.Join(" and ", holders)} have the same FormKey {Session.FormKeyText(formKey)} — one file per record; " +
                 "a new record has no FormKey line, the build assigns one");
-        return (records, problems);
+        return (records, problems, leftOut);
     }
 
     /// <summary>
@@ -329,10 +385,10 @@ public static class RecordFiles
         return null;
     }
 
-    /// <summary>Throws what is wrong with the files, as the request's fault; answers how many there are.</summary>
-    public static int Require(string pluginDir, RecordIndex? index = null)
+    /// <summary>Throws what is wrong with the files, as the request's fault; answers how many there are, and those left out.</summary>
+    public static (int Records, List<(string File, string Copy)> LeftOut) Require(string pluginDir, RecordIndex? index = null)
     {
-        var (records, problems) = Check(pluginDir, index);
+        var (records, problems, leftOut) = Check(pluginDir, index);
         if (problems.Count > 0)
         {
             throw new HelperException("badRecord",
@@ -341,7 +397,7 @@ public static class RecordFiles
                 ". Write each record the way readRecord shows a record of its type — the same field names, nesting and " +
                 "folder — changing only the values.");
         }
-        return records;
+        return (records, leftOut);
     }
 
     /// <summary>
@@ -378,6 +434,9 @@ public static class RecordFiles
             ": its field takes a list, one `- ` item per line below it",
         { Success: true } m when m.Groups[1].Value == "Scalar" =>
             ": its field takes one value on its own line, not fields or a list below it",
+        // Below a field of one value, or indented deeper than the fields beside it (eval probe 10 after round 11).
+        { Success: true } m when m.Groups[1].Value == "MappingEnd" =>
+            ": it is indented below a field that takes one value on its own line, or deeper than the fields beside it",
         _ => ""
     };
 }
