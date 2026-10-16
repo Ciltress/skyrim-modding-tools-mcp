@@ -35,15 +35,13 @@ Athis's FormIDs, and class, package and outfits each found with `findRecords`. T
 FormIDs. The file has no `FormKey` line: the build gives the new record its own.
 
 ```yaml
-# plugin/Npcs/DalvosVeran.yaml
+# <project>/plugin/Npcs/DalvosVeran.yaml
 EditorID: DalvosVeran
 Configuration:
   Flags:
   - AutoCalcStats
   - Unique
-  Level:
-    MutagenObjectType: PcLevelMult
-    LevelMult: 1
+  Level: {MutagenObjectType: PcLevelMult, LevelMult: 1}
   CalcMinLevel: 5
   CalcMaxLevel: 25
   SpeedMultiplier: 100
@@ -71,3 +69,68 @@ SleepingOutfit: DefaultSleepOutfit
   game — the *Appearance* step above.
 - He is a base record: he stands in the world once a reference places him, from the Creation Kit, or
   with `player.placeatme` in the console for a quick test.
+
+## A new NPC's lines
+
+`Configuration` holds the flags and the level — `Flags`, `Level`, `CalcMinLevel`, `CalcMaxLevel`,
+`SpeedMultiplier` — and every other line of the example stays at the top level: `Name`, `Voice`,
+`Race`, `Class`, `AIData`, `Packages`, the outfits. The values below are Skyrim.esm's records, in every
+load order: write them as they are, with no search.
+
+**A woman has `Female` among `Configuration.Flags`**, beside the woman's voice — the voice alone leaves
+her a man in game:
+
+```yaml
+Configuration:
+  Flags:
+  - Female
+  - AutoCalcStats
+```
+
+| Race | `Race` | `Voice`, a man | `Voice`, a woman (with `Female`) |
+|---|---|---|---|
+| Nord | `NordRace` | `MaleNord` | `FemaleNord` |
+| Imperial | `ImperialRace` | `MaleEvenToned` | `FemaleEvenToned` |
+| Breton | `BretonRace` | `MaleEvenToned` | `FemaleEvenToned` |
+| Redguard | `RedguardRace` | `MaleEvenToned` | `FemaleEvenToned` |
+| High Elf | `HighElfRace` | `MaleElfHaughty` | `FemaleElfHaughty` |
+| Dark Elf | `DarkElfRace` | `MaleDarkElf` | `FemaleDarkElf` |
+| Wood Elf | `WoodElfRace` | `MaleElfHaughty` | `FemaleElfHaughty` |
+| Orc | `OrcRace` | `MaleOrc` | `FemaleOrc` |
+| Khajiit | `KhajiitRace` | `MaleKhajiit` | `FemaleKhajiit` |
+| Argonian | `ArgonianRace` | `MaleArgonian` | `FemaleArgonian` |
+
+The voice is the one vanilla NPCs of the race use most where the race has its own, else the race's
+default.
+
+| A … | `Class` |
+|---|---|
+| one-handed warrior | `CombatWarrior1H` |
+| two-handed warrior | `CombatWarrior2H` |
+| archer | `CombatRanger` |
+| thief | `CombatThief` |
+| destruction mage | `CombatMageDestruction` |
+| conjurer | `CombatMageConjurer` |
+| townsperson | `Citizen` |
+| farmer | `Farmer` |
+
+| Dressed in | `DefaultOutfit` |
+|---|---|
+| farm clothes | `FarmClothesOutfit01` |
+| fine clothes | `FineClothesOutfit01` |
+| mage robes | `ClothesMageRobesOutfitNoHood` |
+| hide armor | `ArmorHideAllOutfit` |
+| leather armor | `ArmorLeatherAllOutfit` |
+| iron armor | `ArmorIronAllOutfit` |
+| steel armor | `ArmorSteelAllOutfit` |
+
+A follower carries the factions the game's followers carry — as `HousecarlWhiterun` (Lydia) does:
+
+```yaml
+Factions:
+- Faction: CurrentFollowerFaction
+  Rank: -1
+- Faction: PotentialFollowerFaction
+```
+
+A spouse-to-be adds `PotentialMarriageFaction` at rank -1 the same way.
