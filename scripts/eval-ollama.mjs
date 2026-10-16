@@ -503,6 +503,7 @@ async function runTask(task, run) {
             outputTokens: reply.eval_count ?? 0,
             seconds: (reply.total_duration ?? 0) / 1e9,
             thinkingChars: message.thinking?.length ?? 0,
+            thinking: message.thinking ?? '',
             calls: message.tool_calls?.length ?? 0,
             doneReason: reply.done_reason
         });
