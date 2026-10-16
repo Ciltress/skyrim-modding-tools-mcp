@@ -199,7 +199,7 @@ export function assignFormIds(pluginDir: string, plugin: string, light: boolean,
     { formId: string; editorId: string | null; file: string }[] {
     const used: number[] = [];
     const fresh: { file: string; text: string }[] = [];
-    const ownKey = new RegExp(`^FormKey:\\s*([0-9A-Fa-f]{6}):${escapeRegExp(plugin)}\\s*$`, 'im');
+    const ownKey = new RegExp(`^FormKey:[ \\t]*([0-9A-Fa-f]{6}):${escapeRegExp(plugin)}[ \\t]*(?:#.*)?$`, 'im');
 
     for (const file of recordFiles(pluginDir).filter(file => !skip.has(file))) {
         const text = fs.readFileSync(file, 'utf8');
@@ -254,7 +254,7 @@ export function keepRecordTexts(pluginDir: string): () => void {
  */
 export function nameRecordFiles(pluginDir: string, plugin: string, skip: ReadonlySet<string> = new Set()):
     { from: string; to: string; formId: string; editorId: string | null }[] {
-    const ownKey = new RegExp(`^FormKey:\\s*([0-9A-Fa-f]{6}):${escapeRegExp(plugin)}\\s*$`, 'im');
+    const ownKey = new RegExp(`^FormKey:[ \\t]*([0-9A-Fa-f]{6}):${escapeRegExp(plugin)}[ \\t]*(?:#.*)?$`, 'im');
     const renamed: { from: string; to: string; formId: string; editorId: string | null }[] = [];
     for (const file of recordFiles(pluginDir).filter(file => !skip.has(file))) {
         if (/^(Group)?RecordData\.yaml$/.test(path.basename(file))) continue;
@@ -270,7 +270,8 @@ export function nameRecordFiles(pluginDir: string, plugin: string, skip: Readonl
     return renamed;
 }
 
-const editorIdOf = (text: string) => /^EditorID:\s*(.+?)\s*$/m.exec(text)?.[1] ?? null;
+// A comment after either line is no part of it: `FormKey: 000123:Skyrim.esm # Placeholder` went unread (eval round 14).
+const editorIdOf = (text: string) => /^EditorID:[ \t]*([^\s#]+)/m.exec(text)?.[1] ?? null;
 const relativeTo = (dir: string, file: string) => path.relative(dir, file).replace(/\\/g, '/');
 
 function safeFileName(name: string): string {

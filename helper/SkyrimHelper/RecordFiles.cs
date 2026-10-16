@@ -69,10 +69,11 @@ public static class RecordFiles
     private static readonly ConcurrentDictionary<Type, HashSet<string>> Fields = new();
 
     private static readonly Regex TopLevelKey = new(@"^([A-Za-z_]\w*)[ \t]*:", RegexOptions.Multiline);
-    private static readonly Regex FormKeyLine = new(@"^FormKey:[ \t]*(\S*)[ \t]*\r?$", RegexOptions.Multiline);
+    // A comment after the value is no part of it: `FormKey: 000123:Skyrim.esm # Placeholder` passed for a new record (round 14).
+    private static readonly Regex FormKeyLine = new(@"^FormKey:[ \t]*([^\s#]*)[ \t]*(?:#.*?)?\r?$", RegexOptions.Multiline);
 
     private static readonly Regex ObjectTypeLine = new(@"^MutagenObjectType:[ \t]*(\w+)", RegexOptions.Multiline);
-    private static readonly Regex EditorIdLine = new(@"^EditorID:[ \t]*(\S+?)[ \t]*\r?$", RegexOptions.Multiline);
+    private static readonly Regex EditorIdLine = new(@"^EditorID:[ \t]*([^\s#]+)[ \t]*(?:#.*?)?\r?$", RegexOptions.Multiline);
     private static readonly Regex ModKeyLine = new(@"^ModKey:[ \t]*(\S+?)[ \t]*\r?$", RegexOptions.Multiline);
 
     /// <summary>The file's FormKey and editor ID, as its top-level lines give them.</summary>

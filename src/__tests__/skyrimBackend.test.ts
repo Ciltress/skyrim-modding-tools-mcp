@@ -268,6 +268,20 @@ describe('project files', () => {
         }
     });
 
+    it('reads FormKey and EditorID lines that carry a comment', () => {
+        // `FormKey: 000123:Skyrim.esm # Placeholder` went unread as one: the record passed for a new one, the
+        // link to it stayed unresolved, and the reader refused the editor ID five builds long (eval round 14).
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-ids-'));
+        roots.push(dir);
+        write(path.join(dir, 'Weapons', 'old.yaml'), 'FormKey: 000805:MyMod.esp  # FlameBlade\nEditorID: FlameBlade # the sword\n');
+        write(path.join(dir, 'ObjectEffects', 'new.yaml'), 'EditorID: FlameBladeBurn  # its enchantment\n');
+
+        expect(assignFormIds(dir, 'MyMod.esp', true)).toEqual([
+            { formId: '000806:MyMod.esp', editorId: 'FlameBladeBurn', file: 'ObjectEffects/new.yaml' }]);
+        expect(nameRecordFiles(dir, 'MyMod.esp').map(renamed => renamed.to).sort()).toEqual([
+            'ObjectEffects/FlameBladeBurn - 000806_MyMod.esp.yaml', 'Weapons/FlameBlade - 000805_MyMod.esp.yaml']);
+    });
+
     it('stops a light plugin at its last FormID and says how to grow it', () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-ids-'));
         roots.push(dir);
