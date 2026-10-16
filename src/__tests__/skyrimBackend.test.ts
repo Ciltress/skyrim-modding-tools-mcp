@@ -549,6 +549,28 @@ describe('the Skyrim backend', () => {
         expect((await backend.buildProject('FlameBlade')).warnings).toBeUndefined();
     });
 
+    it('builds past a record file in a folder that is no group, once its group\'s folder has it — numbering nothing in it', async () => {
+        // Written to Enchantments/, then again to ObjectEffects/: refused for the first, which the model's file
+        // tools could not delete, every build after failed (eval probe 10 after round 11).
+        const { backend, fixture, helperAnswers } = makeBackend();
+        await newProjectWithRecord(backend, fixture.projects, 'FlameBlade');
+        const plugin = path.join(fixture.projects, 'FlameBlade', 'plugin');
+        const leftover = path.join(plugin, 'Enchantments', 'FireDamageEnchantment.yaml');
+        write(leftover, 'EditorID: FireDamageEnchantment\n');
+        write(path.join(plugin, 'ObjectEffects', 'FireDamageEnchantment.yaml'), 'EditorID: FireDamageEnchantment\n');
+        helperAnswers.checkRecords = () => ({
+            records: 2, leftOut: [{ file: 'Enchantments/FireDamageEnchantment.yaml', copy: 'ObjectEffects/FireDamageEnchantment.yaml' }]
+        });
+
+        const built = await backend.buildProject('FlameBlade');
+
+        expect(built.warnings).toEqual([expect.stringMatching(new RegExp(`not built.*${escape(leftover)}.*ObjectEffects`))]);
+        expect(fs.readFileSync(leftover, 'utf8')).toBe('EditorID: FireDamageEnchantment\n');
+        expect(fs.existsSync(leftover)).toBe(true);
+        expect(built.assignedFormIds.map(record => record.editorId)).not.toContain(null);
+        expect(built.assignedFormIds.filter(record => record.editorId === 'FireDamageEnchantment')).toHaveLength(1);
+    });
+
     it('refuses a build that read no record from the files, and leaves no plugin to deploy', async () => {
         // A file below its group's folder got a FormID but was not read: the build succeeded empty (round 10).
         const { backend, fixture, helperAnswers } = makeBackend();
@@ -584,6 +606,24 @@ describe('the Skyrim backend', () => {
         expect(built.assignedFormIds).toEqual([{ formId: '000800:HildaTheNord.esp', editorId: 'Hilda', file: named }]);
         expect(fs.readdirSync(path.dirname(hilda))).toEqual([path.basename(named)]);
         await expect(backend.deployProject('HildaTheNord')).resolves.toMatchObject({ plugin: 'HildaTheNord.esp' });
+    });
+
+    it('gives back the links written by editor ID when the build that resolved them fails', async () => {
+        // Refused after the helper had written its FormID into the sword, a model wrote the enchantment
+        // anew, without the FormKey line it had been given: a new number, and the sword's link pointed at
+        // a record that no longer existed (eval probe 8 after round 11).
+        const { backend, fixture, helperAnswers } = makeBackend();
+        await backend.newProject({ project: 'FlameBlade' });
+        const sword = path.join(fixture.projects, 'FlameBlade', 'plugin', 'Weapons', 'FlameBladeSword.yaml');
+        write(sword, 'EditorID: FlameBladeSword\nObjectEffect: FlameBladeEnch\n');
+        write(path.join(path.dirname(sword), '..', 'ObjectEffects', 'FlameBladeEnch.yaml'), 'EditorID: FlameBladeEnch\n');
+        helperAnswers.build = () => {
+            fs.writeFileSync(sword, fs.readFileSync(sword, 'utf8').replace('FlameBladeEnch', '000800:FlameBlade.esp'));
+            throw new HelperError('badRecord', '1 effect(s) would do nothing in game');
+        };
+
+        await expect(backend.buildProject('FlameBlade')).rejects.toThrow(/would do nothing in game/);
+        expect(fs.readFileSync(sword, 'utf8')).toBe('FormKey: 000801:FlameBlade.esp\nEditorID: FlameBladeSword\nObjectEffect: FlameBladeEnch\n');
     });
 
     it('says which links written by editor ID the build replaced with a FormID, in which file', async () => {

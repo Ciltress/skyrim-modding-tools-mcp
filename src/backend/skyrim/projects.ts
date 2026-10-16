@@ -160,15 +160,16 @@ export function recordFiles(pluginDir: string): string[] {
  * Gives every new record a FormID — a record file without a top-level `FormKey:` line, as an agent
  * writes one — written at the top of its file, which keeps its name until the build succeeds
  * (nameRecordFiles). Once assigned, a FormID never moves: other plugins and saves will point at it.
- * Deterministic: files are numbered in path order after the highest number in use.
+ * Deterministic: files are numbered in path order after the highest number in use. The files in `skip`,
+ * which the build leaves out, keep their text.
  */
-export function assignFormIds(pluginDir: string, plugin: string, light: boolean):
+export function assignFormIds(pluginDir: string, plugin: string, light: boolean, skip: ReadonlySet<string> = new Set()):
     { formId: string; editorId: string | null; file: string }[] {
     const used: number[] = [];
     const fresh: { file: string; text: string }[] = [];
     const ownKey = new RegExp(`^FormKey:\\s*([0-9A-Fa-f]{6}):${escapeRegExp(plugin)}\\s*$`, 'im');
 
-    for (const file of recordFiles(pluginDir)) {
+    for (const file of recordFiles(pluginDir).filter(file => !skip.has(file))) {
         const text = fs.readFileSync(file, 'utf8');
         if (/^FormKey:/m.test(text)) {
             const own = ownKey.exec(text);
@@ -199,16 +200,31 @@ export function assignFormIds(pluginDir: string, plugin: string, light: boolean)
 }
 
 /**
+ * Keeps the record files' text as it stands, and answers a function that writes back each file changed
+ * since. A build the helper refuses gives back the links it had written as FormIDs: a model that then
+ * wrote the record they named anew, without its FormKey line, left a link to a number no record had
+ * (eval probe 8 after round 11). FormIDs given by assignFormIds before stay.
+ */
+export function keepRecordTexts(pluginDir: string): () => void {
+    const texts = new Map(recordFiles(pluginDir).map(file => [file, fs.readFileSync(file, 'utf8')]));
+    return () => {
+        for (const [file, text] of texts) {
+            if (fs.existsSync(file) && fs.readFileSync(file, 'utf8') !== text) fs.writeFileSync(file, text);
+        }
+    };
+}
+
+/**
  * Renames the files of the project's own records the way Spriggit names them — `<editor ID> -
  * <FormID>_<plugin>.yaml` — so that a pull finds them where it would write them. Called once a build
  * has succeeded: renamed by a build that then failed, a file went on being fixed under its old name,
  * which made a second record (eval round 11). Overrides and the files heading cells keep their names.
  */
-export function nameRecordFiles(pluginDir: string, plugin: string):
+export function nameRecordFiles(pluginDir: string, plugin: string, skip: ReadonlySet<string> = new Set()):
     { from: string; to: string; formId: string; editorId: string | null }[] {
     const ownKey = new RegExp(`^FormKey:\\s*([0-9A-Fa-f]{6}):${escapeRegExp(plugin)}\\s*$`, 'im');
     const renamed: { from: string; to: string; formId: string; editorId: string | null }[] = [];
-    for (const file of recordFiles(pluginDir)) {
+    for (const file of recordFiles(pluginDir).filter(file => !skip.has(file))) {
         if (/^(Group)?RecordData\.yaml$/.test(path.basename(file))) continue;
         const text = fs.readFileSync(file, 'utf8');
         const id = ownKey.exec(text)?.[1].toUpperCase();

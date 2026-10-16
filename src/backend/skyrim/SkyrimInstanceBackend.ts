@@ -13,7 +13,7 @@ import {
 import type { Instance } from './modManager.js';
 import { findCaseInsensitive } from './paths.js';
 import {
-    ProjectError, assignFormIds, createProject, fileHash, looseRecordFiles, nameRecordFiles, newestSourceTime, projectExists,
+    ProjectError, assignFormIds, createProject, fileHash, keepRecordTexts, looseRecordFiles, nameRecordFiles, newestSourceTime, projectExists,
     projectInfo, projectPaths, readDeployState, readProjectHeader, recordFiles, strayRecordFiles, syncFolder, syncYaml,
     whereRecordsGo, writeDeployState
 } from './projects.js';
@@ -277,15 +277,24 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         }
         // With records to build, files elsewhere are named but stop nothing: a refusal only deleting a
         // file could satisfy trapped a model whose file tools could not delete (eval round 10).
-        const warnings = strays.length > 0
-            ? [`${strays.length} record file(s) outside the plugin folder were not built — no build reads them: ${strays.join(', ')}. ` +
-                `A record meant for this mod goes into its group's folder in ${paths.plugin}; a copy of one already there can stay.`]
-            : undefined;
+        const warnings: string[] = [];
+        if (strays.length > 0) {
+            warnings.push(`${strays.length} record file(s) outside the plugin folder were not built — no build reads them: ${strays.join(', ')}. ` +
+                `A record meant for this mod goes into its group's folder in ${paths.plugin}; a copy of one already there can stay.`);
+        }
         // Fields a record type does not have, folders that are no group, copied FormKeys, links that name no
-        // record: named before any record is numbered.
-        await this.engine.helper.call('checkRecords', { projectPluginDir: paths.plugin });
+        // record: named before any record is numbered. A file in a folder that is no group, whose record its
+        // group's folder holds too, is left out, untouched — the same trap (eval probe 10 after round 11).
+        const checked = await this.engine.helper.call<{ records: number; leftOut?: { file: string; copy: string }[] }>(
+            'checkRecords', { projectPluginDir: paths.plugin });
+        const leftOut = (checked.leftOut ?? []).map(({ file, copy }) => ({ file: path.join(paths.plugin, file), copy: path.join(paths.plugin, copy) }));
+        if (leftOut.length > 0) {
+            warnings.push(`${leftOut.length} record file(s) in a folder that is no group were not built: ` +
+                `${leftOut.map(({ file, copy }) => `${file}, whose record ${copy} holds`).join('; ')}. The build reads only the group's folder.`);
+        }
+        const skip = new Set(leftOut.map(({ file }) => file));
 
-        const assignedFormIds = assignFormIds(paths.plugin, plugin, light);
+        const assignedFormIds = assignFormIds(paths.plugin, plugin, light, skip);
         // Every build starts from nothing, so a script deleted from the project leaves no .pex behind.
         // The plugin is written last: a build that fails on the way leaves no plugin, and deploy refuses.
         fs.rmSync(paths.build, { recursive: true, force: true });
@@ -302,26 +311,32 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         });
 
         const output = path.join(paths.build, plugin);
-        const built = await afterLocalWrites(this.engine.helper.call<{
-            records: number; masters: string[]; headerVersion: number; resolvedLinks: BuildResult['resolvedLinks'];
-        }>('build', {
-            projectPluginDir: paths.plugin,
-            outputPath: output,
-            headerVersion: this.engine.headerVersion
-        }, BUILD_TIMEOUT_MS));
-        // Whatever the files looked like, a plugin without records is never what was asked (eval round 10).
-        if (built.records === 0) {
-            fs.rmSync(output, { force: true });
-            throw new ProjectError(
-                `The build read no record from ${project}'s ${files} record file(s), and wrote no plugin. A record file sits ` +
-                `directly in its group's folder — ${path.join(paths.plugin, 'Weapons', 'MyWeapon.yaml')}, not in a folder ` +
-                `below it — and is written the way readRecord shows a record of its type.`);
+        // The helper writes links named by editor ID into the files as FormIDs; a build that fails takes them back.
+        const giveBack = keepRecordTexts(paths.plugin);
+        let built: { records: number; masters: string[]; headerVersion: number; resolvedLinks: BuildResult['resolvedLinks'] };
+        try {
+            built = await afterLocalWrites(this.engine.helper.call<typeof built>('build', {
+                projectPluginDir: paths.plugin,
+                outputPath: output,
+                headerVersion: this.engine.headerVersion
+            }, BUILD_TIMEOUT_MS));
+            // Whatever the files looked like, a plugin without records is never what was asked (eval round 10).
+            if (built.records === 0) {
+                fs.rmSync(output, { force: true });
+                throw new ProjectError(
+                    `The build read no record from ${project}'s ${files} record file(s), and wrote no plugin. A record file sits ` +
+                    `directly in its group's folder — ${path.join(paths.plugin, 'Weapons', 'MyWeapon.yaml')}, not in a folder ` +
+                    `below it — and is written the way readRecord shows a record of its type.`);
+            }
+        } catch (error) {
+            giveBack();
+            throw error;
         }
 
         // Only a build that succeeded renames its new records' files, so a refusal never leaves a file
         // under a name its author does not know. Renaming changes no record: the plugin stays newer
         // than its sources, and deploy takes it.
-        const renamed = nameRecordFiles(paths.plugin, plugin);
+        const renamed = nameRecordFiles(paths.plugin, plugin, skip);
         if (renamed.length > 0) {
             // Past the renamed folders' times, which carry more than the milliseconds a Date holds.
             const after = new Date(Math.ceil(Math.max(Date.now(), newestSourceTime(paths))) + 1);
@@ -341,7 +356,7 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             assignedFormIds: [...earlier, ...assignedFormIds].map(record => ({ ...record, file: finalPath(record.file) })),
             resolvedLinks: (built.resolvedLinks ?? []).map(link => ({ ...link, file: finalPath(link.file) })),
             scripts: { compiled },
-            ...(warnings ? { warnings } : {})
+            ...(warnings.length > 0 ? { warnings } : {})
         };
     }
 
