@@ -70,6 +70,9 @@ public static class RecordLinks
                 continue;
             }
             if (yaml.Documents.Count == 0 || yaml.Documents[0].RootNode is not YamlMappingNode root) continue;
+            // What every official weapon or armor of its kind carries itself, named with the links' problems.
+            if (RecordFiles.Identity(text).FormKey is not { } written || written.ModKey == ownPlugin)
+                if (RecordFiles.Uncarried(type, text, index) is { } uncarried) problems.Add($"{relative}: {uncarried}");
 
             var replacements = new List<Replacement>();
             void Link(YamlScalarNode value, Type takes, string field)
@@ -129,7 +132,17 @@ public static class RecordLinks
                 resolved.Add(new JsonObject { ["file"] = relative, ["field"] = field, ["from"] = raw, ["to"] = formKey });
             }
 
-            Walk(root, type, "", Link, problem => problems.Add($"{relative}: {problem}"));
+            // The NPC's level is given whole once per file, however many of its fields are misplaced.
+            var levelGiven = false;
+            Walk(root, type, "", Link, problem =>
+            {
+                if (problem.Contains(RecordFiles.NpcLevel))
+                {
+                    if (levelGiven) problem = problem.Replace(RecordFiles.NpcLevel, "the level's lines as above");
+                    levelGiven = true;
+                }
+                problems.Add($"{relative}: {problem}");
+            });
             if (replacements.Count == 0) continue;
             var rewritten = text;
             foreach (var r in replacements.OrderByDescending(r => r.Start))
@@ -171,7 +184,7 @@ public static class RecordLinks
         {
             // Left unnamed, the reader fails with "Object reference not set to an instance of an object" (eval round 11).
             problem($"{path} is a field of several kinds: give it a first line `MutagenObjectType:` naming one — {string.Join(", ", kinds)}" +
-                (named is null ? "" : $"; {named} is none of them"));
+                (named is null ? "" : $"; {named} is none of them") + (type.Name == "ANpcLevel" ? $"; {RecordFiles.NpcLevel}" : ""));
             return;
         }
         foreach (var (keyNode, value) in mapping.Children)
@@ -191,7 +204,9 @@ public static class RecordLinks
                     var above = path.LastIndexOf('.') is var dot and >= 0 ? path[..dot] : "";
                     // A field of another part goes there: a weapon's Speed, written under BasicStats, is Data's.
                     // Only one the record has nowhere is deleted; "has no field" alone reads as one missing (eval probe 9).
-                    problem($"{path} has no field {key}" + (parent?.GetProperties(BindingFlags.Public | BindingFlags.Instance).Any(p => p.Name == key) == true
+                    // An NPC's level whole, before "move it up": moved one field at a time, it went back and forth (round 12).
+                    problem($"{path} has no field {key}" + (RecordFiles.LevelHint(type, key) is { } level ? $" ({level})"
+                        : parent?.GetProperties(BindingFlags.Public | BindingFlags.Instance).Any(p => p.Name == key) == true
                         ? $" (move it up, {(above.Length == 0 ? "to the top level" : $"under {above}")})"
                         : RecordFiles.HintFor(type, key) is { Length: > 0 } hint ? hint
                         : record != type && RecordFiles.WhereIn(record, key) is { } at ? $" (move it: {RecordFiles.Article(record.Name)}'s {key} is {at})"

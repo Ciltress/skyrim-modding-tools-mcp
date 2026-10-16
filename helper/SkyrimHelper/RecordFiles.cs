@@ -129,8 +129,23 @@ public static class RecordFiles
         (["Spell"], ["Cost", "MagickaCost"], "BaseCost", "it is BaseCost"),
         (["Spell"], ["School", "MagicSkill", "Skill"], null, "a spell's school is the MagicSkill of the magic effects its Effects name"),
         (["Weapon"], ["Type", "WeaponType"], null, "a weapon's type is AnimationType, under Data — OneHandSword, TwoHandAxe, Bow…"),
-        (["Npc"], ["Gender", "Sex", "Female"], null, "a female NPC has Female among the Flags under Configuration")
+        (["Npc"], ["Gender", "Sex", "Female"], null, "a female NPC has Female among the Flags under Configuration"),
+        (["Npc", "NpcConfiguration", "PcLevelMult", "NpcLevel"], ["Level", "LevelMult", "CalcMinLevel", "CalcMaxLevel"], null, NpcLevel)
     ];
+
+    /// <summary>
+    /// An NPC's level, whole, in the flow style the build reads. Told to move one of its fields at a time,
+    /// a model moved CalcMinLevel into Level, Level to the top and LevelMult under Configuration, back and
+    /// forth — nine builds for one NPC (eval round 12).
+    /// </summary>
+    public const string NpcLevel = "an NPC's level is these lines under Configuration: `Level: {MutagenObjectType: PcLevelMult, " +
+        "LevelMult: 1}`, and beside it `CalcMinLevel: 1` and `CalcMaxLevel: 25`, the range it follows the player's level in — " +
+        "or `Level: {MutagenObjectType: NpcLevel, Level: 10}` for a fixed level";
+
+    /// <summary>The whole level, where a field of an NPC's level is written in the wrong place; else null.</summary>
+    public static string? LevelHint(Type type, string key) =>
+        type.Name is "Npc" or "NpcConfiguration" or "PcLevelMult" or "NpcLevel"
+        && key is "Level" or "LevelMult" or "CalcMinLevel" or "CalcMaxLevel" ? NpcLevel : null;
 
     /// <summary>
     /// What an unknown field is likely meant to be: a field spelled otherwise (<c>name</c> → Name,
@@ -235,10 +250,48 @@ public static class RecordFiles
     /// </summary>
     private static string? ValueOf(string text, string key)
     {
-        if (Regex.Match(text, $@"^{Regex.Escape(key)}:[ \t]*([^\s#|>{{\[][^#\r\n]*?)[ \t]*\r?$", RegexOptions.Multiline) is { Success: true } m)
+        // A comment after the value too: readRecord writes a link's editor ID beside its FormID (`012EB7:Skyrim.esm  # IronSword`).
+        if (Regex.Match(text, $@"^{Regex.Escape(key)}:[ \t]*([^\s#|>{{\[][^#\r\n]*?)[ \t]*(?:#.*?)?\r?$", RegexOptions.Multiline) is { Success: true } m)
             return m.Groups[1].Value;
         return Regex.Match(text, $@"^{Regex.Escape(key)}:[ \t]*\r?\n(?:[ \t]+.*\r?\n)*?[ \t]+EditorID:[ \t]*(\w+)[ \t]*\r?$", RegexOptions.Multiline)
             is { Success: true } block ? block.Groups[1].Value : null;
+    }
+
+    /// <summary>
+    /// What a weapon or armor of the project lacks that every official one carries itself: a weapon its
+    /// Data (3,823 of 3,823 in the 80 official plugins); one with a Template, or an armor with a
+    /// TemplateArmor, the template's own lines (3,258 of 3,258 weapons, 2,679 of 2,679 armors) — the
+    /// Creation Kit copies them in. 26b mirrored the enchanted EnchIronSwordFire01 by its Template, name,
+    /// enchantment and damage alone, and built a sword without an animation (eval round 12). Checked with
+    /// the links (RecordLinks), on a file that parses: first, it hid the refusal a file was written for.
+    /// </summary>
+    internal static string? Uncarried(Type type, string text, RecordIndex? index)
+    {
+        var (templateField, carried) = type.Name switch
+        {
+            "Weapon" => ("Template", new[] { "Data", "Keywords", "Model", "EquipmentType" }),
+            "Armor" => ("TemplateArmor", new[] { "Armature", "Keywords", "BodyTemplate" }),
+            _ => ((string?)null, Array.Empty<string>())
+        };
+        if (templateField is null) return null;
+        var keys = TopLevelKey.Matches(text).Select(m => m.Groups[1].Value).ToHashSet(StringComparer.Ordinal);
+        var missing = carried.Where(field => !keys.Contains(field)).ToList();
+        if (keys.Contains(templateField) && missing.Count > 0)
+        {
+            var written = ValueOf(text, templateField) ?? "its template";
+            var template = FormKey.TryFactory(written, out var key) && index?.ByFormKey.TryGetValue(key, out var entry) == true
+                && entry!.EditorId is { } id ? id : written;
+            var lines = missing.Count == 1 ? missing[0] : $"{string.Join(", ", missing.Take(missing.Count - 1))} and {missing[^1]}";
+            return $"{Article(type.Name)} with a {templateField} carries the template's lines itself, as every official one does — " +
+                $"copy {lines} from {template} (readRecord {{\"record\": \"{template}\"}})";
+        }
+        if (type.Name == "Weapon" && !keys.Contains("Data"))
+        {
+            var example = index is not null ? ExampleOf(type, index) ?? "IronSword" : "IronSword";
+            return $"a Weapon has its Data — AnimationType, Speed, Reach, Skill — as every official one does: copy it from {example} " +
+                $"(readRecord {{\"record\": \"{example}\"}}) and change what differs";
+        }
+        return null;
     }
 
     /// <summary>A top-level field with no value on its line, and a field indented below it.</summary>
