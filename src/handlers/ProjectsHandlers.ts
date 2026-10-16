@@ -2,6 +2,7 @@ import { BaseHandler } from './BaseHandler.js';
 import type { ToolSpec } from './BaseHandler.js';
 import { asRequestError, optionalBoolean, optionalString, optionalStringList, requireString } from './args.js';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { FAMILY_SKILLS } from '../lib/skills.js';
 
 /**
  * Projects: mods authored as text (docs/adr/0004). Records are changed by editing the project's YAML
@@ -35,7 +36,8 @@ export class ProjectsHandlers extends BaseHandler {
                     description:
                         'Create an empty project for a new mod. Add records by writing YAML files into its plugin ' +
                         'folder — one file per record, in its type\'s group folder there; the answer\'s ' +
-                        '`writeRecordsTo` gives the full path, so never write into the project folder itself. Write ' +
+                        '`writeRecordsTo` gives the full path, so never write into the project folder itself, and its ' +
+                        '`readFirst` the skill to read for each family of records. Write ' +
                         'each record the way readRecord shows a vanilla one of its type, and leave out FormKey: the ' +
                         'build assigns one. To change records other mods already have, use addPatch instead.',
                     inputSchema: {
@@ -52,11 +54,18 @@ export class ProjectsHandlers extends BaseHandler {
                     }
                 },
                 onFailure: 'Failed to create the project',
-                run: args => asRequestError(this.backend.newProject({
-                    project: requireString(args, 'project'),
-                    plugin: optionalString(args, 'plugin'),
-                    light: optionalBoolean(args, 'light')
-                }))
+                run: async args => ({
+                    ...await asRequestError(this.backend.newProject({
+                        project: requireString(args, 'project'),
+                        plugin: optionalString(args, 'plugin'),
+                        light: optionalBoolean(args, 'light')
+                    })),
+                    // At the moment records are about to be written: the instructions alone left 26b without
+                    // the family's skill in three of nine authoring runs (eval round 12).
+                    readFirst: `Before writing a record, read its family's skill with readSkill: ` +
+                        `${FAMILY_SKILLS.map(family => `"${family.skill}" for ${family.covers}`).join('; ')}. ` +
+                        'Each holds the vanilla values its records are written with.'
+                })
             },
             {
                 definition: {

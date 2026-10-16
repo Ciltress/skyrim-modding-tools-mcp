@@ -1,3 +1,5 @@
+import { FAMILY_SKILLS } from './skills.js';
+
 /**
  * The MCP `instructions` this server announces at `initialize`.
  *
@@ -22,8 +24,7 @@ export function serverInstructions(target: string): string {
         'Records are changed by editing the project\'s YAML files with your ordinary file tools.',
         `It is bound to ${target} and cannot be switched to another at runtime.`,
         'Before modding, read the skill skyrim-modding-basics, then the skill of the records you will write: ' +
-        'items-and-crafting (weapons, armor, other items, their enchantments and recipes), magic (spells, magic ' +
-        'effects, enchantments), npcs, leveled-lists (readSkill).',
+        `${FAMILY_SKILLS.map(family => `${family.skill} (${family.covers})`).join(', ')} (readSkill).`,
         'If you know the job but not the tool, call readServerGuide with {"guide":"router"}; with no ' +
         'arguments it lists every guide and its sections. healthcheck reports what this server is bound ' +
         'to, the active tool profile, and anything withheld.',

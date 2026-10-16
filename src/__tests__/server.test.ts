@@ -8,6 +8,7 @@ import type { AppBackend } from '../backend/index';
 import { GUIDES, guideUri } from '../lib/guides';
 import { PROFILES } from '../lib/profiles';
 import { SERVER_INFO } from '../lib/serverInfo';
+import { FAMILY_SKILLS, findSkill } from '../lib/skills';
 import { fakeBackend } from './fakes';
 import type { FakeBackendOptions } from './fakes';
 
@@ -135,6 +136,18 @@ describe('routing', () => {
     it('says plainly when there is no such tool', async () => {
         const { client } = await connect();
         expect(payloadOf(await call(client, 'noSuchToolAnywhere')).error).toMatch(/Unknown tool: noSuchToolAnywhere/);
+    });
+
+    it('names in newProject\'s answer the skill of each record family, every one a skill the server serves', async () => {
+        // 26b skipped the family skill in three of nine authoring runs; every run that read it passed (eval round 12).
+        const { client } = await connect();
+        const payload = payloadOf(await call(client, 'newProject', { project: 'FlameBlade' }));
+
+        expect(payload.readFirst).toMatch(/readSkill/);
+        for (const family of FAMILY_SKILLS) {
+            expect(payload.readFirst).toContain(`"${family.skill}" for ${family.covers}`);
+            expect(findSkill(family.skill)).toBeDefined();
+        }
     });
 
     it('makes readonly a boundary rather than a suggestion', async () => {

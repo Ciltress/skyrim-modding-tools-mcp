@@ -85,7 +85,7 @@ Needs the backend feature `nexus-premium`; withheld where it is missing.
 
 From `src/handlers/ProjectsHandlers.ts`.
 
-**`newProject`** — Create an empty project for a new mod. Add records by writing YAML files into its plugin folder — one file per record, in its type's group folder there; the answer's `writeRecordsTo` gives the full path, so never write into the project folder itself. Write each record the way readRecord shows a vanilla one of its type, and leave out FormKey: the build assigns one. To change records other mods already have, use addPatch instead.
+**`newProject`** — Create an empty project for a new mod. Add records by writing YAML files into its plugin folder — one file per record, in its type's group folder there; the answer's `writeRecordsTo` gives the full path, so never write into the project folder itself, and its `readFirst` the skill to read for each family of records. Write each record the way readRecord shows a vanilla one of its type, and leave out FormKey: the build assigns one. To change records other mods already have, use addPatch instead.
 
 _writes · idempotent_
 
