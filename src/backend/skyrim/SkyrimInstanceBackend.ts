@@ -13,7 +13,7 @@ import {
 import type { Instance } from './modManager.js';
 import { findCaseInsensitive } from './paths.js';
 import {
-    ProjectError, assignFormIds, createProject, fileHash, keepRecordTexts, looseRecordFiles, nameRecordFiles, newestSourceTime, projectExists,
+    ProjectError, assignFormIds, belongsAt, createProject, fileHash, keepRecordTexts, misnamedRecordFiles, looseRecordFiles, nameRecordFiles, newestSourceTime, projectExists,
     projectInfo, projectPaths, readDeployState, readProjectHeader, recordFiles, strayRecordFiles, syncFolder, syncYaml,
     whereRecordsGo, writeDeployState
 } from './projects.js';
@@ -268,12 +268,21 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         const files = recordFiles(paths.plugin).length;
         if (files === 0) {
             const loose = looseRecordFiles(this.engine.projectsDir);
+            const where = (file: string) => {
+                const target = belongsAt(file, paths, this.engine.projectsDir);
+                return target ? `${file} as ${target}` : file;
+            };
+            // The way out first: placed after the general text, it went unread, three builds in a row (eval probe 15).
+            const misnamed = misnamedRecordFiles(paths.plugin);
             throw new ProjectError(
-                `'${project}' has no records to build: ${whereRecordsGo(paths)} Mirror a vanilla record of the same type ` +
-                `(readRecord), leaving FormKey out.` +
-                (strays.length > 0 ? ` Its record files outside its plugin folder, where no build reads them: ${strays.join(', ')} — ` +
-                    `write each into its group's folder there.` : '') +
-                (loose.length > 0 ? ` Record files that belong to no project: ${loose.join(', ')} — move those that are this project's.` : ''));
+                `'${project}' has no records to build.` +
+                (misnamed.length > 0 ? ` Files the build does not read for their ending — write each as .yaml: ` +
+                    `${misnamed.map(({ file, as }) => `${file} as ${as}`).join('; ')}.` : '') +
+                (strays.length > 0 ? ` Its record files outside its plugin folder, where no build reads them — write each where it ` +
+                    `belongs: ${strays.map(where).join('; ')}.` : '') +
+                (loose.length > 0 ? ` Record files that belong to no project — write each of this project's where it belongs: ` +
+                    `${loose.map(where).join('; ')}.` : '') +
+                ` ${whereRecordsGo(paths)} Mirror a vanilla record of the same type (readRecord), leaving FormKey out.`);
         }
         // With records to build, files elsewhere are named but stop nothing: a refusal only deleting a
         // file could satisfy trapped a model whose file tools could not delete (eval round 10).
@@ -285,12 +294,21 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         // Fields a record type does not have, folders that are no group, copied FormKeys, links that name no
         // record: named before any record is numbered. A file in a folder that is no group, whose record its
         // group's folder holds too, is left out, untouched — the same trap (eval probe 10 after round 11).
-        const checked = await this.engine.helper.call<{ records: number; leftOut?: { file: string; copy: string }[] }>(
+        const checked = await this.engine.helper.call<{ records: number; leftOut?: { file: string; copy: string }[]; notes?: string[] }>(
             'checkRecords', { projectPluginDir: paths.plugin });
-        const leftOut = (checked.leftOut ?? []).map(({ file, copy }) => ({ file: path.join(paths.plugin, file), copy: path.join(paths.plugin, copy) }));
-        if (leftOut.length > 0) {
-            warnings.push(`${leftOut.length} record file(s) in a folder that is no group were not built: ` +
-                `${leftOut.map(({ file, copy }) => `${file}, whose record ${copy} holds`).join('; ')}. The build reads only the group's folder.`);
+        // What builds but likely not as meant — a woman's voice on a man, an enchantment nothing carries (eval probe 14).
+        warnings.push(...checked.notes ?? []);
+        const leftOut = (checked.leftOut ?? []).map(({ file, copy }) => ({ file: path.join(paths.plugin, file), copy: copy ? path.join(paths.plugin, copy) : '' }));
+        const copies = leftOut.filter(({ copy }) => copy);
+        if (copies.length > 0) {
+            warnings.push(`${copies.length} record file(s) in a folder that is no group were not built: ` +
+                `${copies.map(({ file, copy }) => `${file}, whose record ${copy} holds`).join('; ')}. The build reads only the group's folder.`);
+        }
+        // A file written empty holds no record: the way to drop one without deleting its file (eval probe 16).
+        const emptied = leftOut.filter(({ copy }) => !copy);
+        if (emptied.length > 0) {
+            warnings.push(`${emptied.length} record file(s) are empty, so they hold no record and were left out: ` +
+                `${emptied.map(({ file }) => file).join(', ')} — delete them when you can.`);
         }
         const skip = new Set(leftOut.map(({ file }) => file));
 

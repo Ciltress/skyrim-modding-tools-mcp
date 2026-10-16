@@ -85,7 +85,8 @@ export class ProjectsHandlers extends BaseHandler {
                         'are kept — or from `from`. Answers each copied file\'s full path and text (`added[].files`): edit it ' +
                         'with your file tools, then run buildProject. Past about ten records the text is left out ' +
                         '(`textLeftOut`) — read those files first. A record already in the project is reported under ' +
-                        '`alreadyInProject` and left alone.',
+                        '`alreadyInProject` and left alone. An override changes the record itself, everywhere: for a new ' +
+                        'record like a vanilla one, write a new file with newProject instead.',
                     inputSchema: {
                         type: 'object',
                         properties: {
@@ -120,6 +121,13 @@ export class ProjectsHandlers extends BaseHandler {
                         records,
                         from: optionalString(args, 'from'),
                         plugin: optionalString(args, 'plugin')
+                    })).then(result => ({
+                        ...result,
+                        // Asked for a new sword "like the Iron Sword", a model patched the Iron Sword and renamed it:
+                        // every Iron Sword in the game became its Flame Blade (eval probe 16).
+                        note: 'Each copy is an override: it changes that record itself, everywhere the game uses it. A new ' +
+                            'record like it is a new file instead, mirroring it without the FormKey line — where ' +
+                            'newProject\'s writeRecordsTo says.'
                     }));
                 }
             },

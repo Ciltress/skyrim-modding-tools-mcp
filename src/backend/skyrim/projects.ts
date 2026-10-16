@@ -83,6 +83,38 @@ export function whereRecordsGo(paths: ProjectPaths): string {
         `pathInPluginFolder names them: ${GROUP_FOLDERS}.`;
 }
 
+/**
+ * Where a record file written outside the project's plugin folder belongs, as a full path: its group's
+ * folder and name inside the plugin folder — `<project>/Spells/X.yaml`, `<projects>/Spells/X.yaml` and
+ * `<projects>/plugin/Spells/X.yaml` (a path written without the project's folder) all belong at
+ * `<project>/plugin/Spells/X.yaml`. Null for a file with no group folder above it. Told only that the
+ * file was in no project, a model wrote it to the same path three builds in a row (eval probe 14).
+ */
+export function belongsAt(file: string, paths: ProjectPaths, projectsDir: string): string | null {
+    const base = path.resolve(file).toLowerCase().startsWith(path.resolve(paths.root).toLowerCase() + path.sep) ? paths.root : projectsDir;
+    const parts = path.relative(base, file).split(/[\\/]/).filter(part => part.length > 0);
+    if (parts[0]?.toLowerCase() === 'plugin') parts.shift();
+    return parts.length >= 2 ? path.join(paths.plugin, ...parts.slice(-2)) : null;
+}
+
+/**
+ * Files in the plugin folder's group folders that the build does not read for their ending — an
+ * enchantment saved as FlameBladeBurn.nhs (eval probe 16) — each with the name it reads.
+ */
+export function misnamedRecordFiles(pluginDir: string): { file: string; as: string }[] {
+    const found: { file: string; as: string }[] = [];
+    const walk = (dir: string, depth: number) => {
+        if (!fs.existsSync(dir)) return;
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) walk(full, depth + 1);
+            else if (depth > 0 && !/\.yaml$/i.test(entry.name)) found.push({ file: full, as: full.replace(/\.[^.\\/]*$/, '') + '.yaml' });
+        }
+    };
+    walk(pluginDir, 0);
+    return found.sort((a, b) => a.file.localeCompare(b.file));
+}
+
 /** YAML files in a project's folder but outside its plugin folder and build output: no build reads them. */
 export function strayRecordFiles(paths: ProjectPaths): string[] {
     const skip = new Set([paths.plugin, paths.build].map(dir => path.resolve(dir).toLowerCase()));

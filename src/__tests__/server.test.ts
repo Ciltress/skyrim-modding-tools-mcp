@@ -138,6 +138,14 @@ describe('routing', () => {
         expect(payloadOf(await call(client, 'noSuchToolAnywhere')).error).toMatch(/Unknown tool: noSuchToolAnywhere/);
     });
 
+    it('says in addPatch\'s answer that a copy changes the record itself, and how a new record like it is made', async () => {
+        // Asked for a new sword "like the Iron Sword", a model patched the Iron Sword and renamed it (eval probe 16).
+        const { client } = await connect();
+        const payload = payloadOf(await call(client, 'addPatch', { project: 'FlameBlade', records: ['sample'] }));
+
+        expect(payload.note).toMatch(/override: it changes that record itself.*new file instead/);
+    });
+
     it('names in newProject\'s answer the skill of each record family, every one a skill the server serves', async () => {
         // 26b skipped the family skill in three of nine authoring runs; every run that read it passed (eval round 12).
         const { client } = await connect();

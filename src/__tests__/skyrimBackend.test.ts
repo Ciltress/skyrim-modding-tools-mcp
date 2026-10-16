@@ -522,14 +522,23 @@ describe('the Skyrim backend', () => {
         await expect(backend.buildProject('FlameBlade')).rejects.toThrow(/has no records.*Weapons/);
 
         const misplaced = path.join(fixture.projects, 'FlameBlade', 'Weapons', 'FlameBlade.yaml');
+        const plugin = path.join(fixture.projects, 'FlameBlade', 'plugin');
         write(misplaced, 'EditorID: FlameBlade\n');
         await expect(backend.buildProject('FlameBlade')).rejects.toThrow(
-            new RegExp(`has no records.*outside its plugin folder.*${escape(misplaced)}`));
+            new RegExp(`has no records.*outside its plugin folder.*${escape(misplaced)} as ${escape(path.join(plugin, 'Weapons', 'FlameBlade.yaml'))}`));
 
         fs.rmSync(path.dirname(misplaced), { recursive: true });
         const loose = path.join(fixture.projects, 'Spells', 'StormBolt.yaml');
         write(loose, 'EditorID: StormBolt\n');
-        await expect(backend.buildProject('FlameBlade')).rejects.toThrow(new RegExp(`has no records.*${escape(loose)}`));
+        await expect(backend.buildProject('FlameBlade')).rejects.toThrow(
+            new RegExp(`has no records.*${escape(loose)} as ${escape(path.join(plugin, 'Spells', 'StormBolt.yaml'))}`));
+
+        // Written as plugin/Spells/StormBolt.yaml, without the project's folder, three builds in a row (eval probe 14).
+        fs.rmSync(path.dirname(loose), { recursive: true });
+        const unrooted = path.join(fixture.projects, 'plugin', 'Spells', 'StormBolt.yaml');
+        write(unrooted, 'EditorID: StormBolt\n');
+        await expect(backend.buildProject('FlameBlade')).rejects.toThrow(
+            new RegExp(`has no records.*${escape(unrooted)} as ${escape(path.join(plugin, 'Spells', 'StormBolt.yaml'))}`));
         expect(calls.some(c => c.method === 'build')).toBe(false);
     });
 
@@ -569,6 +578,48 @@ describe('the Skyrim backend', () => {
         expect(fs.existsSync(leftover)).toBe(true);
         expect(built.assignedFormIds.map(record => record.editorId)).not.toContain(null);
         expect(built.assignedFormIds.filter(record => record.editorId === 'FireDamageEnchantment')).toHaveLength(1);
+    });
+
+    it('names a record file the build does not read for its ending, with the name it reads', async () => {
+        // An enchantment saved as FlameBladeBurn.nhs went unread, and the sword's link to it was refused (eval probe 16).
+        const { backend, fixture } = makeBackend();
+        await backend.newProject({ project: 'FlameBlade' });
+        const misnamed = path.join(fixture.projects, 'FlameBlade', 'plugin', 'ObjectEffects', 'FlameBladeBurn.nhs');
+        write(misnamed, 'EditorID: FlameBladeBurn\n');
+
+        await expect(backend.buildProject('FlameBlade')).rejects.toThrow(
+            new RegExp(`has no records to build\\. Files the build does not read for their ending.*${escape(misnamed)} as ` +
+                escape(misnamed.replace(/\.nhs$/, '.yaml'))));
+    });
+
+    it('leaves a record file written empty out of the build, numbering nothing in it, and says so', async () => {
+        // The way to drop a record without deleting its file: a broken magic effect no longer needed failed
+        // every build of a model whose file tools could not delete (eval probe 16). Numbered, an empty file
+        // was built as a blank record.
+        const { backend, fixture, helperAnswers } = makeBackend();
+        await newProjectWithRecord(backend, fixture.projects, 'StormBolt');
+        const emptied = path.join(fixture.projects, 'StormBolt', 'plugin', 'MagicEffects', 'StormBoltEffect.yaml');
+        write(emptied, '');
+        helperAnswers.checkRecords = () => ({ records: 1, leftOut: [{ file: 'MagicEffects/StormBoltEffect.yaml', copy: '' }] });
+
+        const built = await backend.buildProject('StormBolt');
+
+        expect(fs.readFileSync(emptied, 'utf8')).toBe('');
+        expect(built.assignedFormIds).toEqual([]);
+        expect(built.warnings).toEqual([expect.stringMatching(new RegExp(`empty.*left out: ${escape(emptied)}`))]);
+    });
+
+    it('passes on the helper\'s notes on what builds but likely not as meant, as warnings of a build that succeeds', async () => {
+        // A woman's voice on an NPC without Female; an enchantment no record carries (eval probe 14).
+        const { backend, fixture, helperAnswers } = makeBackend();
+        await newProjectWithRecord(backend, fixture.projects, 'HildaTheNord');
+        const note = 'Npcs/Hilda.yaml: Hilda speaks with FemaleNord, a woman\'s voice, but has no Female among Configuration.Flags';
+        helperAnswers.checkRecords = () => ({ records: 1, leftOut: [], notes: [note] });
+
+        const built = await backend.buildProject('HildaTheNord');
+
+        expect(built.records).toBe(1);
+        expect(built.warnings).toEqual([note]);
     });
 
     it('refuses a build that read no record from the files, and leaves no plugin to deploy', async () => {
