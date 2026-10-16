@@ -226,8 +226,10 @@ public static class RecordFiles
         if (!index.ByFormKey.TryGetValue(key, out var entry))
             return $"{relative}: FormKey {Session.FormKeyText(key)} names no record in the load order — {fresh}";
         if (editorId is not null && entry.EditorId is { } theirs && !editorId.Equals(theirs, StringComparison.OrdinalIgnoreCase))
+            // Only the way to a new record: offered "keep its editor ID" as well, a model restored it and
+            // built an override of a vanilla weapon as its new sword (eval round 11's probes).
             return $"{relative}: FormKey {Session.FormKeyText(key)} is {theirs} of {key.ModKey.FileName}, so this file would change " +
-                $"that record and rename it {editorId} — {fresh}; to change {theirs}, keep its editor ID";
+                $"that record instead of making {editorId} — {fresh}";
         return null;
     }
 

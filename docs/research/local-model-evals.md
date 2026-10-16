@@ -276,6 +276,8 @@ gemma4:e4b, `all` (prompt ~6,838 tokens/s, generation ~169 tokens/s):
    the reader fail with "Object reference not set to an instance of an object"), and a list where
    fields belong or the reverse. No false positive on the five Creation Club plugins.
 7. The scorer reads YAML's flow style.
+8. A FormKey copied from a record of another plugin, under a new editor ID, is refused with only the
+   way to a new record — remove the line (below: the second way it offered was the one taken).
 
 **What it points at next** — e4b; round 12 starts with it alone, and its probes since showed:
 
@@ -286,6 +288,6 @@ gemma4:e4b, `all` (prompt ~6,838 tokens/s, generation ~169 tokens/s):
 - It copies a vanilla record with addPatch and renames it into its "new" one. Refused for the changed
   editor ID, it took the refusal's second clause ("to change TrapDartWeapon01, keep its editor ID"),
   restored the old one, and built an override of a vanilla weapon as its Flame Blade. The refusal
-  should offer only the way to a new record.
+  now offers only the way to a new record (8, above).
 - A record built without the field the task names (a spell with no `Name`) passes every check; only
   the task's scorer sees it.
