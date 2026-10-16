@@ -6,12 +6,14 @@
  *   npm run build
  *   node scripts/eval-ollama.mjs [--model gemma4:26b] [--profile all] [--runs 3] [--tasks find,read]
  *                                [--ctx 131072] [--max-turns 25] [--think true|false] [--out <file>]
- *                                [--with-skills] [--ollama http://localhost:11434]
+ *                                [--with-skills] [--detailed] [--ollama http://localhost:11434]
  *
- * --with-skills runs each authoring task twice: as it is, the model choosing what to read, and as
- * `<task>+skill`, the conversation starting with the task's skill already read — a readSkill call the
- * harness makes and puts in as the model's, left out of the counts. The first measures whether a model
- * finds a skill, the second what the skill's content does once read.
+ * --with-skills runs each authoring task again as `<task>+skill`, the conversation starting with the
+ * task's skill already read — a readSkill call the harness makes and puts in as the model's, left out of
+ * the counts. The plain task measures whether a model finds a skill, this one what the skill's content
+ * does once read. --detailed runs each again as `<task>+detailed`, with a prompt that spells out what a
+ * player who knows the game would ask for — stats, the vanilla thing it is like, the level — but no
+ * editor IDs; the checks stay the same, so the three compare.
  *
  * It is its own minimal client — Ollama's /api/chat and an agent loop, nothing in between — so what
  * is measured is the server and the model, not a client's prompt. The model gets the server's tools
@@ -51,6 +53,7 @@ const { values: opt } = parseArgs({
         think: { type: 'string' },
         out: { type: 'string' },
         'with-skills': { type: 'boolean', default: false },
+        detailed: { type: 'boolean', default: false },
         ollama: { type: 'string', default: process.env.OLLAMA_HOST || 'localhost' }
     }
 });
@@ -406,6 +409,10 @@ const TASKS = [
         skill: 'items-and-crafting',
         prompt: 'Make a new mod called FlameBlade with a new one-handed sword named "Flame Blade" that has a fire ' +
             'damage enchantment, so it burns what it hits. Build it, but do not deploy it.',
+        detailed: 'Make a new mod called FlameBlade with a new one-handed sword named "Flame Blade". Make it like the ' +
+            'Iron Sword — its model, sounds and weapon type — but with 12 damage, a weight of 10 and a value of 150. Give ' +
+            'it a new enchantment of its own, named "Flame Blade Burn", that deals 10 points of fire damage to whatever it ' +
+            'hits, with a charge of 500. Build it, but do not deploy it.',
         check: async ({ calls }) => {
             const sword = newRecords('FlameBlade', 'weapons').find(r => /^flame blade$/i.test(nameOf(r.text)));
             const enchantment = sword && /^ObjectEffect:[ \t]*(\S+)/m.exec(sword.text)?.[1];
@@ -423,6 +430,9 @@ const TASKS = [
         skill: 'magic',
         prompt: 'Make a new mod called StormBolt with a new Destruction spell named "Storm Bolt" that deals shock ' +
             'damage to a target. Build it, but do not deploy it.',
+        detailed: 'Make a new mod called StormBolt with a new Destruction spell named "Storm Bolt": an Apprentice-level, ' +
+            'fire-and-forget bolt aimed at the target, like Lightning Bolt, that deals 40 points of shock damage and costs ' +
+            '60 magicka. No spell tome is needed. Build it, but do not deploy it.',
         check: async ({ calls }) => {
             const spell = newRecords('StormBolt', 'spells').find(r => /^storm bolt$/i.test(nameOf(r.text)));
             const effects = spell ? await effectTexts('StormBolt', spell.text) : [];
@@ -439,6 +449,9 @@ const TASKS = [
         skill: 'npcs',
         prompt: 'Make a new mod called HildaTheNord with one new NPC: a female Nord named "Hilda". Build it, but do ' +
             'not deploy it.',
+        detailed: 'Make a new mod called HildaTheNord with one new NPC: a woman of the Nord race named "Hilda", a ' +
+            'one-handed warrior with a Nord woman\'s voice, whose level follows the player\'s between 5 and 30, dressed in ' +
+            'iron armor. Build it, but do not deploy it.',
         check: ({ calls }) => {
             const npc = newRecords('HildaTheNord', 'npcs').find(r => /^hilda$/i.test(nameOf(r.text)));
             const race = npc && /^Race:[ \t]*(\S+)/m.exec(npc.text)?.[1];
@@ -455,8 +468,11 @@ const TASKS = [
 const wanted = opt.tasks ? opt.tasks.split(',').map(s => s.trim()) : TASKS.map(t => t.id);
 const unknownTasks = wanted.filter(id => !TASKS.some(t => t.id === id));
 if (unknownTasks.length) fail(`unknown task(s) ${unknownTasks.join(', ')}; the tasks are ${TASKS.map(t => t.id).join(', ')}.`);
-const tasks = TASKS.filter(t => wanted.includes(t.id))
-    .flatMap(t => opt['with-skills'] && t.skill ? [t, { ...t, id: `${t.id}+skill`, preread: t.skill }] : [t]);
+const tasks = TASKS.filter(t => wanted.includes(t.id)).flatMap(t => [
+    t,
+    ...opt['with-skills'] && t.skill ? [{ ...t, id: `${t.id}+skill`, preread: t.skill }] : [],
+    ...opt.detailed && t.detailed ? [{ ...t, id: `${t.id}+detailed`, prompt: t.detailed }] : []
+]);
 
 // --- The agent loop -----------------------------------------------------------------------------
 
