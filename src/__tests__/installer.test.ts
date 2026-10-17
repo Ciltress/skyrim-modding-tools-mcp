@@ -1,6 +1,6 @@
 import {
-    FomodInstaller, InstallError, checkRoot, defaultModName, findDataRoot, plainLayout, topFolders,
-    type ArchiveListing, type FileState, type FomodConfig, type FomodFile, type FomodOption, type InstallEnvironment
+    FomodInstaller, InstallError, checkRoot, defaultModName, findDataRoot, placeInLoadOrder, plainLayout, topFolders,
+    type ArchiveListing, type FileState, type FomodConfig, type FomodFile, type FomodOption, type InstallEnvironment, type PluginHeader
 } from '../backend/skyrim/installer';
 
 /**
@@ -298,5 +298,37 @@ describe('the name a mod gets', () => {
     it('holds nothing a folder name cannot', () => {
         expect(defaultModName({ modName: 'What: A "Mod"?' }, 'x.7z')).toBe('What_ A _Mod__');
         expect(defaultModName({ modName: 'Trailing. ' }, 'x.7z')).toBe('Trailing');
+    });
+});
+
+describe('where a mod\'s plugins join the load order', () => {
+    const header = (name: string, masters: string[] = ['Skyrim.esm']): PluginHeader => ({ name, masters, master: /\.esm$/i.test(name) });
+    const ORDER = ['Skyrim.esm', 'Update.esm', 'Other.esp', 'Needs Cool.esp', 'Last.esp'];
+
+    it('puts a plugin no active plugin needs at the end', () => {
+        expect(placeInLoadOrder(ORDER, [header('Cool.esp')], new Map())).toEqual({ before: new Map(), warnings: [] });
+    });
+
+    it('puts a plugin right before the first active plugin that needs it as a master, in any letter case', () => {
+        const needs = new Map([['needs cool.esp', ['Skyrim.esm', 'cool.ESP']], ['last.esp', ['Cool.esp']]]);
+        expect(placeInLoadOrder(ORDER, [header('Cool.esp')], needs)).toEqual({ before: new Map([['cool.esp', 'Needs Cool.esp']]), warnings: [] });
+    });
+
+    it('places a mod\'s plugins one after another, each after its own masters', () => {
+        const needs = new Map([['needs cool.esp', ['Cool.esm', 'Cool - Extra.esp']]]);
+        const placed = placeInLoadOrder(ORDER, [header('Cool.esm'), header('Cool - Extra.esp', ['Cool.esm']), header('Cool - Patch.esp')], needs);
+        expect(placed).toEqual({ before: new Map([['cool.esm', 'Needs Cool.esp'], ['cool - extra.esp', 'Needs Cool.esp']]), warnings: [] });
+    });
+
+    it('leaves a plugin already in the load order where it is', () => {
+        const needs = new Map([['last.esp', ['Other.esp']]]);
+        expect(placeInLoadOrder(ORDER, [header('Other.esp')], needs).before.size).toBe(0);
+    });
+
+    it('puts a plugin whose own masters load after the plugin needing it at the end, and says so', () => {
+        const needs = new Map([['other.esp', ['Cool.esp']]]);
+        const placed = placeInLoadOrder(ORDER, [header('Cool.esp', ['Skyrim.esm', 'Last.esp'])], needs);
+        expect(placed.before.size).toBe(0);
+        expect(placed.warnings).toEqual([expect.stringMatching(/Cool\.esp loads at the end, after Other\.esp, which needs it.*Last\.esp.*LOOT/)]);
     });
 });

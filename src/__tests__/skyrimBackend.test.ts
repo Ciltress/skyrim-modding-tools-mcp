@@ -171,6 +171,15 @@ describe('changing the profile', () => {
         expect(order.slice(-2)).toEqual([{ name: 'MyMaster.esm', active: true }, { name: 'MyPatch.esp', active: true }]);
     });
 
+    it('puts a new plugin before the one named for it, in loadorder.txt and plugins.txt', () => {
+        const fixture = makeInstance();
+        const instance = readInstance(fixture.instanceDir);
+        expect(activatePlugins(instance, ['Needed.esp', 'Patch.esp'], new Map([['needed.esp', 'shared.esp']])))
+            .toEqual({ activated: ['Needed.esp', 'Patch.esp'], addedToLoadOrder: ['Needed.esp', 'Patch.esp'] });
+        expect(readLoadOrder(instance).map(p => p.name).slice(-5)).toEqual(['Low.esp', 'Needed.esp', 'Shared.esp', 'Disabled.esp', 'Patch.esp']);
+        expect(fs.readFileSync(path.join(fixture.profile, 'plugins.txt'), 'utf8')).toContain('*Low.esp\r\n*Needed.esp\r\n*Shared.esp\r\n');
+    });
+
     it('activates an inactive plugin where it stands in the load order', () => {
         const fixture = makeInstance();
         const instance = readInstance(fixture.instanceDir);
@@ -1208,6 +1217,28 @@ describe('installing a mod', () => {
             missingMasters: [{ plugin: 'Big - Other.esp', masters: ['Missing.esp'] }]
         });
         expect((result as { warnings: string[] }).warnings.join(' ')).toMatch(/game will not start .*Missing\.esp/);
+    });
+
+    it('puts a plugin before an active plugin that needs it — installed for it, or installed again after a disable', async () => {
+        const { backend, fixture, download, masters } = makeBackend();
+        // A mod whose plugin needs CoolMod.esp, installed before it: active, at the end of the load order.
+        write(path.join(fixture.instanceDir, 'mods', 'Cool Patch', 'Cool Patch.esp'));
+        const modList = path.join(fixture.profile, 'modlist.txt');
+        fs.writeFileSync(modList, fs.readFileSync(modList, 'utf8').replace('+HighMod', '+Cool Patch\r\n+HighMod'));
+        fs.appendFileSync(path.join(fixture.profile, 'plugins.txt'), '*Cool Patch.esp\r\n');
+        fs.appendFileSync(path.join(fixture.profile, 'loadorder.txt'), 'Cool Patch.esp\r\n');
+        masters['Cool Patch.esp'] = ['Skyrim.esm', 'CoolMod.esp'];
+        download(COOL_FILE, COOL_MOD);
+        const order = () => readLoadOrder(readInstance(fixture.instanceDir)).map(p => p.name).slice(-3);
+
+        const installed = await backend.installMod({ file: COOL_FILE });
+        expect(installed).toMatchObject({ placedBefore: [{ plugin: 'CoolMod.esp', before: 'Cool Patch.esp' }] });
+        expect(order()).toEqual(['Disabled.esp', 'CoolMod.esp', 'Cool Patch.esp']);
+
+        await backend.disableMod({ mod: 'Cool Mod' });
+        expect(order()).toEqual(['Shared.esp', 'Disabled.esp', 'Cool Patch.esp']);
+        await backend.installMod({ file: COOL_FILE, replace: true });
+        expect(order()).toEqual(['Disabled.esp', 'CoolMod.esp', 'Cool Patch.esp']);
     });
 
     it('installs nothing while this instance\'s Mod Organizer runs under Proton', async () => {

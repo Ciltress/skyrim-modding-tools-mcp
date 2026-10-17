@@ -633,6 +633,48 @@ export function pluginOrder(plugins: readonly PluginHeader[]): string[] {
 }
 
 /**
+ * Where a mod's plugins new to the load order go: right before the first active plugin that needs one
+ * as a master — a mod installed for a plugin already there, or installed again after being disabled —
+ * else at the end. A plugin whose own masters load after that plugin fits nowhere; it goes to the end,
+ * with a warning. A plugin already in the load order keeps its place.
+ *
+ * @param loadOrder  Every plugin in the load order, in order.
+ * @param plugins    The mod's plugins in the order they join (pluginOrder), with their masters.
+ * @param needs      The masters of the active plugins, by their lower-case names.
+ * @returns          By a plugin's lower-case name, the plugin it goes before; plugins not named go to the end.
+ */
+export function placeInLoadOrder(
+    loadOrder: readonly string[], plugins: readonly PluginHeader[], needs: ReadonlyMap<string, readonly string[]>
+): { before: Map<string, string>; warnings: string[] } {
+    const sequence = [...loadOrder];
+    const at = (name: string) => sequence.findIndex(entry => entry.toLowerCase() === name.toLowerCase());
+    const before = new Map<string, string>();
+    const warnings: string[] = [];
+    for (const plugin of plugins) {
+        if (at(plugin.name) >= 0) continue;
+        const key = plugin.name.toLowerCase();
+        const needing = sequence.filter(entry => needs.get(entry.toLowerCase())?.some(master => master.toLowerCase() === key));
+        const own = plugin.masters.map(at).filter(index => index >= 0);
+        const target = needing.length > 0 ? at(needing[0]) : -1;
+        if (target >= 0 && own.every(index => index < target)) {
+            before.set(key, sequence[target]);
+            sequence.splice(target, 0, plugin.name);
+            continue;
+        }
+        if (target >= 0) {
+            const later = plugin.masters.filter(master => at(master) > target);
+            warnings.push(
+                `${plugin.name} loads at the end, after ${needing.join(', ')}, which need${needing.length === 1 ? 's' : ''} it as a master: ` +
+                `its own master${later.length === 1 ? '' : 's'} ${later.join(', ')} load${later.length === 1 ? 's' : ''} after ` +
+                `${needing.length === 1 ? 'that plugin' : 'those'}, so no place fits both. Sort the load order — LOOT, or the mod ` +
+                `manager's sort — before the game starts.`);
+        }
+        sequence.push(plugin.name);
+    }
+    return { before, warnings };
+}
+
+/**
  * The mod's `meta.ini` as Mod Organizer writes one for a mod it installed (modinforegular.cpp): the
  * file it came from, and for a Nexus file the mod and file — what its update check and its link to the
  * mod page read. Amethyst reads the same file.

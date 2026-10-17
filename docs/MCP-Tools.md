@@ -380,8 +380,10 @@ file's Data folder at once — the top, a `Data` folder or the one folder there 
 clear (`1K/`, `2K/`), it asks for `root`. With one, the first call answers the steps and the second
 installs the `choices`; a group the choices leave out keeps the installer's default, and options the
 load order decides — a patch for a mod that is there — are defaults already. The mod is enabled, its
-plugins activated at the end of the load order (masters first), and the mod manager told, as for
-`deployProject`. Its `meta.ini` names the Nexus mod and file, so Mod Organizer's update check knows
+plugins activated at the end of the load order (masters first) — a plugin an active plugin already
+needs as a master goes right before that one instead (`placedBefore`), as when a mod is installed for
+a plugin that named it in `missingMasters`, or installed again after `disableMod` — and the mod
+manager told, as for `deployProject`. Its `meta.ini` names the Nexus mod and file, so Mod Organizer's update check knows
 it. `missingMasters` lists plugins the game cannot load until another mod is installed.
 
 ### 4.6 Find out what you are connected to

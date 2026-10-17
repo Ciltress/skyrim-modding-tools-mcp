@@ -48,19 +48,20 @@ export function enableMod(instance: Instance, mod: string): boolean {
 
 /**
  * Activates plugins in plugins.txt and puts each one not there at the end of loadorder.txt, in the
- * order given — after every plugin it could override. A plugin already in the load order keeps its place.
+ * order given — after every plugin it could override — or before the plugin `before` names for it, in
+ * both files. A plugin already in the load order keeps its place.
  */
-export function activatePlugins(instance: Instance, plugins: readonly string[]): { activated: string[]; addedToLoadOrder: string[] } {
-    const same = (plugin: string) => (line: string) => line.replace(/^\*/, '').toLowerCase() === plugin.toLowerCase();
-
+export function activatePlugins(
+    instance: Instance, plugins: readonly string[], before: ReadonlyMap<string, string> = new Map()
+): { activated: string[]; addedToLoadOrder: string[] } {
     const pluginsFile = path.join(instance.profileDir, 'plugins.txt');
     // The system codepage, as MO2 writes it; latin1 is the Western one.
     const lines = readLines(pluginsFile, 'latin1');
     const activated: string[] = [];
     for (const plugin of plugins) {
-        const at = lines.findIndex(same(plugin));
+        const at = lines.findIndex(samePlugin(plugin));
         if (at >= 0 && lines[at].startsWith('*')) continue;
-        if (at < 0) lines.push(`*${plugin}`);
+        if (at < 0) insertPlugin(lines, `*${plugin}`, before.get(plugin.toLowerCase()));
         else lines[at] = `*${plugin}`;
         activated.push(plugin);
     }
@@ -71,13 +72,23 @@ export function activatePlugins(instance: Instance, plugins: readonly string[]):
     if (fs.existsSync(orderFile)) {
         const order = readLines(orderFile, 'utf8');
         for (const plugin of plugins) {
-            if (order.some(same(plugin))) continue;
-            order.push(plugin);
+            if (order.some(samePlugin(plugin))) continue;
+            insertPlugin(order, plugin, before.get(plugin.toLowerCase()));
             addedToLoadOrder.push(plugin);
         }
         if (addedToLoadOrder.length > 0) writeLines(orderFile, order, 'utf8');
     }
     return { activated, addedToLoadOrder };
+}
+
+/** Whether a line of plugins.txt or loadorder.txt names this plugin, active or not, in any letter case. */
+export const samePlugin = (plugin: string) => (line: string) => line.replace(/^\*/, '').toLowerCase() === plugin.toLowerCase();
+
+/** A plugin's line put before the line of the plugin named — or at the end, when it is not listed. */
+export function insertPlugin(lines: string[], line: string, beforePlugin: string | undefined): void {
+    const at = beforePlugin === undefined ? -1 : lines.findIndex(samePlugin(beforePlugin));
+    if (at < 0) lines.push(line);
+    else lines.splice(at, 0, line);
 }
 
 /** Disables a mod where it stands: `+Name` becomes `-Name`. Returns true when something changed. */

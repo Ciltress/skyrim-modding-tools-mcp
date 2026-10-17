@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { parseIni, parseModList, primaryPlugins, readLoadOrder, resolveDataFiles, resolvePluginFiles } from './mo2.js';
+import { insertPlugin, samePlugin } from './mo2Profile.js';
 import {
     InstanceConfigError, type Instance, type ModEntry, type ModManager, type ModManagerNotice, type PluginEntry,
     type ModDisabled, type ModEnabled, type ProfileWrite
@@ -216,7 +217,7 @@ export class AmethystManager implements ModManager {
      * plugins at the end of the load order. Files are written whole and renamed into place, as Amethyst
      * writes its own, with LF line ends.
      */
-    enable(instance: Instance, mod: string, plugins: readonly string[]): ModEnabled {
+    enable(instance: Instance, mod: string, plugins: readonly string[], before: ReadonlyMap<string, string> = new Map()): ModEnabled {
         const modlist = path.join(instance.profileDir, 'modlist.txt');
         const mods = readTextLines(modlist, 'utf8');
         let modEnabled = false;
@@ -230,15 +231,14 @@ export class AmethystManager implements ModManager {
         }
         if (modEnabled) writeTextLines(modlist, mods, 'utf8');
 
-        const same = (plugin: string) => (line: string) => line.replace(/^\*/, '').toLowerCase() === plugin.toLowerCase();
         const pluginsFile = path.join(instance.profileDir, 'plugins.txt');
         // Amethyst writes plugins.txt in cp1252 where it can; latin1 reads and writes the same bytes.
         const lines = readTextLines(pluginsFile, 'latin1');
         const activated: string[] = [];
         for (const plugin of plugins) {
-            const listed = lines.findIndex(same(plugin));
+            const listed = lines.findIndex(samePlugin(plugin));
             if (listed >= 0 && lines[listed].startsWith('*')) continue;
-            if (listed < 0) lines.push(`*${plugin}`);
+            if (listed < 0) insertPlugin(lines, `*${plugin}`, before.get(plugin.toLowerCase()));
             else lines[listed] = `*${plugin}`;
             activated.push(plugin);
         }
@@ -246,11 +246,11 @@ export class AmethystManager implements ModManager {
 
         const orderFile = path.join(instance.profileDir, 'loadorder.txt');
         const order = readTextLines(orderFile, 'utf8');
-        const addedToLoadOrder = plugins.filter(plugin => !order.some(same(plugin)));
+        const addedToLoadOrder = plugins.filter(plugin => !order.some(samePlugin(plugin)));
         if (addedToLoadOrder.length > 0) {
             // Amethyst's loadorder.txt lists the game's own plugins too; a missing file starts from them.
             if (order.length === 0) order.push(...primaryPlugins(instance.gameDir));
-            order.push(...addedToLoadOrder);
+            for (const plugin of addedToLoadOrder) insertPlugin(order, plugin, before.get(plugin.toLowerCase()));
             writeTextLines(orderFile, order, 'utf8');
         }
         return { modEnabled, activated, addedToLoadOrder };

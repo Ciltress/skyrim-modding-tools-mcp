@@ -59,7 +59,7 @@ _read-only_
 
 _no arguments_
 
-**`installMod`** — Install a downloaded file (.7z, .zip, .rar) as a mod: unpack it into a new mod, enable the mod and activate its plugins at the end of the load order; then the mod manager is told, as for deployProject — when the user has to act, `modManager.nextStep` says what. A file with a FOMOD installer takes two calls: the first installs nothing and answers its steps, every option with an id like 1.1.2; the second, with `choices`, installs. A mod name already taken is refused unless `replace` is true. `missingMasters` names plugins the game cannot load until the mods they need are installed too.
+**`installMod`** — Install a downloaded file (.7z, .zip, .rar) as a mod: unpack it into a new mod, enable the mod and activate its plugins at the end of the load order — or right before an active plugin that needs one as a master (`placedBefore`); then the mod manager is told, as for deployProject — when the user has to act, `modManager.nextStep` says what. A file with a FOMOD installer takes two calls: the first installs nothing and answers its steps, every option with an id like 1.1.2; the second, with `choices`, installs. A mod name already taken is refused unless `replace` is true. `missingMasters` names plugins the game cannot load until the mods they need are installed too.
 
 _writes · destructive · idempotent_
 

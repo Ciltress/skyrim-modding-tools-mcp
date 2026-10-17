@@ -7,7 +7,7 @@ import type { HealthReport } from '../Backend.js';
 import { compileScripts, hasUncommittedChanges } from './externalTools.js';
 import { HelperError, HelperUnavailableError } from './helperClient.js';
 import {
-    FomodInstaller, InstallError, checkRoot, defaultModName, findDataRoot, folderName, modMetaIni, plainLayout, pluginOrder,
+    FomodInstaller, InstallError, checkRoot, defaultModName, findDataRoot, folderName, modMetaIni, placeInLoadOrder, plainLayout, pluginOrder,
     topFolders, type ArchiveListing, type InstallEnvironment, type PluginHeader, type UnpackedFile
 } from './installer.js';
 import type { Instance } from './modManager.js';
@@ -664,7 +664,20 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
                 `order: install the mods ${masters.length === 1 ? 'it comes' : 'they come'} from — readNexusMod lists a mod's requirements.`);
         }
 
-        const enabled = modManager.enable(instance, mod, order);
+        // A plugin new to the load order that an active plugin needs goes before it, not to the end.
+        const loadOrder = modManager.readLoadOrder(instance);
+        const listed = new Set(loadOrder.map(plugin => plugin.name.toLowerCase()));
+        const joining = order.map(name => plugins.find(plugin => plugin.name === name)!);
+        let placed = { before: new Map<string, string>(), warnings: [] as string[] };
+        if (joining.some(plugin => !listed.has(plugin.name.toLowerCase()))) {
+            const files = modManager.resolvePluginFiles(instance, modManager.readModList(instance));
+            const read = await afterLocalWrites(this.activeMasters(instance, files));
+            placed = placeInLoadOrder(loadOrder.map(plugin => plugin.name), joining,
+                new Map(read.map(plugin => [path.basename(plugin.path).toLowerCase(), plugin.masters])));
+            warnings.push(...placed.warnings);
+        }
+
+        const enabled = modManager.enable(instance, mod, order, placed.before);
         const notice = await modManager.afterDeploy(instance);
         const { files: unpacked, ...how } = plan;
         return {
@@ -672,6 +685,10 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             files: unpacked.length,
             ...how,
             plugins: order,
+            ...(placed.before.size > 0 ? {
+                placedBefore: order.filter(name => placed.before.has(name.toLowerCase()))
+                    .map(name => ({ plugin: name, before: placed.before.get(name.toLowerCase())! }))
+            } : {}),
             ...(missingMasters.length > 0 ? { missingMasters } : {}),
             ...(warnings.length > 0 ? { warnings } : {}),
             ...(exists ? { replaced: true as const } : {}),
@@ -722,14 +739,9 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         // Plugins the game still loads that need one taken out. Their headers are read only when one is.
         const gone = new Set(leaving.filter(plugin => active.has(plugin.toLowerCase())).map(plugin => plugin.toLowerCase()));
         const missingMasters: NonNullable<DisableModResult['missingMasters']> = [];
-        const staying = loadOrder.filter(plugin => plugin.active && !gone.has(plugin.name.toLowerCase()))
-            .map(plugin => files.get(plugin.name.toLowerCase())).filter((file): file is string => file !== undefined);
-        if (gone.size > 0 && staying.length > 0) {
-            await this.engine.ensureFresh();
-            const read = await this.engine.helper.call<{ plugins: { path: string; masters?: string[] }[] }>(
-                'pluginHeaders', { paths: staying }, BUILD_TIMEOUT_MS);
-            for (const plugin of read.plugins) {
-                const masters = (plugin.masters ?? []).filter(master => gone.has(master.toLowerCase()));
+        if (gone.size > 0) {
+            for (const plugin of await this.activeMasters(instance, files, gone)) {
+                const masters = plugin.masters.filter(master => gone.has(master.toLowerCase()));
                 if (masters.length > 0) missingMasters.push({ plugin: path.basename(plugin.path), mod: ownerOf(plugin.path, instance), masters });
             }
         }
@@ -745,6 +757,23 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             profile: { name: instance.profile, ...disabled },
             ...(notice ? { modManager: notice } : {})
         };
+    }
+
+    /**
+     * The masters of every active plugin but those leaving, read from the copy the game loads: one header
+     * each, which on a big list takes a while the first time — 23 s for LoreRim's 3,450 on a hard disk.
+     */
+    private async activeMasters(
+        instance: Instance, files: ReadonlyMap<string, string>, leaving: ReadonlySet<string> = new Set()
+    ): Promise<{ path: string; masters: string[] }[]> {
+        const paths = this.engine.modManager.readLoadOrder(instance)
+            .filter(plugin => plugin.active && !leaving.has(plugin.name.toLowerCase()))
+            .map(plugin => files.get(plugin.name.toLowerCase()))
+            .filter((file): file is string => file !== undefined);
+        if (paths.length === 0) return [];
+        await this.engine.ensureFresh();
+        const read = await this.engine.helper.call<{ plugins: { path: string; masters?: string[] }[] }>('pluginHeaders', { paths }, BUILD_TIMEOUT_MS);
+        return read.plugins.map(plugin => ({ path: plugin.path, masters: plugin.masters ?? [] }));
     }
 
     /** The plugins at the top of a mod folder, with their masters; a file that is not a plugin is named in `warnings`. */

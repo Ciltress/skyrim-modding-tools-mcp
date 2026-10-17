@@ -254,6 +254,14 @@ describe('changing an Amethyst profile', () => {
         expect(fs.readFileSync(path.join(setup.profile, 'loadorder.txt'), 'utf8')).toMatch(/\nBigMod\.esm\nBigMod - Patch\.esp\n$/);
     });
 
+    it('puts a new plugin before the one named for it, in loadorder.txt and plugins.txt', () => {
+        const setup = makeSetup();
+        const am = manager(setup);
+        am.enable(am.readInstance(), 'Needed', ['Needed.esp'], new Map([['needed.esp', 'uiextensions.esp']]));
+        expect(fs.readFileSync(path.join(setup.profile, 'loadorder.txt'), 'utf8')).toMatch(/\nImmersive Weapons\.esp\nNeeded\.esp\nUIExtensions\.esp\n/);
+        expect(fs.readFileSync(path.join(setup.profile, 'plugins.txt'), 'utf8')).toMatch(/\n\*Immersive Weapons\.esp\n\*Needed\.esp\n\*UIExtensions\.esp\n/);
+    });
+
     it('disables a mod where it stands and takes its plugins out of plugins.txt and loadorder.txt, LF, once', () => {
         const setup = makeSetup();
         const am = manager(setup);

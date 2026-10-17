@@ -132,6 +132,8 @@ export interface InstallModResult {
     ignoredChoices?: string[];
     /** The mod's plugins, in the order they now load. */
     plugins: string[];
+    /** Plugins put before an active plugin that needs them as a master, instead of at the end of the load order. */
+    placedBefore?: { plugin: string; before: string }[];
     /** Plugins needing masters the load order lacks: the game will not start until those are installed. */
     missingMasters?: { plugin: string; masters: string[] }[];
     warnings?: string[];

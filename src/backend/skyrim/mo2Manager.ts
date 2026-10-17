@@ -94,9 +94,9 @@ export class Mo2Manager implements ModManager {
             `profile: it would write its own over this change when it exits. Close it, then try again.`;
     }
 
-    enable(instance: Instance, mod: string, plugins: readonly string[]): ModEnabled {
+    enable(instance: Instance, mod: string, plugins: readonly string[], before?: ReadonlyMap<string, string>): ModEnabled {
         const modEnabled = enableMod(instance, mod);
-        return { modEnabled, ...activatePlugins(instance, plugins) };
+        return { modEnabled, ...activatePlugins(instance, plugins, before) };
     }
 
     disable(instance: Instance, mod: string, plugins: readonly string[]): ModDisabled {

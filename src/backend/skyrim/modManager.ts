@@ -63,7 +63,7 @@ export interface ModEnabled {
     modEnabled: boolean;
     /** The plugins activated now; one active already is not listed. */
     activated: string[];
-    /** The plugins new to the load order, now at its end. */
+    /** The plugins new to the load order: at its end, or before a plugin that needs them. */
     addedToLoadOrder: string[];
 }
 
@@ -125,9 +125,9 @@ export interface ModManager {
     writeRefusal(instance: Instance, write: ProfileWrite): Promise<string | undefined>;
     /**
      * Enables the mod and activates its plugins in the selected profile — a plugin new to the load order
-     * at its end, in the order given.
+     * at its end, in the order given, or before the plugin `before` names for it (by its lower-case name).
      */
-    enable(instance: Instance, mod: string, plugins: readonly string[]): ModEnabled;
+    enable(instance: Instance, mod: string, plugins: readonly string[], before?: ReadonlyMap<string, string>): ModEnabled;
     /**
      * Disables the mod where it stands, and takes these plugins out of plugins.txt and loadorder.txt —
      * what the mod manager itself writes for a plugin no enabled mod has any more.
