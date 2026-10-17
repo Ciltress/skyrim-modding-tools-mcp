@@ -60,13 +60,7 @@ public static class RecordLinks
             }
             catch (YamlException e)
             {
-                // Named before the build numbers the file and renames it, with the line it breaks on.
-                var lines = text.Split('\n');
-                var at = (int)e.Start.Line;
-                var where = at >= 1 && at <= lines.Length ? $"line {at}, `{lines[at - 1].Trim()}`" : $"line {at}";
-                var reason = Regex.Replace(e.Message, @"^\(Line:[^)]*\)( - \(Line:[^)]*\))?:\s*", "").Trim();
-                problems.Add($"{relative}: the YAML breaks at {where}: {reason} Indent a field's own fields by two spaces below it, " +
-                    "and give every other line a `Field: value`");
+                problems.Add($"{relative}: {YamlBreak(text, e)}");
                 continue;
             }
             if (yaml.Documents.Count == 0 || yaml.Documents[0].RootNode is not YamlMappingNode root) continue;
@@ -166,6 +160,62 @@ public static class RecordLinks
         if (!write) return [];
         foreach (var (file, text) in rewrites) File.WriteAllText(file, text);
         return resolved;
+    }
+
+    /// <summary>A field whose value is a block text, <c>Value: &gt;-</c> or <c>Value: |</c>, as readRecord writes a long one.</summary>
+    private static readonly Regex BlockTextHeader = new(@"^ *(?:- +)?(?<key>[A-Za-z0-9_]+): +[|>][-+1-9]* *(?:#.*)?$");
+
+    /// <summary>
+    /// Where and why a record file's YAML breaks, with the line it breaks on — named before the build
+    /// numbers the file and renames it. A line that fell out of a block text is said as such: told to
+    /// give every line a `Field: value`, e4b rewrote a note five times with its paragraphs still at the
+    /// margin, where they end the text and are read as fields (eval round 16).
+    /// </summary>
+    private static string YamlBreak(string text, YamlException e)
+    {
+        var lines = text.Replace("\r\n", "\n").Split('\n');
+        var at = (int)e.Start.Line;
+        var where = at >= 1 && at <= lines.Length ? $"line {at}, `{lines[at - 1].Trim()}`" : $"line {at}";
+        if (TextLeft(lines, at) is { } block)
+        {
+            return $"the YAML breaks at {where}: the line is part of the text under `{block.Header}` (line {block.Line}), but a text " +
+                $"ends at the first line indented less than its own first line, and the rest is read as fields. Indent every line of " +
+                $"the text by {block.Indent} spaces, as readRecord shows a text — `{new string(' ', block.Indent)}{lines[at - 1].Trim()}`; " +
+                "an empty line may stay empty";
+        }
+        var reason = Regex.Replace(e.Message, @"^\(Line:[^)]*\)( - \(Line:[^)]*\))?:\s*", "").Trim();
+        return $"the YAML breaks at {where}: {reason} Indent a field's own fields by two spaces below it, and give every other line a `Field: value`";
+    }
+
+    /// <summary>
+    /// The block text the broken line (1-based) fell out of: going up from it through the text's lines —
+    /// each indented deeper than the field that holds the text — to that field's line. Undefined when the
+    /// line is indented as deep as the text, or follows no block text.
+    /// </summary>
+    private static (string Header, int Line, int Indent)? TextLeft(string[] lines, int at)
+    {
+        if (at < 2 || at > lines.Length) return null;
+        static int IndentOf(string line) => line.Length - line.TrimStart(' ').Length;
+        var broken = lines[at - 1];
+        if (broken.Trim().Length == 0) return null;
+        int? textIndent = null;
+        var shallowest = int.MaxValue;
+        for (var i = at - 2; i >= 0; i--)
+        {
+            if (lines[i].Trim().Length == 0) continue;
+            if (BlockTextHeader.Match(lines[i]) is { Success: true } header)
+            {
+                var fieldColumn = header.Groups["key"].Index;
+                // The text's lines are indented as deep as its first; with none yet, two deeper than its field.
+                var indent = textIndent ?? fieldColumn + 2;
+                return shallowest > fieldColumn && IndentOf(broken) < indent ? (lines[i].Trim(), i + 1, indent) : null;
+            }
+            // A line at the margin can be no text's: the field holding one is at the margin or deeper.
+            if (IndentOf(lines[i]) == 0) return null;
+            textIndent = IndentOf(lines[i]);
+            shallowest = Math.Min(shallowest, textIndent.Value);
+        }
+        return null;
     }
 
     /// <summary>

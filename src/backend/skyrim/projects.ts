@@ -133,22 +133,43 @@ export function fencedRecordFiles(pluginDir: string): { file: string; lines: num
  * has one, a backslash before a quote — copied as they read: e4b wrote `File: Weapons\\Iron\\Sword.nif`
  * in about one run of seventeen (eval rounds 12–15), and the build took it. A double-quoted string is
  * judged once decoded, since YAML escapes there too; on 6,038 files Spriggit wrote, nothing is found.
+ *
+ * Each comes with the line as written and as it is to be: told only "line 12 (two backslashes)", e4b
+ * edited another line, built again and gave up (eval probe 17).
  */
-export function copiedEscapes(pluginDir: string): { file: string; line: number; kind: 'two backslashes' | 'a backslash before a quote' }[] {
+export function copiedEscapes(pluginDir: string): CopiedEscape[] {
     const kindOf = (text: string) =>
         /\\\\/.test(text) ? 'two backslashes' as const : /\\"/.test(text) ? 'a backslash before a quote' as const : undefined;
+    // The copy's one layer of escapes undone: `\\` is `\`, `\"` is `"`.
+    const unescape = (text: string) => text.replace(/\\(["\\])/g, '$1');
     return recordFiles(pluginDir).flatMap(file => fs.readFileSync(file, 'utf8').split(/\r?\n/).flatMap((text, i) => {
-        let outside = text;
+        let kind: CopiedEscape['kind'] | undefined;
+        let fixed = '';
+        let rest = text;
         for (const quoted of text.match(/"(?:[^"\\]|\\.)*"/g) ?? []) {
+            const at = rest.indexOf(quoted);
+            const before = rest.slice(0, at);
+            kind ??= kindOf(before);
             let decoded = '';
             try { decoded = JSON.parse(quoted); } catch { /* a YAML escape JSON does not know: not one a copy leaves */ }
-            const kind = kindOf(decoded);
-            if (kind) return [{ file, line: i + 1, kind }];
-            outside = outside.replace(quoted, '""');
+            const inside = kindOf(decoded);
+            kind ??= inside;
+            // Inside double quotes YAML escapes too: the string is undone once and written with its own escapes again.
+            fixed += unescape(before) + (inside ? JSON.stringify(unescape(decoded)) : quoted);
+            rest = rest.slice(at + quoted.length);
         }
-        const kind = kindOf(outside);
-        return kind ? [{ file, line: i + 1, kind }] : [];
+        kind ??= kindOf(rest);
+        return kind ? [{ file, line: i + 1, kind, text: text.trim(), fixed: (fixed + unescape(rest)).trim() }] : [];
     }));
+}
+
+export interface CopiedEscape {
+    file: string;
+    line: number;
+    kind: 'two backslashes' | 'a backslash before a quote';
+    /** The line as written, and as it is to be: the copy's escapes undone. */
+    text: string;
+    fixed: string;
 }
 
 /** YAML files in a project's folder but outside its plugin folder and build output: no build reads them. */

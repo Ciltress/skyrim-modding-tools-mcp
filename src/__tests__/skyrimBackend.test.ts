@@ -735,9 +735,31 @@ describe('the Skyrim backend', () => {
 
         await expect(asRequestError(backend.buildProject('FlameBlade'))).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
         await expect(backend.buildProject('FlameBlade')).rejects.toThrow(new RegExp(
-            `${escape(note)}, line 2 \\(a backslash before a quote\\); ${escape(sword)}, line 3 \\(two backslashes\\).*` +
-            'single backslash.*quote without'));
+            `${escape(note)}, line 2 \\(a backslash before a quote\\).*; ${escape(sword)}, line 3 \\(two backslashes\\).*` +
+            'single backslash.*quote has no backslash'));
         expect(calls.some(c => c.method === 'checkRecords' || c.method === 'build')).toBe(false);
+    });
+
+    it('quotes each refused line and gives it as it is to be written', async () => {
+        // Told only "line 12 (two backslashes)", e4b edited another line, built again and gave up (eval probe 17).
+        const { backend, fixture } = makeBackend();
+        await backend.newProject({ project: 'FlameBlade' });
+        const sword = path.join(fixture.projects, 'FlameBlade', 'plugin', 'Weapons', 'FlameBlade.yaml');
+        write(sword, [
+            'EditorID: FlameBlade',
+            String.raw`  File: Weapons\\Iron\\LongSword.nif`,
+            String.raw`BookText: <font face=\"$HandwrittenFont\">Burn.`,
+            // Inside double quotes, YAML's own escapes stay: only the copied pair is undone.
+            String.raw`Description: "a \"burning\" blade in Weapons\\\\Iron"`
+        ].join('\n') + '\n');
+
+        const message = await backend.buildProject('FlameBlade').then(() => '', (e: Error) => e.message);
+        expect(message).toContain(String.raw`line 2 (two backslashes): ` + '`File: Weapons\\\\Iron\\\\LongSword.nif` → `File: Weapons\\Iron\\LongSword.nif`');
+        expect(message).toContain(String.raw`line 3 (a backslash before a quote): ` +
+            '`BookText: <font face=\\"$HandwrittenFont\\">Burn.` → `BookText: <font face="$HandwrittenFont">Burn.`');
+        expect(message).toContain(String.raw`line 4 (two backslashes): ` +
+            '`Description: "a \\"burning\\" blade in Weapons\\\\\\\\Iron"` → `Description: "a \\"burning\\" blade in Weapons\\\\Iron"`');
+        expect(message).toMatch(/Replace each line with the one after its arrow/);
     });
 
     it('builds a path with single backslashes, and one escaped inside double quotes', async () => {

@@ -301,9 +301,9 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         const escaped = copiedEscapes(paths.plugin);
         if (escaped.length > 0) {
             throw new ProjectError(
-                `${escaped.map(({ file, line, kind }) => `${file}, line ${line} (${kind})`).join('; ')}: copied with the escapes ` +
-                'a JSON answer shows. In the file, write a path\'s folders apart with a single backslash, and a quote without ' +
-                'a backslash before it.');
+                `${escaped.map(({ file, line, kind, text, fixed }) => `${file}, line ${line} (${kind}): \`${text}\` → \`${fixed}\``).join('; ')}: ` +
+                'copied with the escapes a JSON answer shows. Replace each line with the one after its arrow: in the file, ' +
+                'a path\'s folders are apart by a single backslash, and a quote has no backslash before it.');
         }
         // With records to build, files elsewhere are named but stop nothing: a refusal only deleting a
         // file could satisfy trapped a model whose file tools could not delete (eval round 10).

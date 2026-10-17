@@ -93,10 +93,23 @@ public sealed class RecordIndex
     public static string Signature(IMajorRecordGetter record) =>
         Signatures.TryGetValue(TypeName(record), out var signature) ? signature : "";
 
-    /// <summary>The Creation Kit's names for record types Mutagen names otherwise, each with Mutagen's.</summary>
+    /// <summary>
+    /// The Creation Kit's names for record types Mutagen names otherwise, and the game's words for what a
+    /// record type holds, each with Mutagen's. A note is a Book: both models asked findRecords for NOTE,
+    /// and got no suggestion (eval rounds 15 and 16).
+    /// </summary>
     private static readonly Dictionary<string, string> EditorNames = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Enchantment"] = "ObjectEffect",
+        ["Note"] = "Book", ["Letter"] = "Book", ["Journal"] = "Book", ["Tome"] = "Book", ["SpellTome"] = "Book",
+        ["Potion"] = "Ingestible", ["Poison"] = "Ingestible", ["Food"] = "Ingestible", ["Drink"] = "Ingestible",
+        ["Recipe"] = "ConstructibleObject", ["Crafting"] = "ConstructibleObject",
+        ["Clutter"] = "MiscItem",
+        ["Arrow"] = "Ammunition",
+        ["Shield"] = "Armor", ["Clothing"] = "Armor", ["Jewelry"] = "Armor",
+        ["Character"] = "Npc", ["Actor"] = "Npc",
+        ["Effect"] = "MagicEffect",
+        ["Power"] = "Spell", ["Ability"] = "Spell",
     };
 
     /// <summary>Whether a filter names a record type: a signature like WEAP, or a type name like Weapon.</summary>
@@ -116,9 +129,12 @@ public sealed class RecordIndex
         .Concat(EditorNames.Where(e => Signatures.ContainsKey(e.Value)).Select(e => (Text: e.Key, Shown: $"{Signatures[e.Value]} ({e.Value})")))
         .Select(c => (c.Shown, Distance: name.Length >= 3 && c.Text.StartsWith(name, StringComparison.OrdinalIgnoreCase)
                 ? 0 : Distance(c.Text.ToUpperInvariant(), name.ToUpperInvariant()),
-            Prefix: c.Text.Zip(name).TakeWhile(p => char.ToUpperInvariant(p.First) == char.ToUpperInvariant(p.Second)).Count()))
+            Prefix: c.Text.Zip(name).TakeWhile(p => char.ToUpperInvariant(p.First) == char.ToUpperInvariant(p.Second)).Count(),
+            Exact: c.Text.Equals(name, StringComparison.OrdinalIgnoreCase)))
         .Where(c => c.Distance <= Math.Max(2, name.Length / 3) || c.Prefix >= 4)
-        .OrderBy(c => c.Distance)
+        // The word itself before the types it begins: Actor is an Npc before it is ActorValueInformation.
+        .OrderByDescending(c => c.Exact)
+        .ThenBy(c => c.Distance)
         .ThenByDescending(c => c.Prefix)
         .Select(c => c.Shown)
         .Distinct()

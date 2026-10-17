@@ -117,6 +117,8 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-16 | gemma4:26b | `all`, text+tables | db246fb + round 15's changes, the same | 50/51 | 5.19 s | ~1,003 tokens/s | ~49 tokens/s | 77% |
 | 2026-10-17 | gemma4:e4b | `all`, Claude Code | db246fb + rounds 15–16's changes, 9 tasks + 4 detailed | 35/39 | 2.5 s | ~6,983 tokens/s | ~166 tokens/s | 100% |
 | 2026-10-17 | gemma4:26b | `all`, Claude Code | db246fb + rounds 15–16's changes, 9 tasks + 4 detailed | 38/39 | 2.99 s | ~1,022 tokens/s | ~50 tokens/s | 77% |
+| 2026-10-17 | gemma4:e4b | `all` | 7c11e20 + round 17's changes, 9 tasks + 4 with the skill read + 4 detailed | 46/51 | 1.91 s | ~7,255 tokens/s | ~170 tokens/s | 100% |
+| 2026-10-17 | gemma4:26b | `all` | 7c11e20 + round 17's changes, the same | 51/51 | 5.62 s | ~1,004 tokens/s | ~49 tokens/s | 77% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -168,144 +170,12 @@ in these runs; `--client claude-code` counts every answer that ends without `mes
 `--client claude-code` runs in that lean setup: the same denied built-ins, non-essential traffic off,
 side requests on the model under test, only this server.
 
-## Round 15 — answers in another form than JSON, a note to copy, escapes checked (2026-10-16)
-
-**Changed before it:** an idea of the user's — that local models might read answers better in a form
-other than JSON — measured for quality, since reading answers is a small part of the time (reference
-measurements above). Rows marked `text+tables` ran with it.
-
-- **A temporary switch, `MCP_ANSWER_FORMAT`**, applied where every answer passes: `json` as always;
-  `text`, the short facts on one line of JSON and every string with a line break after it, as itself,
-  in a fence named by where it sits (``text 1 (versions[0].files[0].text) — Weapons/IronSword - 012EB7_Skyrim.esm.yaml:``),
-  so a record arrives without `\n`, `\"` and doubled backslashes; `text+tables`, also each list of flat
-  rows as a markdown table, its keys written once.
-- **The eval**: the `note` task and the no-escapes check (above); the warm-up before the first task;
-  `--client claude-code` (reference measurements above).
-- **Builds**: a record file with a markdown fence in it is refused, naming its lines — e4b copied
-  ```` ```yaml ```` with the YAML in the probes, and the reader's message sent it to fix the indentation; a
-  file nested below a group's folder whose record the group's folder holds is left out with a warning
-  — e4b wrote an enchantment again from `ObjectEffects/Enchantments/` into `ObjectEffects/`, and the first
-  copy failed every build after.
-- Probes of e4b alone, one per format (not logged): `json` 44/51, `text` 44/51, `text+tables` 49/51.
-
-gemma4:e4b, `all` (prompt ~6,955 tokens/s, generation ~166 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 2/3 | 1.7 | 0.7 | 0 | 0 | 6094 | 2.8 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 7318 | 3.4 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 4735 | 2.8 |
-| patch | 3/3 | 4 | 3 | 0 | 0 | 8207 | 7.8 |
-| build | 3/3 | 5.3 | 4.3 | 1 | 0 | 8695 | 7.9 |
-| sword | 3/3 | 6.7 | 5.7 | 1 | 0 | 13186 | 15.1 |
-| sword+skill | 2/3 | 5 | 4 | 0 | 0 | 11975 | 9.9 |
-| sword+detailed | 2/3 | 8 | 7.3 | 1 | 0 | 18367 | 20.3 |
-| spell | 3/3 | 5.3 | 4.3 | 0 | 0 | 10611 | 9.5 |
-| spell+skill | 2/3 | 5 | 4 | 1 | 0 | 11093 | 8.4 |
-| spell+detailed | 3/3 | 5 | 4 | 0 | 0 | 10647 | 10.1 |
-| npc | 3/3 | 7.7 | 6.7 | 4 | 0 | 9799 | 14 |
-| npc+skill | 3/3 | 7 | 6 | 3 | 0 | 10329 | 10.7 |
-| npc+detailed | 3/3 | 7.7 | 6.7 | 4 | 0 | 10570 | 15.2 |
-| note | 2/3 | 8.3 | 7.3 | 4 | 0 | 11785 | 19.2 |
-| note+skill | 2/3 | 8.7 | 7.7 | 5 | 0 | 14778 | 20.7 |
-| note+detailed | 3/3 | 8.7 | 7.7 | 3 | 0 | 14977 | 21.1 |
-
-gemma4:e4b, `all`, `text+tables` (prompt ~7,318 tokens/s, generation ~162 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2.3 | 1.3 | 1 | 0 | 5857 | 3.2 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 7076 | 3.9 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 4717 | 2.7 |
-| patch | 3/3 | 4 | 3 | 0 | 0 | 7637 | 5.8 |
-| build | 3/3 | 5.3 | 4.3 | 1 | 0 | 8379 | 7.1 |
-| sword | 3/3 | 6.3 | 5.3 | 0 | 0 | 12686 | 13.9 |
-| sword+skill | 3/3 | 6 | 5 | 0 | 0 | 13954 | 15.5 |
-| sword+detailed | 3/3 | 12 | 11 | 4 | 1 | 22032 | 27 |
-| spell | 1/3 | 6 | 5 | 1 | 0 | 12024 | 10.7 |
-| spell+skill | 3/3 | 4.3 | 3.3 | 0 | 0 | 10639 | 7.1 |
-| spell+detailed | 2/3 | 10 | 9 | 6 | 1 | 19189 | 25.4 |
-| npc | 3/3 | 7 | 6 | 3 | 0 | 10825 | 14.6 |
-| npc+skill | 3/3 | 4.7 | 3.7 | 1 | 0 | 9056 | 7.6 |
-| npc+detailed | 2/3 | 6.7 | 6 | 3 | 0 | 10883 | 13.9 |
-| note | 3/3 | 8 | 7 | 4 | 0 | 9952 | 16.6 |
-| note+skill | 3/3 | 7 | 6 | 1 | 0 | 12531 | 11.4 |
-| note+detailed | 3/3 | 7.3 | 6.3 | 3 | 0 | 8309 | 15 |
-
-gemma4:26b, `all` (prompt ~996 tokens/s, generation ~48 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 5872 | 5.9 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 6969 | 7.2 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 6072 | 6.7 |
-| patch | 3/3 | 4 | 3 | 0 | 0 | 7679 | 14.3 |
-| build | 3/3 | 5.7 | 4.7 | 0 | 0 | 8071 | 14 |
-| sword | 3/3 | 8.7 | 7.7 | 0 | 0 | 20857 | 65.1 |
-| sword+skill | 3/3 | 7.7 | 6.7 | 0 | 0 | 14586 | 40.2 |
-| sword+detailed | 3/3 | 12 | 11 | 3 | 0 | 22023 | 93.9 |
-| spell | 3/3 | 5 | 4 | 0 | 0 | 9920 | 26.4 |
-| spell+skill | 3/3 | 4 | 3 | 0 | 0 | 9607 | 16.3 |
-| spell+detailed | 3/3 | 5 | 4 | 0 | 0 | 9885 | 25.7 |
-| npc | 3/3 | 5.7 | 4.7 | 1 | 0 | 9244 | 25.3 |
-| npc+skill | 3/3 | 5.3 | 4.3 | 2 | 0 | 9055 | 23.3 |
-| npc+detailed | 3/3 | 8.7 | 7.7 | 1 | 0 | 15779 | 38.4 |
-| note | 3/3 | 7 | 6 | 0 | 0 | 11564 | 34.9 |
-| note+skill | 3/3 | 6 | 5 | 0 | 0 | 11875 | 31 |
-| note+detailed | 3/3 | 8 | 7 | 0 | 0 | 12180 | 44.7 |
-
-gemma4:26b, `all`, `text+tables` (prompt ~1,003 tokens/s, generation ~49 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 5473 | 5.1 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 6576 | 6.6 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 5689 | 6.4 |
-| patch | 3/3 | 4.7 | 3.7 | 0 | 0 | 8322 | 13.4 |
-| build | 3/3 | 5 | 4 | 0 | 0 | 7458 | 13.4 |
-| sword | 3/3 | 10 | 9 | 0 | 0 | 19542 | 65.8 |
-| sword+skill | 3/3 | 6 | 5 | 0 | 0 | 13005 | 36.5 |
-| sword+detailed | 3/3 | 15.3 | 14.3 | 4 | 0 | 26591 | 107.1 |
-| spell | 3/3 | 5 | 4 | 0 | 0 | 9829 | 24.2 |
-| spell+skill | 3/3 | 4 | 3 | 0 | 0 | 9465 | 16.2 |
-| spell+detailed | 3/3 | 5.7 | 4.7 | 0 | 0 | 11964 | 33.6 |
-| npc | 3/3 | 6.7 | 5.7 | 2 | 0 | 10472 | 26.3 |
-| npc+skill | 3/3 | 6 | 5 | 3 | 0 | 9340 | 30.2 |
-| npc+detailed | 3/3 | 9.3 | 8.3 | 2 | 0 | 12271 | 46.3 |
-| note | 3/3 | 8 | 7 | 1 | 0 | 12393 | 43.1 |
-| note+skill | 3/3 | 6 | 5 | 0 | 0 | 11677 | 29.8 |
-| note+detailed | 2/3 | 11.3 | 10.3 | 4 | 0 | 16659 | 70.3 |
-
-**Seen.**
-
-- **The form's one measurable effect is the escapes.** With JSON, e4b left a doubled backslash in a
-  model path (`File: Clutter\\Books\\Note03.nif`) in 3 of 51 runs — as in its probe, and in rounds
-  12–13 — and each of those runs failed on that alone; the build had taken the file. With the other
-  forms: none in 102 e4b runs. 26b left none with either.
-- What the fences cost: e4b wrote one into the record file 5 times in 102 runs; each was refused and
-  fixed.
-- **Beyond the escapes, no difference.** e4b without its three escape failures is 48 of 51 with JSON
-  against 47 with `text+tables`; tables showed nothing of their own. 26b: 51 of 51 with JSON against
-  50, in fewer turns (299 against 330) and less time (1,540 s against 1,723 s). Its one miss was a
-  `.yml` file it wrote again as `.yaml` but could not delete: every build after refused the `.yml`,
-  until 26b built a second project, `MavenNote_New`.
-- Every note that was made had the vanilla text exactly, quotes and line breaks included — 34 of 34,
-  both models, both forms: decoding a text out of a JSON string was never the problem; a path's
-  backslashes were.
-- Both models still spend invalid arguments on an NPC's level and a templated weapon's lines.
-
-**Decided with the user:** JSON stays the only form, and the switch is removed. The escapes are
-caught where they do harm instead, by the build, for every client.
-
-**Changed after it** (measured next round): a record file with the escapes of a JSON answer copied in
-— two backslashes in a path, a backslash before a quote — is refused, naming each file and line
-(nothing found on the 6,038 files of the five Creation Club plugins); a `.yml` file beside its `.yaml`
-twin is left out with a warning; `MCP_ANSWER_FORMAT` is gone.
-
 ## Round 16 — through Claude Code (2026-10-17)
 
-**Changed before it:** round 15's three changes after it. A probe of e4b alone on the eval's own
-client (not logged) took 45 of 51: the escape refusal fired five times and e4b rewrote the line each
+**Changed before it:** a record file with the escapes of a JSON answer copied in — two backslashes
+in a path, a backslash before a quote — is refused, naming each file and line; a `.yml` file beside
+its `.yaml` twin is left out with a warning; round 15's `MCP_ANSWER_FORMAT` switch is gone (JSON
+stays). A probe of e4b alone on the eval's own client (not logged) took 45 of 51: the escape refusal fired five times and e4b rewrote the line each
 time — `sword+skill` and `sword+detailed` 3/3, where round 15 lost one run of each to escapes — and no
 run left an escape behind. The round itself is `--client claude-code`: the user's real client, the VS
 Code extension's CLI (2.1.301) on Ollama, set up lean (reference measurements above). `+skill` runs
@@ -370,3 +240,93 @@ tokens, 22 tools; first token after 1.27 s; one answer cut off (below), no side 
   inside a text block (`Value: >-` and its lines) says to indent a field's own fields and give every
   line a `Field: value` — advice for a mapping, not a text; e4b rewrote the file five times and never
   indented the text.
+
+## Round 17 — a text's lines, a note's type, an escape's line (2026-10-17)
+
+**Changed before it:**
+
+- **A YAML break inside a text block** (`Value: >-`, `|`) is said as one: the line is part of the
+  text, which ends at the first line indented less than its own first, and the rest is read as fields —
+  "indent every line of the text by 4 spaces", with the line re-indented. Round 16's advice for a
+  mapping had e4b rewrite a note five times.
+- **The game's words for record types** in findRecords' suggestions: `NOTE`, `Letter`, `Journal`,
+  `Tome` → `BOOK`; `Potion`, `Poison`, `Food` → `ALCH`; `Recipe` → `COBJ`; `Clutter` → `MISC`;
+  `Arrow`, `Shield`, `Actor`, `Effect`, `Power` and others — the word itself before the types it
+  begins (`Actor` is `NPC_` before `AVIF`).
+- A probe of e4b alone (not logged) took 49 of 51, notes 8 of 9 against round 16's probe's 4 of 9: the
+  text-block message fired once and the file was fixed in one write. Its one server-side miss: the
+  copied-escapes refusal named "line 12 (two backslashes)" without the line; e4b edited another one,
+  built again and gave up. So, still before the round: **the refusal quotes each line and gives it as it
+  is to be written** — `File: Weapons\\Iron\\LongSword.nif` → `File: Weapons\Iron\LongSword.nif`.
+- Also in the build since round 16, nothing the tasks touch: path settings read as a POSIX shell reads
+  them (7c11e20).
+
+gemma4:e4b, `all` (prompt ~7,255 tokens/s, generation ~170 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 6384 | 3.5 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 7387 | 4.3 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 4839 | 3.1 |
+| patch | 3/3 | 5 | 4 | 1 | 0 | 9246 | 8.9 |
+| build | 3/3 | 5.7 | 4.7 | 0 | 0 | 13119 | 7.8 |
+| sword | 3/3 | 7 | 6 | 1 | 0 | 12845 | 13.3 |
+| sword+skill | 3/3 | 6 | 5 | 1 | 0 | 13266 | 12.1 |
+| sword+detailed | 1/3 | 16 | 15 | 11 | 1 | 16033 | 57.8 |
+| spell | 2/3 | 5 | 4 | 0 | 1 | 10447 | 29.5 |
+| spell+skill | 2/3 | 4 | 3 | 0 | 0 | 9837 | 6.4 |
+| spell+detailed | 3/3 | 5 | 4 | 0 | 0 | 10593 | 9.5 |
+| npc | 3/3 | 5 | 4 | 0 | 0 | 9115 | 10.5 |
+| npc+skill | 3/3 | 4.7 | 3.7 | 1 | 0 | 8709 | 7.6 |
+| npc+detailed | 3/3 | 6.3 | 5.3 | 2 | 0 | 9887 | 11.9 |
+| note | 3/3 | 7.7 | 6.7 | 4 | 0 | 8868 | 16 |
+| note+skill | 3/3 | 8.3 | 7.3 | 3 | 0 | 18477 | 18.7 |
+| note+detailed | 2/3 | 8 | 7 | 2 | 0 | 12770 | 15.2 |
+
+gemma4:26b, `all` (prompt ~1,004 tokens/s, generation ~49 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 5875 | 6.2 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 6982 | 7.6 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 6063 | 6.7 |
+| patch | 3/3 | 4.7 | 3.7 | 0 | 0 | 8914 | 18.2 |
+| build | 3/3 | 5.3 | 4.3 | 0 | 0 | 8125 | 13.6 |
+| sword | 3/3 | 12.3 | 11.3 | 0 | 0 | 28423 | 101.4 |
+| sword+skill | 3/3 | 7.3 | 6.3 | 1 | 0 | 15640 | 48.2 |
+| sword+detailed | 3/3 | 13.3 | 12.3 | 3 | 0 | 22282 | 103.4 |
+| spell | 3/3 | 5.7 | 4.7 | 0 | 0 | 12150 | 28.1 |
+| spell+skill | 3/3 | 4 | 3 | 0 | 0 | 9548 | 15.6 |
+| spell+detailed | 3/3 | 6.7 | 5.7 | 0 | 0 | 13360 | 37 |
+| npc | 3/3 | 8.7 | 7.7 | 3 | 0 | 12793 | 40.5 |
+| npc+skill | 3/3 | 4.7 | 3.7 | 1 | 0 | 8644 | 20.4 |
+| npc+detailed | 3/3 | 8 | 7 | 1 | 0 | 14463 | 37.4 |
+| note | 3/3 | 7.7 | 6.7 | 0 | 0 | 12693 | 47.4 |
+| note+skill | 3/3 | 7 | 6 | 1 | 0 | 12637 | 37 |
+| note+detailed | 3/3 | 7 | 6 | 0 | 0 | 12788 | 49.9 |
+
+**Seen.**
+
+- **26b: 51 of 51**, as in round 15 with JSON.
+- **e4b: 46 of 51, and two of its five misses are one bug of the helper's.** In a `sword+detailed` run,
+  an enchantment written with a misplaced `Data:` block of a dozen lines sent the field hint's search
+  for an `EditorID` in the block (`RecordFiles.ValueOf`) into catastrophic backtracking: its pattern
+  could split each line's indent and line end several ways, and with no `EditorID` there it tried them
+  all. The call reached the server's 120 s, the helper was stopped, and the `spell` run whose build was
+  queued behind it lost it ("the plugin helper exited"). Reproduced from the transcript, alone on the
+  machine — not load — and fixed after the round (below).
+- **Every copied escape was fixed by the next build**: six refusals (e4b 5, 26b 1), six one-edit fixes —
+  the quoted line was pasted into the edit as it stood. The run that lost its sword after it lost it to
+  field refusals on an enchantment written from memory: `Effects[0] has no field Damage (delete it)` —
+  "damage is Magnitude, under Data" would be the better hint.
+- **The type suggestions are taken**: four refusals (`NOTE` twice, `Note`, `WEPN`); once `BOOK` was
+  sent next, once `WEAP`, twice the search went again with no type — a call each, as before, but never
+  a dead end.
+- e4b's other misses are its own: an override of Maven's note (`addPatch`) instead of a new one; a
+  spell written from memory that built without a shock effect.
+
+**Changed after it** (measured next round): `ValueOf`'s block pattern matches each line one way only —
+the block that hung answers in milliseconds, the hint it looks for (`Enchantment:` above
+`EditorID: X` → `ObjectEffect: X`) works as before with LF, CRLF and a blank line; and the helper sets a
+5 s default match timeout on every pattern, so one like it fails a call, not the helper and the calls
+behind it.
