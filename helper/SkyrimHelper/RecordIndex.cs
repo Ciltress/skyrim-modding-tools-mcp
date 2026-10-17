@@ -98,7 +98,7 @@ public sealed class RecordIndex
     /// record type holds, each with Mutagen's. A note is a Book: both models asked findRecords for NOTE,
     /// and got no suggestion (eval rounds 15 and 16).
     /// </summary>
-    private static readonly Dictionary<string, string> EditorNames = new(StringComparer.OrdinalIgnoreCase)
+    internal static readonly Dictionary<string, string> EditorNames = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Enchantment"] = "ObjectEffect",
         ["Note"] = "Book", ["Letter"] = "Book", ["Journal"] = "Book", ["Tome"] = "Book", ["SpellTome"] = "Book",

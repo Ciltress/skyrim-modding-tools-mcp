@@ -64,7 +64,24 @@ public static class RecordFiles
             : index.ByFormKey.Values.FirstOrDefault(e => e.Type == type.Name && e.EditorId is not null)?.EditorId;
 
     /// <summary>The group folders a new record of an everyday kind goes into, for messages.</summary>
-    public const string CommonGroups = "Weapons, Armors, Spells, MagicEffects, ObjectEffects (enchantments), Npcs, LeveledItems";
+    // "ObjectEffects (enchantments)" was taken for a folder's name, then "ObjectEffectsEnchantments" (eval probe 19).
+    public const string CommonGroups = "Weapons, Armors, Spells, MagicEffects, Npcs, LeveledItems, and ObjectEffects for an enchantment";
+
+    /// <summary>
+    /// The group folder another word names — its record type's own name, or the game's word for it, one
+    /// or many: Enchantments is ObjectEffects, Notes is Books, Weapon is Weapons. Null for none.
+    /// </summary>
+    private static string? GroupCalled(string folder)
+    {
+        string[] words = [folder, folder.EndsWith("es", StringComparison.OrdinalIgnoreCase) ? folder[..^2] : folder, folder.TrimEnd('s', 'S')];
+        foreach (var word in words.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var typeName = RecordIndex.EditorNames.TryGetValue(word, out var named) ? named : word;
+            if (Groups.FirstOrDefault(g => g.Value is not null && g.Value.Name.Equals(typeName, StringComparison.OrdinalIgnoreCase)).Key is { } group)
+                return group;
+        }
+        return null;
+    }
 
     private static readonly ConcurrentDictionary<Type, HashSet<string>> Fields = new();
 
@@ -113,7 +130,7 @@ public static class RecordFiles
         ObjectTypeLine.Match(text) is { Success: true } objectType ? KindOf(group, objectType.Groups[1].Value) : null;
 
     /// <summary>A record type's fields, and MutagenObjectType, which names the kind where a group has several.</summary>
-    private static HashSet<string> FieldsOf(Type type) =>
+    internal static HashSet<string> FieldsOf(Type type) =>
         Fields.GetOrAdd(type, t => t.GetProperties(BindingFlags.Public | BindingFlags.Instance).Select(p => p.Name)
             .Append("MutagenObjectType").ToHashSet(StringComparer.Ordinal));
 
@@ -137,6 +154,8 @@ public static class RecordFiles
         (["EffectData"], ["Damage", "DamageAmount", "Strength"], "Magnitude", "damage is Magnitude"),
         // An item of Effects names its magic effect as BaseEffect; told "has no field Effect", a model kept it (eval probe 10).
         (["Effect"], ["Effect", "MagicEffect", "EffectID", "MGEF", "Base", "Spell"], "BaseEffect", "it is BaseEffect, naming the MagicEffect"),
+        // Told only "delete it", a model dropped the damage of its sword's enchantment (eval round 17).
+        (["Effect"], ["Damage", "DamageAmount", "Strength"], null, "damage is Magnitude, under Data — beside Area and Duration"),
         (["Spell", "ObjectEffect", "Scroll"], ["Delivery"], "TargetType", "it is TargetType: Self, Touch, Aimed, TargetActor or TargetLocation"),
         (["Spell"], ["Cost", "MagickaCost"], "BaseCost", "it is BaseCost"),
         (["Spell"], ["School", "MagicSkill", "Skill"], null, "a spell's school is the MagicSkill of the magic effects its Effects name"),
@@ -405,9 +424,10 @@ public static class RecordFiles
                     continue;
                 }
                 var spelled = Groups.Keys.FirstOrDefault(g => g.Equals(parts[0], StringComparison.OrdinalIgnoreCase));
-                problems.Add(spelled is not null
-                    ? $"{relative}: the folder is spelled {spelled}, not {parts[0]}"
-                    : $"{relative}: '{parts[0]}' is no group folder — use the one readRecord's pathInPluginFolder names for the type, such as {CommonGroups}");
+                problems.Add(spelled is not null ? $"{relative}: the folder is spelled {spelled}, not {parts[0]}"
+                    : GroupCalled(parts[0]) is { } group
+                        ? $"{relative}: '{parts[0]}' is no group folder — the folder for them is {group}: write the file as {group}/{parts[^1]}"
+                        : $"{relative}: '{parts[0]}' is no group folder — use the one readRecord's pathInPluginFolder names for the type, such as {CommonGroups}");
                 continue;
             }
 

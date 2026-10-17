@@ -210,6 +210,24 @@ ITMPotionDownSD`, `Weight: 0.5`. Skyrim.esm's records, written as they are:
 | Cure disease | `CureDisease` | `AlchCureDisease` | Magnitude 100 |
 | Invisibility | `Invisibility01` | `AlchInvisibillity` | Duration 20 |
 
+## Books and notes
+
+A note or a letter is a `Book` too, in `Books/`, mirroring a vanilla one of its kind — Skyrim.esm's,
+`readRecord` by these names:
+
+| A new … | Mirror | `Model` `File` | `InventoryArt` | Also |
+|---|---|---|---|---|
+| note, letter | `LetterRiftenBlackBriarMeadery04` ("Note From Maven") | `Clutter\Books\Note03.nif` | `HighPolyNote03` | `PickUpSound: ITMNoteUp` |
+| book | `Book3ValuableLustyArgonianMaidVol01` | `Clutter\Books\BasicBook07.nif` | `HighPolyBasicBook07` | `Value`, `Weight` |
+
+Both carry `Keywords` with `VendorItemBook`, and `Teaches` with `MutagenObjectType: BookTeachesNothing`.
+The text is `BookText`'s `Value`, a block under `Value: >-`:
+
+- A text taken from another book is copied character for character, as `readRecord` shows it: its
+  markup — `<font face="$HandwrittenFont">` makes a note handwritten — its words, its empty lines.
+- Every line of the text sits four spaces deep, as deep as its first; the record's next field,
+  `PickUpSound:` or `Keywords:`, starts at the margin again.
+
 ## Recipes: stations, materials, perks
 
 A recipe's `WorkbenchKeyword` is its station; its `Items` the materials; a recipe for a higher

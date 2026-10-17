@@ -64,6 +64,7 @@ public static class RecordLinks
                 continue;
             }
             if (yaml.Documents.Count == 0 || yaml.Documents[0].RootNode is not YamlMappingNode root) continue;
+            if (FieldInText(text, type, root) is { } swallowed) problems.Add($"{relative}: {swallowed}");
             // What every official weapon or armor of its kind carries itself, named with the links' problems.
             if (RecordFiles.Identity(text).FormKey is not { } written || written.ModKey == ownPlugin)
                 if (RecordFiles.Uncarried(type, text, index) is { } uncarried) problems.Add($"{relative}: {uncarried}");
@@ -185,6 +186,51 @@ public static class RecordLinks
         }
         var reason = Regex.Replace(e.Message, @"^\(Line:[^)]*\)( - \(Line:[^)]*\))?:\s*", "").Trim();
         return $"the YAML breaks at {where}: {reason} Indent a field's own fields by two spaces below it, and give every other line a `Field: value`";
+    }
+
+    /// <summary>
+    /// A line written as a field, in a field's own spelling, with a value only a field has: a link, a
+    /// number, or none — fields of its own below it. A text's "By:" or "Value: 200 gold" is no field.
+    /// </summary>
+    private static readonly Regex FieldLine = new(
+        @"^(?<indent> +)(?<key>[A-Z][A-Za-z0-9]*):(?:[ \t]+(?<value>[0-9A-Fa-f]{6}:\S+\.es[mpl]|-?\d+(?:\.\d+)?)(?:[ \t]+#.*)?)?[ \t]*$",
+        RegexOptions.IgnoreCase, TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// A field of the record indented into a block text above it, where it is a line of the text and the
+    /// record silently has no such field. Told to indent a text's lines, e4b indented the fields below it
+    /// too, and a note built with its sound and keywords as words of its text (eval probe 18). Only a field
+    /// the record has nowhere else counts: a letter's own "Name: …" line is text.
+    /// </summary>
+    private static string? FieldInText(string text, Type type, YamlMappingNode root)
+    {
+        var lines = text.Replace("\r\n", "\n").Split('\n');
+        var fields = RecordFiles.FieldsOf(type);
+        var written = root.Children.Keys.OfType<YamlScalarNode>().Select(key => key.Value).ToHashSet(StringComparer.Ordinal);
+        static int IndentOf(string line) => line.Length - line.TrimStart(' ').Length;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (BlockTextHeader.Match(lines[i]) is not { Success: true } header) continue;
+            var column = header.Groups["key"].Index;
+            for (var j = i + 1; j < lines.Length && (lines[j].Trim().Length == 0 || IndentOf(lines[j]) > column); j++)
+            {
+                if (FieldLine.Match(lines[j]) is not { Success: true } field) continue;
+                var key = field.Groups["key"].Value;
+                if (!fields.Contains(key) || written.Contains(key)) continue;
+                // `Keywords:` with nothing after it is a field when its own lines follow: a list, or deeper ones.
+                if (!field.Groups["value"].Success)
+                {
+                    var next = lines.Skip(j + 1).FirstOrDefault(line => line.Trim().Length > 0);
+                    var ownLines = next is not null && (next.TrimStart().StartsWith("- ") || IndentOf(next) > field.Groups["indent"].Length);
+                    if (!ownLines) continue;
+                }
+                return $"the text under `{lines[i].Trim()}` (line {i + 1}) runs on into `{lines[j].Trim()}` (line {j + 1}) — the " +
+                    $"{Kind(type)}'s field {key}, indented into the text, so the record would have no {key} and the text would " +
+                    $"end with it. The text ends before line {j + 1}: write that line and the field lines after it at the margin, " +
+                    "as readRecord shows them";
+            }
+        }
+        return null;
     }
 
     /// <summary>

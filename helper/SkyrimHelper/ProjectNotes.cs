@@ -49,7 +49,35 @@ public static class ProjectNotes
                         $"carries it as `ObjectEffect: {enchantment}`");
             }
         }
+        // A record copied whole and renamed, its FormKey and EditorID kept, builds as a change to that record, not as
+        // a new one beside it: e4b's "new note" was Maven's own, renamed (eval probe 19). A patch renames now and then.
+        foreach (var (relative, _, text) in RecordFiles.FlatRecords(pluginDir).Select(f => (f.Relative, f.Type, Text: File.ReadAllText(f.File))))
+        {
+            if (RecordFiles.Identity(text).FormKey is not { } key || key.ModKey == own) continue;
+            if (!index.ByFormKey.TryGetValue(key, out var entry) || entry.Name is not { Length: > 0 } was) continue;
+            if (NameIn(text) is not { } now || now == was) continue;
+            notes.Add($"{relative}: overrides {entry.EditorId} of {key.ModKey.FileName} and renames it from '{was}' to '{now}', so the game " +
+                $"shows that record as '{now}' wherever it is. A new record of its own has no FormKey line, and an EditorID of its own");
+        }
         return notes;
+    }
+
+    /// <summary>A record's in-game name as its file writes it — `Name:` with its `Value:` below — unquoted; null for none.</summary>
+    private static string? NameIn(string text)
+    {
+        var lines = text.Replace("\r\n", "\n").Split('\n');
+        var at = Array.FindIndex(lines, line => line.TrimEnd() == "Name:");
+        if (at < 0) return null;
+        foreach (var line in lines.Skip(at + 1).TakeWhile(line => line.StartsWith(' ')))
+        {
+            var value = line.Trim();
+            if (!value.StartsWith("Value:", StringComparison.Ordinal)) continue;
+            value = value["Value:".Length..].Trim();
+            if (value.Length >= 2 && value[0] == '\'' && value[^1] == '\'') return value[1..^1].Replace("''", "'");
+            if (value.Length >= 2 && value[0] == '"' && value[^1] == '"') return Regex.Unescape(value[1..^1]);
+            return value;
+        }
+        return null;
     }
 
     /// <summary>The voice type an NPC's file names, by editor ID or FormID; null for none or one the load order lacks.</summary>
