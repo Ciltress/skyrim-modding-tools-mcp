@@ -7,7 +7,7 @@ import {
 } from '../backend/skyrim/mo2';
 import { InstallError, type FomodConfig } from '../backend/skyrim/installer';
 import { activatePlugins, enableMod } from '../backend/skyrim/mo2Profile';
-import { ProjectError, assignFormIds, nameRecordFiles, projectPaths, readProjectHeader, syncYaml } from '../backend/skyrim/projects';
+import { ProjectError, assignFormIds, copiedEscapes, nameRecordFiles, projectPaths, readProjectHeader, syncYaml } from '../backend/skyrim/projects';
 import { SkyrimEngine } from '../backend/skyrim/engine';
 import { SkyrimInstanceBackend } from '../backend/skyrim/SkyrimInstanceBackend';
 import { Mo2Manager } from '../backend/skyrim/mo2Manager';
@@ -770,6 +770,43 @@ describe('the Skyrim backend', () => {
         expect(message).toContain(String.raw`line 4 (two backslashes): ` +
             '`Description: "a \\"burning\\" blade in Weapons\\\\\\\\Iron"` → `Description: "a \\"burning\\" blade in Weapons\\\\Iron"`');
         expect(message).toMatch(/Replace each line with the one after its arrow/);
+    });
+
+    it('gives a text\'s line breaks copied as \\n back as lines, described line by line', async () => {
+        // e4b copied a note's text out of readRecord's answer as one line, its breaks as `\\n` (eval round 18).
+        const { backend, fixture } = makeBackend();
+        await backend.newProject({ project: 'MavenNote' });
+        write(path.join(fixture.projects, 'MavenNote', 'plugin', 'Books', 'MavenWarning.yaml'), [
+            'EditorID: MavenWarning',
+            'BookText:',
+            '  TargetLanguage: English',
+            '  Value: >-',
+            String.raw`    <font face="$HandwrittenFont">Indaryn,\\n\\n\\n    If you dare again.\\n\\n    Maven\\n`
+        ].join('\n') + '\n');
+
+        const message = await backend.buildProject('MavenNote').then(() => '', (e: Error) => e.message);
+        expect(message).toContain('line 5 (line breaks written as \\n): ');
+        expect(message).toContain('→ 6 lines: 1 `    <font face="$HandwrittenFont">Indaryn,`, 2 empty, 3 empty, ' +
+            '4 `    If you dare again.`, 5 empty, 6 `    Maven`');
+        expect(message).toMatch(/a line break is a real one, where a JSON answer shows \\n/);
+    });
+
+    it('finds each kind of copied escape on its line, and leaves a path\'s \\n and a double-quoted text\'s alone', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-escapes-'));
+        roots.push(dir);
+        write(path.join(dir, 'Books', 'Note.yaml'), [
+            String.raw`Name: 'Maven\'s Warning'`,
+            'Description:',
+            String.raw`  Value: >-\n    <font face="$HandwrittenFont">Recipient,\n\n    Maven\n`,
+            String.raw`  Other: Line one\n\nLine two`,
+            String.raw`  File: Armor\nightingale\nightingaleboots.nif`,
+            String.raw`  Quoted: "Line one\nLine two"`
+        ].join('\n') + '\n');
+        expect(copiedEscapes(dir).map(({ line, kind, fixed }) => ({ line, kind, fixed }))).toEqual([
+            { line: 1, kind: 'a backslash before an apostrophe', fixed: [`Name: 'Maven''s Warning'`] },
+            { line: 3, kind: 'line breaks written as \\n', fixed: ['  Value: >-', '    <font face="$HandwrittenFont">Recipient,', '', '    Maven'] },
+            { line: 4, kind: 'line breaks written as \\n', fixed: ['  Other: |-', '    Line one', '', '    Line two'] }
+        ]);
     });
 
     it('builds a path with single backslashes, and one escaped inside double quotes', async () => {

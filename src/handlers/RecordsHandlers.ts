@@ -94,7 +94,7 @@ export class RecordsHandlers extends BaseHandler {
                         properties: {
                             record: {
                                 type: 'string',
-                                description: `A FormID or an editor ID, e.g. "IronSword". ${FORM_ID_HINT}`
+                                description: `A FormID or an editor ID, e.g. "IronSword" — or the in-game name of the one record that has it, e.g. "Note From Maven". ${FORM_ID_HINT}`
                             },
                             plugin: {
                                 type: 'string',

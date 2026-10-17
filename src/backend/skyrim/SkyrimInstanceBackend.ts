@@ -15,7 +15,7 @@ import { ModError, findMod, listedMods, ownerOf, pluginFiles } from './modList.j
 import { checkGameVersion } from './gameVersion.js';
 import { findCaseInsensitive } from './paths.js';
 import {
-    ProjectError, assignFormIds, belongsAt, copiedEscapes, createProject, fencedRecordFiles, fileHash, keepRecordTexts, misnamedRecordFiles, looseRecordFiles, nameRecordFiles, newestSourceTime, projectExists,
+    ProjectError, assignFormIds, belongsAt, copiedEscapes, createProject, type CopiedEscape, fencedRecordFiles, fileHash, keepRecordTexts, misnamedRecordFiles, looseRecordFiles, nameRecordFiles, newestSourceTime, projectExists,
     projectInfo, projectPaths, readDeployState, readProjectHeader, recordFiles, strayRecordFiles, syncFolder, syncYaml,
     whereRecordsGo, writeDeployState
 } from './projects.js';
@@ -303,12 +303,7 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         // Escapes copied out of a JSON answer as they read built without a word, into a path the game cannot
         // find (eval rounds 12–15): refused, like the fence, so the model rewrites the line.
         const escaped = copiedEscapes(paths.plugin);
-        if (escaped.length > 0) {
-            throw new ProjectError(
-                `${escaped.map(({ file, line, kind, text, fixed }) => `${file}, line ${line} (${kind}): \`${text}\` → \`${fixed}\``).join('; ')}: ` +
-                'copied with the escapes a JSON answer shows. Replace each line with the one after its arrow: in the file, ' +
-                'a path\'s folders are apart by a single backslash, and a quote has no backslash before it.');
-        }
+        if (escaped.length > 0) throw new ProjectError(escapesRefused(escaped));
         // With records to build, files elsewhere are named but stop nothing: a refusal only deleting a
         // file could satisfy trapped a model whose file tools could not delete (eval round 10).
         const warnings: string[] = [];
@@ -844,6 +839,28 @@ function checkModName(name: string): string {
         throw new InstallError(`'${name}' cannot be a mod's name: it becomes a folder, so leave out < > : " / \\ | ? * and a trailing dot.`);
     }
     return given;
+}
+
+/**
+ * The refusal of copied escapes: each line as written and as it is to be. A line that becomes several is
+ * described line by line on one line of text — an answer is JSON, so a line break in it would reach the
+ * model as `\n`, the very escape it copied.
+ */
+function escapesRefused(escaped: readonly CopiedEscape[]): string {
+    const clip = (text: string) => text.length > 80 ? `${text.slice(0, 80)}…` : text;
+    const each = escaped.map(({ file, line, kind, text, fixed }) => `${file}, line ${line} (${kind}): ` + (fixed.length === 1
+        ? `\`${text}\` → \`${fixed[0]}\``
+        : `\`${clip(text)}\` → ${fixed.length} lines: ${fixed.map((next, k) => `${k + 1} ${next.trim() ? `\`${next}\`` : 'empty'}`).join(', ')}`));
+    const kinds = new Set(escaped.map(escape => escape.kind));
+    return `${each.join('; ')}: copied with the escapes a JSON answer shows.` +
+        (escaped.some(escape => escape.fixed.length === 1)
+            ? ' Replace each line with the one after its arrow: in the file, a path\'s folders are apart by a single backslash, ' +
+              `a quote has no backslash before it${kinds.has('a backslash before an apostrophe') ? ', and in single quotes an apostrophe is written twice' : ''}.`
+            : '') +
+        (kinds.has('line breaks written as \\n')
+            ? ' In the file a line break is a real one, where a JSON answer shows \\n: replace each line with the lines its arrow ' +
+              'lists, each as quoted with the spaces in front, and the empty ones empty.'
+            : '');
 }
 
 /** What disableMod says when plugins the game still loads need one it took out — the game will not start. */

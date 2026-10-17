@@ -198,7 +198,7 @@ public sealed class Session : IDisposable
 
     private async Task<JsonNode> ReadRecord(JsonObject p)
     {
-        var formKey = Resolve(Required(p, "record"));
+        var formKey = Resolve(Required(p, "record"), byName: true);
         var plugin = p["plugin"]?.GetValue<string>();
         var all = p["allVersions"]?.GetValue<bool>() ?? false;
 
@@ -538,19 +538,29 @@ public sealed class Session : IDisposable
         return Cache.ResolveAllContexts(formKey, type).ToList();
     }
 
-    private FormKey Resolve(string raw)
+    /// <param name="byName">
+    /// Whether an in-game name that one record alone has finds that record — for reading. e4b asked for "Note
+    /// From Maven", was told its editor ID, and never read it (eval round 18). Copying keeps to exact names.
+    /// </param>
+    private FormKey Resolve(string raw, bool byName = false)
     {
-        if (raw.Contains(':')) return ParseFormKey(raw);
+        // A FormID is hex digits before its colon; "Spell Tome: Flames" is a name.
+        if (FormIdShape.IsMatch(raw)) return ParseFormKey(raw);
         if (Index.ByEditorId.TryGetValue(raw.Trim(), out var key)) return key;
         // An in-game name, sent as an editor ID: "Lydia", whose editor ID is HousecarlWhiterun (eval probe 15).
-        var named = Index.ByFormKey.Values.Where(e => e.EditorId is not null && string.Equals(e.Name, raw.Trim(), StringComparison.OrdinalIgnoreCase))
-            .OrderBy(e => e.FormKey.ModKey == SkyrimMaster ? 0 : 1).Take(5)
+        var withName = Index.ByFormKey.Values.Where(e => e.EditorId is not null && string.Equals(e.Name, raw.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+        if (byName && withName.Count == 1) return withName[0].FormKey;
+        var named = withName.OrderBy(e => e.FormKey.ModKey == SkyrimMaster ? 0 : 1).Take(5)
             .Select(e => $"{e.EditorId} ({e.Type}, {FormKeyText(e.FormKey)})").ToList();
+        // A colon that is no record's name is a FormID written wrong: Skyrim.esm:012EB7.
+        if (named.Count == 0 && raw.Contains(':')) return ParseFormKey(raw);
         var near = named.Count > 0 ? new List<string>() : RecordLinks.Closest(raw.Trim(), Index);
         throw new HelperException("notFound", $"No record with editor ID '{raw}' in the load order" +
             (named.Count > 0 ? $" — the records named '{raw.Trim()}' in game: {string.Join(", ", named)}; read one by its editor ID"
                 : near.Count > 0 ? $" — the records closest to it: {string.Join(", ", near)}" : "") + ". Search with findRecords.");
     }
+
+    private static readonly Regex FormIdShape = new(@"^\s*[0-9A-Fa-f]{1,8}\s*:", RegexOptions.None, TimeSpan.FromSeconds(5));
 
     private static FormKey ParseFormKey(string raw) =>
         FormKey.TryFactory(raw.Trim(), out var key)

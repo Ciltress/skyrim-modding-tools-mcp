@@ -135,41 +135,100 @@ export function fencedRecordFiles(pluginDir: string): { file: string; lines: num
  * judged once decoded, since YAML escapes there too; on 6,038 files Spriggit wrote, nothing is found.
  *
  * Each comes with the line as written and as it is to be: told only "line 12 (two backslashes)", e4b
- * edited another line, built again and gave up (eval probe 17).
+ * edited another line, built again and gave up (eval probe 17). A text's line breaks copied as `\n`
+ * become the lines they were (e4b copied a note's whole text onto one line, round 18), and an apostrophe
+ * escaped in single quotes is written twice, as YAML writes it.
  */
 export function copiedEscapes(pluginDir: string): CopiedEscape[] {
-    const kindOf = (text: string) =>
-        /\\\\/.test(text) ? 'two backslashes' as const : /\\"/.test(text) ? 'a backslash before a quote' as const : undefined;
-    // The copy's one layer of escapes undone: `\\` is `\`, `\"` is `"`.
-    const unescape = (text: string) => text.replace(/\\(["\\])/g, '$1');
-    return recordFiles(pluginDir).flatMap(file => fs.readFileSync(file, 'utf8').split(/\r?\n/).flatMap((text, i) => {
-        let kind: CopiedEscape['kind'] | undefined;
-        let fixed = '';
-        let rest = text;
-        for (const quoted of text.match(/"(?:[^"\\]|\\.)*"/g) ?? []) {
-            const at = rest.indexOf(quoted);
-            const before = rest.slice(0, at);
-            kind ??= kindOf(before);
-            let decoded = '';
-            try { decoded = JSON.parse(quoted); } catch { /* a YAML escape JSON does not know: not one a copy leaves */ }
-            const inside = kindOf(decoded);
-            kind ??= inside;
-            // Inside double quotes YAML escapes too: the string is undone once and written with its own escapes again.
-            fixed += unescape(before) + (inside ? JSON.stringify(unescape(decoded)) : quoted);
-            rest = rest.slice(at + quoted.length);
-        }
-        kind ??= kindOf(rest);
-        return kind ? [{ file, line: i + 1, kind, text: text.trim(), fixed: (fixed + unescape(rest)).trim() }] : [];
-    }));
+    return recordFiles(pluginDir).flatMap(file => {
+        let block: number | undefined;
+        return fs.readFileSync(file, 'utf8').split(/\r?\n/).flatMap((text, i) => {
+            const indent = text.length - text.trimStart().length;
+            // A block scalar's lines (`Value: >-` and the lines below it, deeper) are text, not fields.
+            if (block !== undefined && text.trim() && indent <= block) block = undefined;
+            const inBlock = block !== undefined;
+            if (/:\s*[|>][-+]?\s*$/.test(text)) block = indent;
+            const escape = lineEscape(text, inBlock);
+            return escape ? [{ file, line: i + 1, ...escape, text: text.trim() }] : [];
+        });
+    });
+}
+
+/**
+ * A line break a copy left as `\n` — `\r\n`, its backslash doubled or not — where a text goes on: before
+ * another escape, a space or the line's end. A path's `Armor\nightingale` goes on with a letter.
+ */
+const COPIED_LINE_BREAK = /\\+(?:r\\+)?n(?=\\|\s|$)/;
+
+/** One line's copied escapes and what it is to be, or undefined; `inBlock` when it is a block scalar's text. */
+function lineEscape(text: string, inBlock: boolean): Pick<CopiedEscape, 'kind' | 'fixed'> | undefined {
+    const kindOf = (part: string) =>
+        /\\\\/.test(part) ? 'two backslashes' as const : /\\"/.test(part) ? 'a backslash before a quote' as const : undefined;
+    let kind: CopiedEscape['kind'] | undefined;
+    let fixed = '';
+    let outside = '';
+    let rest = text;
+    for (const quoted of text.match(/"(?:[^"\\]|\\.)*"/g) ?? []) {
+        const at = rest.indexOf(quoted);
+        const before = rest.slice(0, at);
+        outside += before;
+        kind ??= kindOf(before);
+        let decoded = '';
+        try { decoded = JSON.parse(quoted); } catch { /* a YAML escape JSON does not know: not one a copy leaves */ }
+        const inside = kindOf(decoded);
+        kind ??= inside;
+        // Inside double quotes YAML escapes too: the string is undone once and written with its own escapes again.
+        fixed += unescape(before) + (inside ? JSON.stringify(unescape(decoded)) : quoted);
+        rest = rest.slice(at + quoted.length);
+    }
+    outside += rest;
+    kind ??= kindOf(rest);
+    fixed += unescape(rest);
+    if (COPIED_LINE_BREAK.test(outside)) return { kind: 'line breaks written as \\n', fixed: textLines(text, inBlock) };
+    if (/\\'/.test(outside)) {
+        kind ??= 'a backslash before an apostrophe';
+        // In single quotes YAML writes an apostrophe twice; anywhere else, as it is.
+        fixed = fixed.replace(/(:\s+)'(.*)'(\s*)$/, (_, colon, inner, end) => `${colon}'${inner.replace(/\\'/g, "''")}'${end}`)
+            .replace(/\\'/g, '\'');
+    }
+    return kind ? { kind, fixed: [fixed.trim()] } : undefined;
+}
+
+/** The copy's one layer of escapes undone: `\\` is `\`, `\"` is `"`. */
+const unescape = (text: string) => text.replace(/\\(["\\])/g, '$1');
+
+/**
+ * A line whose breaks were copied as `\n`, as the lines it was. Copied from a record's text, each piece
+ * keeps its own indentation — the block's; a `Key: text` written on one line becomes a block of its own.
+ */
+function textLines(text: string, inBlock: boolean): string[] {
+    const undone = (piece: string) => {
+        for (let before = ''; before !== piece;) [before, piece] = [piece, piece.replace(/\\(["'\\])/g, '$1')];
+        return piece;
+    };
+    const pieces = text.split(/\\+(?:r\\+)?n/).map(undone);
+    while (pieces.length > 1 && !pieces[pieces.length - 1].trim()) pieces.pop();
+    const inline = inBlock ? null : /^(\s*)([^\s:#'"][^:#]*):\s+(?![|>][-+]?\s*$)(\S.*)$/.exec(pieces[0]);
+    if (!inline || pieces.length === 1) return pieces;
+    const [, indent, key, value] = inline;
+    const lines = [value, ...pieces.slice(1)];
+    // A single-quoted text's quotes go; its doubled apostrophes are single ones in a block.
+    if (/^'/.test(value) && /'\s*$/.test(lines[lines.length - 1])) {
+        lines[0] = lines[0].slice(1);
+        lines[lines.length - 1] = lines[lines.length - 1].replace(/'\s*$/, '');
+        lines.forEach((line, k) => { lines[k] = line.replace(/''/g, '\''); });
+    }
+    return [`${indent}${key}: |-`, ...lines.map(line => line.trim() ? `${indent}  ${line.trimStart()}` : '')];
 }
 
 export interface CopiedEscape {
     file: string;
     line: number;
-    kind: 'two backslashes' | 'a backslash before a quote';
-    /** The line as written, and as it is to be: the copy's escapes undone. */
+    kind: 'two backslashes' | 'a backslash before a quote' | 'a backslash before an apostrophe' | 'line breaks written as \\n';
+    /** The line as written. */
     text: string;
-    fixed: string;
+    /** As it is to be: one line, the copy's escapes undone — or the lines it becomes, for line breaks. */
+    fixed: string[];
 }
 
 /** YAML files in a project's folder but outside its plugin folder and build output: no build reads them. */

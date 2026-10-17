@@ -20,7 +20,7 @@ Workflows and the error model: [`MCP-Tools.md`](./MCP-Tools.md). The vocabulary:
 | Find a weapon, spell, NPC… by name or editor ID | `findRecords` with `text`, and `types` like `["WEAP"]` to narrow it. **Start here.** |
 | Know what a FormID in project text is (`01E718:Skyrim.esm`) | `findRecords` with `records` — FormIDs in, names out |
 | Find the FormID for an editor ID before writing it | `findRecords` with `records: ["WeapMaterialIron"]` |
-| Read a record — its fields, as a project would hold it | `readRecord` with the FormID or editor ID |
+| Read a record — its fields, as a project would hold it | `readRecord` with the FormID or editor ID — or its in-game name, when one record alone has it ("Note From Maven") |
 | See which mods change a record, and how | `readRecord` with `allVersions: true` — every plugin's version, winning first |
 | Read one mod's version of a record | `readRecord` with `plugin` |
 | List what a plugin defines or overrides | `findRecords` with `plugin`, and `types` to narrow it |
