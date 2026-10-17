@@ -259,7 +259,9 @@ setting. Claude Code pointed at Ollama loads every tool up front; `MCP_PROFILE=c
   weights in system memory, the CPU works on those, and the GPU waits — 30–40% GPU load is what that
   looks like, not a misconfiguration. It generates about 50 tokens/s at a 128k context and 62 at 32k,
   and a tool-using turn takes about 3 s. `OLLAMA_FLASH_ATTENTION=1` and `OLLAMA_KV_CACHE_TYPE=q8_0`
-  are worth setting. Loading it takes 30–40 s, and a client asking for another context size reloads it.
+  are worth setting. Loading it takes 30–40 s, and a client asking for another context size reloads it. Measured on
+  Ollama 0.40.4; 0.40.6 ran the same eval about 2.5 times slower with gemma4:26b on this card — ~26 against
+  ~61 tokens/s in long turns, the prompt cache used as before ([round 18](./research/local-model-evals.md)).
 
 ## 5. Setting it up on Linux, with Mod Organizer under Proton
 

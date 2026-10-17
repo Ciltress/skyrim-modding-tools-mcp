@@ -119,6 +119,8 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-17 | gemma4:26b | `all`, Claude Code | db246fb + rounds 15–16's changes, 9 tasks + 4 detailed | 38/39 | 2.99 s | ~1,022 tokens/s | ~50 tokens/s | 77% |
 | 2026-10-17 | gemma4:e4b | `all` | 7c11e20 + round 17's changes, 9 tasks + 4 with the skill read + 4 detailed | 46/51 | 1.91 s | ~7,255 tokens/s | ~170 tokens/s | 100% |
 | 2026-10-17 | gemma4:26b | `all` | 7c11e20 + round 17's changes, the same | 51/51 | 5.62 s | ~1,004 tokens/s | ~49 tokens/s | 77% |
+| 2026-10-17 | gemma4:e4b | `all` | b354106, Ollama 0.40.6 (0.40.4 before) | 48/51 | 2.31 s | ~6,936 tokens/s | ~171 tokens/s | 100% |
+| 2026-10-17 | gemma4:26b | `all` | b354106, Ollama 0.40.6 | 51/51 | 14.14 s | ~674 tokens/s | ~49 tokens/s | 77% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -169,77 +171,6 @@ in these runs; `--client claude-code` counts every answer that ends without `mes
 
 `--client claude-code` runs in that lean setup: the same denied built-ins, non-essential traffic off,
 side requests on the model under test, only this server.
-
-## Round 16 — through Claude Code (2026-10-17)
-
-**Changed before it:** a record file with the escapes of a JSON answer copied in — two backslashes
-in a path, a backslash before a quote — is refused, naming each file and line; a `.yml` file beside
-its `.yaml` twin is left out with a warning; round 15's `MCP_ANSWER_FORMAT` switch is gone (JSON
-stays). A probe of e4b alone on the eval's own client (not logged) took 45 of 51: the escape refusal fired five times and e4b rewrote the line each
-time — `sword+skill` and `sword+detailed` 3/3, where round 15 lost one run of each to escapes — and no
-run left an escape behind. The round itself is `--client claude-code`: the user's real client, the VS
-Code extension's CLI (2.1.301) on Ollama, set up lean (reference measurements above). `+skill` runs
-cannot be made there, so 13 tasks, 39 runs.
-
-gemma4:e4b, `all`, Claude Code (prompt ~6,983 tokens/s, generation ~166 tokens/s). First prompt 7,693
-tokens, 22 tools; first token after 0.19 s (median of the first turns); no answer cut off, no side
-request:
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 9424 | 12.7 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 10831 | 14 |
-| filter | 3/3 | 2.3 | 1.3 | 0 | 0 | 8697 | 13.6 |
-| patch | 3/3 | 5 | 4 | 0 | 0 | 12334 | 19.5 |
-| build | 3/3 | 6 | 5 | 0 | 0 | 13312 | 20.7 |
-| sword | 3/3 | 7.3 | 6.7 | 1 | 0 | 22617 | 27.1 |
-| sword+detailed | 3/3 | 11 | 10.3 | 3 | 0 | 25830 | 44.9 |
-| spell | 2/3 | 11 | 9.7 | 7 | 4 | 28715 | 40.8 |
-| spell+detailed | 3/3 | 6.7 | 5.7 | 1 | 0 | 19599 | 29.4 |
-| npc | 3/3 | 5 | 4 | 0 | 0 | 12372 | 18.2 |
-| npc+detailed | 3/3 | 6.3 | 5.3 | 2 | 0 | 13261 | 23.1 |
-| note | 2/3 | 10.3 | 9.3 | 7 | 0 | 14337 | 34.2 |
-| note+detailed | 1/3 | 7.3 | 6.3 | 6 | 0 | 13937 | 25.1 |
-
-gemma4:26b, `all`, Claude Code (prompt ~1,022 tokens/s, generation ~50 tokens/s). First prompt 7,691
-tokens, 22 tools; first token after 1.27 s; one answer cut off (below), no side request:
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 9293 | 16.5 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 10433 | 19.1 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 9613 | 21.6 |
-| patch | 3/3 | 4.3 | 3.3 | 0 | 0 | 12086 | 26 |
-| build | 3/3 | 5 | 4 | 0 | 0 | 11384 | 27.3 |
-| sword | 3/3 | 12 | 11 | 0 | 0 | 29235 | 102.2 |
-| sword+detailed | 3/3 | 10 | 9 | 0 | 0 | 25317 | 85.2 |
-| spell | 3/3 | 7.3 | 6.3 | 0 | 0 | 18349 | 61.6 |
-| spell+detailed | 3/3 | 8 | 7 | 0 | 0 | 18649 | 65.6 |
-| npc | 3/3 | 9 | 8 | 2 | 2 | 17590 | 51.1 |
-| npc+detailed | 3/3 | 7.7 | 6.7 | 0 | 0 | 15230 | 55.4 |
-| note | 2/3 | 233.3 | 232.3 | 0 | 9 | 64125 | 456.4 |
-| note+detailed | 3/3 | 8.7 | 7.7 | 2 | 0 | 17252 | 75.8 |
-
-**Seen.**
-
-- **Claude Code passes what the eval's own client passes.** On the same 13 tasks: e4b 35 of 39 both
-  ways (the probe above); 26b 38 of 39 against 39 of 39 in round 15. Turns are a little higher (e4b
-  250 against 233; 26b 259 against 230, the looping run left out), time much higher (e4b 970 s against
-  466 s; 26b 1,991 s against 1,207 s): each run is a new session, whose server builds its record index
-  again (~10 s), and every turn carries ~7,700 tokens of Claude Code's own.
-- **26b looped in Claude Code:** in one `note` run it called `Glob` on `MavenNote/plugin/Books` 672 times
-  in a row, "No files found" each time, until the eval stopped it at 20 minutes — its one cut-off answer.
-  Nothing of the server's was involved. Claude Code in print mode has no turn limit of its own; the
-  eval now passes `--max-turns` (25, as its own client), which the CLI takes though its help does not
-  list it. In the extension, a user stops such a loop by hand.
-- e4b's misses: a spell with a magic effect of its own whose conditions it never got right; a note
-  without its `<font>` markup ("exactly the text" taken for the words); an override of Maven's note
-  (`addPatch`) instead of a new one; and a note searched for as type `NOTE` — refused with no
-  suggestion, though a note is a book (`BOOK`); 26b did the same in round 15.
-- In the probe, a note's text block that lost its indentation: the build's message for a YAML break
-  inside a text block (`Value: >-` and its lines) says to indent a field's own fields and give every
-  line a `Field: value` — advice for a mapping, not a text; e4b rewrote the file five times and never
-  indented the text.
 
 ## Round 17 — a text's lines, a note's type, an escape's line (2026-10-17)
 
@@ -330,3 +261,74 @@ the block that hung answers in milliseconds, the hint it looks for (`Enchantment
 `EditorID: X` → `ObjectEffect: X`) works as before with LF, CRLF and a blank line; and the helper sets a
 5 s default match timeout on every pattern, so one like it fails a call, not the helper and the calls
 behind it.
+
+## Round 18 — a new Ollama, two new tools (2026-10-17)
+
+**Changed before it:** round 17's change after it (`ValueOf`'s pattern; a 5 s timeout on every helper
+pattern); path settings read as a POSIX shell reads them, the server finding the mod manager and the
+Papyrus compiler itself, `npm run setup` — nothing the tasks touch; two new tools in every profile's list,
+`listMods` and `checkGameVersion` (16 server tools, 17,689 bytes of schemas; no task asks for them); and
+**Ollama 0.40.4 → 0.40.6**, the user's update before the round.
+
+gemma4:e4b, `all` (prompt ~6,936 tokens/s, generation ~171 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 6782 | 7.7 |
+| read | 3/3 | 2.7 | 1.7 | 0 | 0 | 7772 | 3.3 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 5169 | 2.7 |
+| patch | 3/3 | 4 | 3 | 0 | 0 | 9294 | 7.7 |
+| build | 3/3 | 5.3 | 4.3 | 0 | 0 | 10075 | 7.9 |
+| sword | 3/3 | 8.7 | 7.7 | 3 | 0 | 16550 | 19.3 |
+| sword+skill | 3/3 | 6 | 5 | 1 | 0 | 13700 | 11.6 |
+| sword+detailed | 3/3 | 9 | 8 | 1 | 0 | 21250 | 24.7 |
+| spell | 3/3 | 5 | 4 | 0 | 0 | 11032 | 10.9 |
+| spell+skill | 3/3 | 5.7 | 4.7 | 2 | 0 | 12750 | 11.3 |
+| spell+detailed | 3/3 | 5.7 | 4.7 | 1 | 0 | 11614 | 16.6 |
+| npc | 3/3 | 6 | 5.3 | 2 | 0 | 10539 | 14.5 |
+| npc+skill | 3/3 | 7 | 6 | 3 | 2 | 10969 | 11 |
+| npc+detailed | 3/3 | 8.7 | 7.7 | 5 | 0 | 11335 | 15.1 |
+| note | 1/3 | 9.7 | 8.7 | 7 | 0 | 11903 | 44.4 |
+| note+skill | 3/3 | 7.3 | 6.3 | 2 | 0 | 15473 | 16.9 |
+| note+detailed | 2/3 | 11 | 10 | 8 | 0 | 12127 | 26 |
+
+gemma4:26b, `all` (prompt ~674 tokens/s, generation ~49 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 6334 | 10.7 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 7436 | 10.8 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 6534 | 8.4 |
+| patch | 3/3 | 4.3 | 3.3 | 0 | 0 | 8291 | 17.1 |
+| build | 3/3 | 5.3 | 4.3 | 0 | 0 | 8508 | 35.1 |
+| sword | 3/3 | 9.3 | 8.3 | 0 | 0 | 23958 | 331.2 |
+| sword+skill | 3/3 | 6 | 5 | 0 | 0 | 13191 | 131 |
+| sword+detailed | 3/3 | 15.7 | 14.7 | 6 | 1 | 28837 | 362.5 |
+| spell | 3/3 | 5 | 4 | 0 | 0 | 10254 | 74.7 |
+| spell+skill | 3/3 | 4 | 3 | 0 | 0 | 9984 | 42.8 |
+| spell+detailed | 3/3 | 6.3 | 5.3 | 1 | 0 | 11089 | 61.9 |
+| npc | 3/3 | 6 | 5 | 1 | 0 | 9844 | 100.1 |
+| npc+skill | 3/3 | 4.3 | 3.3 | 0 | 0 | 9285 | 22.4 |
+| npc+detailed | 3/3 | 10.7 | 9.7 | 1 | 1 | 25927 | 55.7 |
+| note | 3/3 | 8 | 7 | 1 | 0 | 13105 | 55.6 |
+| note+skill | 3/3 | 6.7 | 5.7 | 0 | 0 | 12297 | 71.8 |
+| note+detailed | 3/3 | 6.3 | 5.3 | 0 | 0 | 8451 | 97.1 |
+
+**Seen.**
+
+- **26b: 51 of 51** again; **e4b: 48 of 51** (round 17: 46) — no run lost to the helper, whose hang in
+  round 17 cost two.
+- **Ollama 0.40.6 is about 2.5 times slower for gemma4:26b on this machine at these contexts.** The same
+  tasks, the same turns (~9.9k prompt tokens, ~290 written): 14.14 s a turn against 5.62 s. Ollama's own
+  log, read for the two rounds' 26b windows: the prompt cache is used as before — 754 prompt tokens
+  evaluated per request on average, median 328, the same checkpoints kept and dropped — but a request
+  generates at ~26 tokens/s against ~61, and reads its new prompt tokens in 3.1 s against 1.0 s. The
+  summary's benchmark (one short prompt, ~2.9k tokens) shows ~49 tokens/s for both: the slowdown is in long
+  contexts. e4b barely moved (1.91 → 2.31 s a turn). The higher GPU load the user saw after the update is
+  longer work, not more done. Hosting.md says so; rolling back is the user's call.
+- e4b's three misses are notes, and each points at something to say: a single-quoted text with its
+  apostrophe escaped by a backslash (`'Maven\'s Warning'` — YAML doubles it, `'Maven''s Warning'`), which
+  the YAML break's message does not mention; a line the escape refusal quoted twice that e4b did not get
+  right; and a whole text written on one line with literal `\n`, which the escape check does not look for.
+- Neither model called `listMods` or `checkGameVersion` — no task asks for them; the test instance has no
+  mods and no SKSE, so a task needs a laid-out mod or two first.
