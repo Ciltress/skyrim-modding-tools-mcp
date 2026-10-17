@@ -21,6 +21,10 @@ export interface Platform {
      * would have to be started inside the prefix with the same Proton, which is not done yet.
      */
     readonly runsWindowsPrograms: boolean;
+    /** How this system spells a path — what is absolute, what separates folders: path.win32 or path.posix. */
+    readonly path: path.PlatformPath;
+    /** Why a path setting's value names nothing on this system — a Windows path on Linux — or undefined. */
+    foreignPath(value: string): string | undefined;
     /** Running processes whose executable is named `fileName`, compared without regard to case. */
     findProcesses(fileName: string): Promise<RunningProcess[]>;
     /** The Creation Kit's Papyrus compiler under `creationKitDir`, if this system can run it at all. */
@@ -64,6 +68,11 @@ export function windowsPlatform(): Platform {
         name: 'windows',
         helperFileName: 'SkyrimHelper.exe',
         runsWindowsPrograms: true,
+        path: path.win32,
+
+        foreignPath() {
+            return undefined;
+        },
 
         async findProcesses(fileName) {
             if (!/^[\w .-]+$/.test(fileName)) return [];
@@ -130,6 +139,14 @@ export function linuxPlatform(procRoot = '/proc', drives: WineDrives = dosDevice
         name: 'linux',
         helperFileName: 'SkyrimHelper',
         runsWindowsPrograms: false,
+        path: path.posix,
+
+        // Copied from Mod Organizer's ini, say. Taken as a relative path, it would be a folder inside the server's.
+        foreignPath(value) {
+            return /^[a-z]:([\\/]|$)/i.test(value)
+                ? 'is a Windows path. On Linux, write the folder as Linux spells it, /home/… or ~/… — under Wine, Z:\\home\\me is /home/me.'
+                : undefined;
+        },
 
         async findProcesses(fileName) {
             const wanted = fileName.toLowerCase();

@@ -1,3 +1,4 @@
+import os from 'node:os';
 import path from 'node:path';
 import { parseList } from '../lib/env.js';
 import { PROJECT_ROOT, SERVER_INFO } from '../lib/serverInfo.js';
@@ -7,6 +8,7 @@ import { HelperClient } from './skyrim/helperClient.js';
 import { Mo2Manager } from './skyrim/mo2Manager.js';
 import { NexusCatalogue } from './skyrim/nexus.js';
 import type { ModManager, ModManagerName } from './skyrim/modManager.js';
+import { readPathSettings, settingGiven, type PathSettings } from './skyrim/pathSettings.js';
 import { SkyrimInstanceBackend } from './skyrim/SkyrimInstanceBackend.js';
 import { currentPlatform, type Platform } from './skyrim/platform.js';
 import type { SkyrimBackend } from './skyrim/SkyrimBackend.js';
@@ -39,7 +41,7 @@ export function modManagerName(env: NodeJS.ProcessEnv): ModManagerName {
 /** The variables this configuration lacks: the always-required ones, and what its mod manager needs. */
 export function missingEnv(env: NodeJS.ProcessEnv): string[] {
     const missing = REQUIRED_ENV.filter(name => !env[name]);
-    if (modManagerName(env) === 'mo2' && !env.SKYRIM_MO2_INSTANCE) missing.push('SKYRIM_MO2_INSTANCE');
+    if (modManagerName(env) === 'mo2' && !settingGiven(env, 'SKYRIM_MO2_INSTANCE')) missing.push('SKYRIM_MO2_INSTANCE');
     return missing;
 }
 
@@ -60,10 +62,10 @@ export interface BackendOptions {
 }
 
 /** The mod manager the configuration names (docs/adr/0007) — never inferred from the operating system. */
-function createModManager(env: NodeJS.ProcessEnv, platform: Platform): ModManager {
+function createModManager(env: NodeJS.ProcessEnv, paths: PathSettings, platform: Platform): ModManager {
     return modManagerName(env) === 'amethyst'
-        ? new AmethystManager(findAmethyst(env))
-        : new Mo2Manager(String(env.SKYRIM_MO2_INSTANCE ?? ''), platform, { env });
+        ? new AmethystManager(findAmethyst(paths.SKYRIM_AMETHYST_DIR, env))
+        : new Mo2Manager(paths.SKYRIM_MO2_INSTANCE ?? '', platform, { winePrefix: paths.SKYRIM_WINE_PREFIX });
 }
 
 /** One engine per process — one helper, one load order — shared by every HTTP session. */
@@ -76,19 +78,21 @@ let sharedNexus: { apiKey: string | undefined; catalogue: NexusCatalogue } | und
 export function createBackend(env: NodeJS.ProcessEnv = process.env, options: BackendOptions = {}): AppBackend {
     // The one place the server asks which operating system it runs on (docs/adr/0007).
     const platform = currentPlatform();
-    const modManager = createModManager(env, platform);
-    const projectsDir = path.resolve(PROJECT_ROOT, env.SKYRIM_PROJECTS_DIR || DEFAULT_PROJECTS_DIR);
+    // Relative paths are the server's folder's, where .env is — not whichever folder a client started it in.
+    const paths = readPathSettings(env, { platform, home: os.homedir(), base: PROJECT_ROOT });
+    const modManager = createModManager(env, paths, platform);
+    const projectsDir = paths.SKYRIM_PROJECTS_DIR ?? DEFAULT_PROJECTS_DIR;
     const current = sharedEngine?.modManager;
     if (current?.name !== modManager.name || current.location !== modManager.location || sharedEngine?.projectsDir !== projectsDir) {
         sharedEngine?.stop();
         sharedEngine = new SkyrimEngine(
             modManager,
-            new HelperClient(env.SKYRIM_HELPER_PATH || defaultHelperPath(platform)),
+            new HelperClient(paths.SKYRIM_HELPER_PATH ?? defaultHelperPath(platform)),
             projectsDir,
             {
                 platform,
-                creationKitDir: env.SKYRIM_CK_DIR || undefined,
-                papyrusCompiler: env.SKYRIM_PAPYRUS_COMPILER || undefined
+                creationKitDir: paths.SKYRIM_CK_DIR,
+                papyrusCompiler: paths.SKYRIM_PAPYRUS_COMPILER
             }
         );
     }

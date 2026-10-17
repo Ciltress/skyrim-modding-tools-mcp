@@ -76,7 +76,7 @@ describe('Mod Organizer under Proton', () => {
         const game = path.join(setup.prefix, 'drive_d', 'SteamLibrary', 'steamapps', 'common', 'Skyrim Special Edition');
         write(path.join(game, 'SkyrimSE.exe'));
 
-        const manager = new Mo2Manager(setup.instanceDir, setup.platform, { env: { SKYRIM_WINE_PREFIX: setup.prefix }, home: setup.home });
+        const manager = new Mo2Manager(setup.instanceDir, setup.platform, { winePrefix: setup.prefix, home: setup.home });
         const instance = manager.readInstance();
 
         expect(instance.gameDir).toBe(game);
@@ -92,7 +92,7 @@ describe('Mod Organizer under Proton', () => {
             { instance_path: setup.instanceDir, game_path: path.join(setup.root, 'library', 'steamapps', 'common', 'Skyrim Special Edition') }
         ]);
 
-        const instance = new Mo2Manager(setup.instanceDir, setup.platform, { env: {}, home: setup.home }).readInstance();
+        const instance = new Mo2Manager(setup.instanceDir, setup.platform, { home: setup.home }).readInstance();
         expect(instance.gameDir).toBe(gameUnder(setup.prefix));
     });
 
@@ -103,7 +103,7 @@ describe('Mod Organizer under Proton', () => {
         const own = path.join(setup.root, 'own-prefix');
         write(path.join(gameUnder(own), 'SkyrimSE.exe'));
 
-        const instance = new Mo2Manager(setup.instanceDir, setup.platform, { env: { SKYRIM_WINE_PREFIX: own }, home: setup.home }).readInstance();
+        const instance = new Mo2Manager(setup.instanceDir, setup.platform, { winePrefix: own, home: setup.home }).readInstance();
         expect(instance.gameDir).toBe(gameUnder(own));
     });
 
@@ -112,13 +112,13 @@ describe('Mod Organizer under Proton', () => {
         write(path.join(gameUnder(setup.prefix), 'SkyrimSE.exe'));
 
         const compatdata = path.dirname(setup.prefix);
-        const instance = new Mo2Manager(setup.instanceDir, setup.platform, { env: { SKYRIM_WINE_PREFIX: compatdata }, home: setup.home }).readInstance();
+        const instance = new Mo2Manager(setup.instanceDir, setup.platform, { winePrefix: compatdata, home: setup.home }).readInstance();
         expect(instance.gameDir).toBe(gameUnder(setup.prefix));
     });
 
     it('asks for SKYRIM_WINE_PREFIX when the ini names a drive and no prefix is known', () => {
         const setup = makeProtonSetup({ gamePath: gameInD });
-        const manager = new Mo2Manager(setup.instanceDir, setup.platform, { env: {}, home: setup.home });
+        const manager = new Mo2Manager(setup.instanceDir, setup.platform, { home: setup.home });
         expect(() => manager.readInstance()).toThrow(InstanceConfigError);
         expect(() => manager.readInstance()).toThrow(/D:\\SteamLibrary.*SKYRIM_WINE_PREFIX/);
     });
@@ -126,7 +126,7 @@ describe('Mod Organizer under Proton', () => {
     it('never starts Mod Organizer\'s refresh: one of this instance found running is to be closed, or restarted', async () => {
         const setup = makeProtonSetup({ gamePath: gameInD });
         write(path.join(gameUnder(setup.prefix), 'SkyrimSE.exe'));
-        const manager = new Mo2Manager(setup.instanceDir, setup.platform, { env: { SKYRIM_WINE_PREFIX: setup.prefix }, home: setup.home });
+        const manager = new Mo2Manager(setup.instanceDir, setup.platform, { winePrefix: setup.prefix, home: setup.home });
         const instance = manager.readInstance();
         expect(await manager.writeRefusal(instance)).toBeUndefined();
 
@@ -139,12 +139,12 @@ describe('Mod Organizer under Proton', () => {
     it('says in healthcheck that it is unverified, and which prefix it reads the ini through', () => {
         const setup = makeProtonSetup({ gamePath: gameInD });
         write(path.join(gameUnder(setup.prefix), 'SkyrimSE.exe'));
-        const withPrefix = new Mo2Manager(setup.instanceDir, setup.platform, { env: { SKYRIM_WINE_PREFIX: setup.prefix }, home: setup.home });
+        const withPrefix = new Mo2Manager(setup.instanceDir, setup.platform, { winePrefix: setup.prefix, home: setup.home });
         const notes = withPrefix.notes();
         expect(notes.join('\n')).toMatch(/under Proton.*unverified/i);
         expect(notes.join('\n')).toContain(setup.prefix);
 
-        const withoutPrefix = new Mo2Manager(setup.instanceDir, setup.platform, { env: {}, home: setup.home });
+        const withoutPrefix = new Mo2Manager(setup.instanceDir, setup.platform, { home: setup.home });
         expect(withoutPrefix.notes().join('\n')).toMatch(/No Wine prefix.*Z:.*SKYRIM_WINE_PREFIX/);
     });
 });

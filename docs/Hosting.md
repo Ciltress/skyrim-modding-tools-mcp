@@ -36,6 +36,23 @@ stream for every tool at once — so the logger writes to stderr, dotenv is load
 
 The client's `env` block wins over `.env`.
 
+**Paths in settings.** Neither `.env` nor a client's `env` block passes through a shell, so the server
+reads every setting that names a file or folder — `SKYRIM_MO2_INSTANCE`, `SKYRIM_AMETHYST_DIR`,
+`SKYRIM_WINE_PREFIX`, `SKYRIM_PROJECTS_DIR`, `SKYRIM_CK_DIR`, `SKYRIM_PAPYRUS_COMPILER`,
+`SKYRIM_HELPER_PATH` — the way a POSIX shell would, on Windows too
+([`pathSettings.ts`](../src/backend/skyrim/pathSettings.ts)):
+
+| Written | Read as |
+| --- | --- |
+| `~/tools/papyrus-compiler` | that folder in your home folder (`~\…` too, on Windows) |
+| `$HOME/…`, `${XDG_DATA_HOME}/…` | the variable's value; one that is not set stops the server at startup, named |
+| `${STEAM_LIBRARY:-~/games}/steamapps` | the variable, or the default after `:-` when it is unset or empty |
+| `projects`, `../mods` | from the server's own folder, the one `.env` is in |
+| `G:\Modding\SkyrimSE-Test`, `C:/Mods/Bob's Armory` | as written: backslashes and quotes are part of the path |
+
+`%USERPROFILE%` is refused with the way to write it, `${USERPROFILE}` or `~`; so is a command, `$(…)`,
+which is never run; and on Linux, a Windows path such as `C:\…`.
+
 ### 1.2 Streamable HTTP
 
 `MCP_TRANSPORT=http` serves the SDK's Streamable HTTP transport at `/mcp`. HTTP changes *who

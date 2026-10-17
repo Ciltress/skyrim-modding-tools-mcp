@@ -63,11 +63,12 @@ export type IniPaths = (windowsPath: string) => string | undefined;
 /**
  * The Wine prefix Mod Organizer runs in, under Proton: SKYRIM_WINE_PREFIX, else the one MO2-LINT set
  * this instance up in. Undefined when none is known — then only paths on Z:, the root, can be read.
+ *
+ * @param named  SKYRIM_WINE_PREFIX, resolved (pathSettings.ts).
  */
-export function winePrefix(instanceDir: string, env: NodeJS.ProcessEnv, home: string): string | undefined {
-    if (!env.SKYRIM_WINE_PREFIX) return mo2LintPrefix(instanceDir, home);
+export function winePrefix(instanceDir: string, named: string | undefined, home: string): string | undefined {
+    if (!named) return mo2LintPrefix(instanceDir, home);
     // Proton keeps the prefix in a `pfx` folder inside the game's compatdata folder; either may be named.
-    const named = path.resolve(env.SKYRIM_WINE_PREFIX);
     return fs.existsSync(path.join(named, 'pfx')) ? path.join(named, 'pfx') : named;
 }
 

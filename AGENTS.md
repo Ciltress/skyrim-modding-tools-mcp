@@ -78,6 +78,8 @@ src/
   backend/skyrim/externalTools.ts   the Papyrus compilers (the Creation Kit's, russo-2025's) and git
   backend/skyrim/platform.ts        everything that differs by operating system (ADR-0007) — the only
                                     place that asks; Windows and Linux side by side
+  backend/skyrim/pathSettings.ts    the settings that name a path, read once: `~` and variables expanded
+                                    as a POSIX shell would, made absolute from the server's folder
   backend/skyrim/paths.ts           finding files whatever their letter case, on every system
   handlers/BaseHandler.ts  the ToolSpec contract: dispatch, timing, envelope, error mapping
   handlers/index.ts        createHandlers(): the one list served, documented and tested

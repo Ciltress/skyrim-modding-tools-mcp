@@ -28,12 +28,16 @@ config({ path: path.resolve(HERE, '../.env'), quiet: true });
 export { AppServer } from './server.js';
 export type { ServerDependencies } from './server.js';
 
-const server = new AppServer();
-server.run().catch((error) => {
-  // The message carries the diagnosis assembled by explainStartupFailure() and
-  // can run to several lines. Printing the Error object as well buries it under
-  // a stack that says only that a connect failed, which was never the question.
-  console.error(`Failed to start MCP server: ${error?.message ?? error}`);
-  if (error?.cause?.stack) console.error(error.cause.stack);
-  process.exit(1);
-});
+// The constructor checks the configuration — a missing variable, a path setting
+// that cannot be read — so what it throws is as much a startup failure as what
+// run() rejects with, and is said the same way.
+Promise.resolve()
+  .then(() => new AppServer().run())
+  .catch((error) => {
+    // The message carries the diagnosis assembled by explainStartupFailure() and
+    // can run to several lines. Printing the Error object as well buries it under
+    // a stack that says only that a connect failed, which was never the question.
+    console.error(`Failed to start MCP server: ${error?.message ?? error}`);
+    if (error?.cause?.stack) console.error(error.cause.stack);
+    process.exit(1);
+  });

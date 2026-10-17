@@ -13,18 +13,19 @@ import type { Platform } from './platform.js';
  * Under Proton on Linux, the ini's paths are Windows paths into the Wine prefix MO2 runs in.
  */
 export interface Mo2Options {
-    env?: NodeJS.ProcessEnv;
+    /** SKYRIM_WINE_PREFIX, resolved (pathSettings.ts). */
+    winePrefix?: string;
     home?: string;
 }
 
 export class Mo2Manager implements ModManager {
     readonly name = 'mo2' as const;
-    private readonly env: NodeJS.ProcessEnv;
+    private readonly namedPrefix?: string;
     private readonly home: string;
 
     /** @param location  The instance folder, with ModOrganizer.exe and ModOrganizer.ini in it. */
     constructor(readonly location: string, private readonly platform: Platform, options: Mo2Options = {}) {
-        this.env = options.env ?? process.env;
+        this.namedPrefix = options.winePrefix;
         this.home = options.home ?? os.homedir();
     }
 
@@ -33,7 +34,7 @@ export class Mo2Manager implements ModManager {
     }
 
     private iniPaths(): IniPaths {
-        return this.platform.windowsPaths(winePrefix(this.location, this.env, this.home));
+        return this.platform.windowsPaths(winePrefix(this.location, this.namedPrefix, this.home));
     }
 
     readInstance(): Instance {
@@ -64,7 +65,7 @@ export class Mo2Manager implements ModManager {
     // Mod Organizer is a Windows program: on a system that runs none, it runs under Wine — Proton.
     notes(): string[] {
         if (this.platform.runsWindowsPrograms) return [];
-        const prefix = winePrefix(this.location, this.env, this.home);
+        const prefix = winePrefix(this.location, this.namedPrefix, this.home);
         return [
             'Mod Organizer under Proton is experimental and unverified on a real setup. A deploy is refused while this ' +
             'instance\'s Mod Organizer runs, because it cannot be told to re-read its profile.',

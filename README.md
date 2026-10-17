@@ -74,7 +74,9 @@ was installed by Wabbajack, an update deletes every mod it did not install.
 
 ## Configuration
 
-See [`.env.example`](.env.example).
+See [`.env.example`](.env.example). A path may start with `~` and use `$NAME` or `${NAME:-default}`, as
+in a shell, on every system; a relative one is taken from the server's folder
+([`docs/Hosting.md`](docs/Hosting.md) §1.1).
 
 | Variable | Default | Effect |
 | --- | --- | --- |

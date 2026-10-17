@@ -415,7 +415,7 @@ function makeBackend(options: { nexus?: NexusCatalogue } = {}) {
     const masters: Record<string, string[]> = {};
     const helperAnswers: Record<string, (params: any) => any> = {};
     const { helper, calls } = scriptedHelper(archives, masters, helperAnswers);
-    const engine = new SkyrimEngine(new Mo2Manager(fixture.instanceDir, platform, { env: {} }), helper, fixture.projects, { platform });
+    const engine = new SkyrimEngine(new Mo2Manager(fixture.instanceDir, platform), helper, fixture.projects, { platform });
     const backend = new SkyrimInstanceBackend({ engine, nexus: options.nexus });
     /** Starts a Windows program in the table, as Wine does: its command line is the program's Windows path. */
     const startProgram = (pid: number, exe: string) => write(path.join(procRoot, String(pid), 'cmdline'), `${asWinePath(exe)}\0`);

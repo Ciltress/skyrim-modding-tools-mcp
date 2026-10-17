@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { REQUIRED_ENV } from '../backend/index';
+import { PATH_SETTINGS } from '../backend/skyrim/pathSettings';
 import { PROJECT_ROOT, RESOURCE_SCHEME, SERVER_INFO } from '../lib/serverInfo';
 
 /**
@@ -28,10 +29,11 @@ const declaredNames = declared.map(v => v.name);
  *
  * The two access shapes are `env.NAME` (an injected NodeJS.ProcessEnv, which is
  * how nearly everything reads) and `process.env.NAME`. Both end in `env.NAME`,
- * so one pattern covers them.
+ * so one pattern covers them. The path settings are the exception: read by name
+ * in pathSettings.ts, from its PATH_SETTINGS.
  */
 function environmentVariablesReadBySource(): Set<string> {
-    const found = new Set<string>();
+    const found = new Set<string>(PATH_SETTINGS);
 
     const walk = (dir: string): void => {
         for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

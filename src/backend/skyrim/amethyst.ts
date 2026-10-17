@@ -39,14 +39,13 @@ export interface AmethystSetup {
 /**
  * Where Amethyst keeps its settings: SKYRIM_AMETHYST_DIR, else the Flatpak's config, else the native
  * one — the first that has Skyrim configured, or the first that exists, so the error names it.
+ *
+ * @param configured  SKYRIM_AMETHYST_DIR, resolved (pathSettings.ts).
  */
-export function findAmethyst(env: NodeJS.ProcessEnv, home = os.homedir()): AmethystSetup {
+export function findAmethyst(configured: string | undefined, env: NodeJS.ProcessEnv, home = os.homedir()): AmethystSetup {
     const flatpakApp = path.join(home, '.var', 'app', AMETHYST_FLATPAK_ID);
     const flatpakDir = path.join(flatpakApp, 'config', 'AmethystModManager');
-    if (env.SKYRIM_AMETHYST_DIR) {
-        const configDir = path.resolve(env.SKYRIM_AMETHYST_DIR);
-        return { configDir, flatpak: configDir.startsWith(flatpakApp + path.sep) };
-    }
+    if (configured) return { configDir: configured, flatpak: configured.startsWith(flatpakApp + path.sep) };
     const native = path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'AmethystModManager');
     const candidates: AmethystSetup[] = [{ configDir: flatpakDir, flatpak: true }, { configDir: native, flatpak: false }];
     return candidates.find(c => fs.existsSync(path.join(c.configDir, 'games', GAME, 'paths.json')))

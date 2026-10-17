@@ -89,6 +89,8 @@ describe('the Papyrus command', () => {
         name: 'windows',
         helperFileName: 'SkyrimHelper.exe',
         runsWindowsPrograms: true,
+        path: path.win32,
+        foreignPath: () => undefined,
         findProcesses: async () => [],
         creationKitCompiler: dir => path.join(dir, 'Papyrus Compiler', 'PapyrusCompiler.exe'),
         creationKitCompilerProblem: async () => undefined,

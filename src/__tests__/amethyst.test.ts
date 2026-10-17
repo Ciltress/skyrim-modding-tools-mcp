@@ -95,19 +95,19 @@ function manager(setup: ReturnType<typeof makeSetup>, options: AmethystOptions =
 describe('finding Amethyst', () => {
     it('finds the Flatpak\'s config before a native one, by where Skyrim is set up', () => {
         const setup = makeSetup();
-        expect(findAmethyst({}, setup.home)).toEqual({ configDir: setup.config, flatpak: true });
+        expect(findAmethyst(undefined, {}, setup.home)).toEqual({ configDir: setup.config, flatpak: true });
 
         const native = path.join(setup.home, '.config', 'AmethystModManager');
         fs.rmSync(path.join(setup.home, '.var'), { recursive: true });
         write(path.join(native, 'games', 'Skyrim Special Edition', 'paths.json'), '{}');
-        expect(findAmethyst({}, setup.home)).toEqual({ configDir: native, flatpak: false });
+        expect(findAmethyst(undefined, {}, setup.home)).toEqual({ configDir: native, flatpak: false });
     });
 
     it('takes SKYRIM_AMETHYST_DIR as given, and knows a Flatpak path when it sees one', () => {
         const home = path.join(os.tmpdir(), 'someone');
-        expect(findAmethyst({ SKYRIM_AMETHYST_DIR: '/opt/amethyst-config' }, home).flatpak).toBe(false);
+        expect(findAmethyst(path.resolve('/opt/amethyst-config'), {}, home).flatpak).toBe(false);
         const flatpak = path.join(home, '.var', 'app', AMETHYST_FLATPAK_ID, 'config', 'AmethystModManager');
-        expect(findAmethyst({ SKYRIM_AMETHYST_DIR: flatpak }, home)).toEqual({ configDir: flatpak, flatpak: true });
+        expect(findAmethyst(flatpak, {}, home)).toEqual({ configDir: flatpak, flatpak: true });
     });
 
     it('chooses the mod manager by configuration, and needs the MO2 instance only for MO2', () => {
