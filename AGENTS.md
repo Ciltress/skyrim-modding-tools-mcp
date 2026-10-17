@@ -90,7 +90,7 @@ src/
   handlers/RecordsHandlers.ts       findRecords, readRecord
   handlers/ProjectsHandlers.ts      newProject, addPatch, buildProject, deployProject, pullProject
   handlers/NexusHandlers.ts         searchNexus, readNexusMod, downloadNexusFile
-  handlers/ModsHandlers.ts          installMod
+  handlers/ModsHandlers.ts          listMods, checkGameVersion, installMod, disableMod
   handlers/DocsHandlers.ts, SkillsHandlers.ts   readServerGuide and readSkill
   setup/main.ts            npm run setup, a second program: prerequisites, the helper, .env, the Papyrus
                            compiler, script sources, client registration, a healthcheck — asking only

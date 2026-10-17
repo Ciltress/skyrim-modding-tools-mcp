@@ -99,6 +99,9 @@ describe('profile definitions', () => {
         // build and deploy.
         expect(named('core')).toEqual(expect.arrayContaining(
             ['findRecords', 'readRecord', 'addPatch', 'buildProject', 'deployProject']));
+        // The same for a mod that does not fit the game: core can find it, and both reinstall a file that
+        // fits and disable it — not disable only (the user's decision, 2026-10-17).
+        expect(named('core')).toEqual(expect.arrayContaining(['listMods', 'checkGameVersion', 'installMod', 'disableMod']));
     });
 
     it('lists no tool twice', () => {

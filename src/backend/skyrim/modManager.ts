@@ -42,6 +42,8 @@ export interface ModEntry {
     enabled: boolean;
     /** False for the DLC and Creation Club entries MO2 lists but does not manage (MO2's `*`). */
     managed: boolean;
+    /** Amethyst's `*`: a mod the user locked on, which cannot be disabled until it is unlocked. */
+    locked?: boolean;
 }
 
 export interface PluginEntry {
@@ -64,6 +66,19 @@ export interface ModEnabled {
     /** The plugins new to the load order, now at its end. */
     addedToLoadOrder: string[];
 }
+
+/** What disabling a mod changed in the selected profile. */
+export interface ModDisabled {
+    modDisabled: boolean;
+    /** The plugins the game loaded until now, taken out of the load order. */
+    deactivated: string[];
+}
+
+/**
+ * What a write does to the profile: `add` only adds — a new mod's line, new plugins; `change` changes
+ * lines the mod manager already knows — a mod disabled.
+ */
+export type ProfileWrite = 'add' | 'change';
 
 /** What the mod manager was told after a deploy, and what the user still has to do in it. */
 export interface ModManagerNotice {
@@ -104,15 +119,20 @@ export interface ModManager {
      */
     shadowingCopies(instance: Instance, mod: string, plugin: string): string[];
     /**
-     * Why a mod must not be written into the instance now — deployed or installed — with what the user
-     * has to do first, or undefined when it may. Asked before anything is written.
+     * Why the profile must not be written now — a mod deployed, installed or disabled — with what the
+     * user has to do first, or undefined when it may. Asked before anything is written.
      */
-    writeRefusal(instance: Instance): Promise<string | undefined>;
+    writeRefusal(instance: Instance, write: ProfileWrite): Promise<string | undefined>;
     /**
      * Enables the mod and activates its plugins in the selected profile — a plugin new to the load order
      * at its end, in the order given.
      */
     enable(instance: Instance, mod: string, plugins: readonly string[]): ModEnabled;
+    /**
+     * Disables the mod where it stands, and takes these plugins out of plugins.txt and loadorder.txt —
+     * what the mod manager itself writes for a plugin no enabled mod has any more.
+     */
+    disable(instance: Instance, mod: string, plugins: readonly string[]): ModDisabled;
     /** Tells the mod manager what a deploy or an install changed, or says what the user has to do in it. */
     afterDeploy(instance: Instance): Promise<ModManagerNotice>;
     /** Remarks for healthcheck — something about the instance the user should know. */

@@ -36,6 +36,13 @@ const CORE_WRITE = ['addPatch', 'buildProject', 'deployProject'] as const;
 /** The mod manager's mods, read: what is installed, and whether it fits the game. */
 const INSTALLED = ['listMods', 'checkGameVersion'] as const;
 
+/**
+ * The mod manager's mods, changed — so a mod that does not fit the game can be fixed as well as found:
+ * installed again from a file that fits, or disabled. Both, not disabling alone, or disabling would be
+ * the only remedy on offer (the user's decision, 2026-10-17).
+ */
+const MOD_WRITE = ['installMod', 'disableMod'] as const;
+
 /** The Nexus Mods catalogue, read. */
 const NEXUS_READ = ['searchNexus', 'readNexusMod'] as const;
 
@@ -53,7 +60,7 @@ export const PROFILES: Record<ProfileName, ProfileDefinition> = {
         description:
             'The smallest set that can still find, read and change something. For small local models ' +
             'that receive every schema on every turn.',
-        tools: [...READ, ...INSTALLED, ...CORE_WRITE, ...GUIDANCE]
+        tools: [...READ, ...INSTALLED, ...CORE_WRITE, ...MOD_WRITE, ...GUIDANCE]
     },
     readonly: {
         description:

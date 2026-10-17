@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 import { parseIni, parseModList, primaryPlugins, readLoadOrder, resolveDataFiles, resolvePluginFiles } from './mo2.js';
 import {
     InstanceConfigError, type Instance, type ModEntry, type ModManager, type ModManagerNotice, type PluginEntry,
-    type ModEnabled
+    type ModDisabled, type ModEnabled, type ProfileWrite
 } from './modManager.js';
 import { findCaseInsensitive } from './paths.js';
 
@@ -157,7 +157,7 @@ export class AmethystManager implements ModManager {
         if (!fs.existsSync(file)) return [];
         return parseModList(fs.readFileSync(file, 'utf8'))
             .filter(mod => !mod.name.endsWith('_separator'))
-            .map(mod => ({ name: mod.name, enabled: mod.enabled, managed: true }));
+            .map(mod => ({ name: mod.name, enabled: mod.enabled, managed: true, ...(mod.managed ? {} : { locked: true }) }));
     }
 
     readLoadOrder(instance: Instance): PluginEntry[] {
@@ -256,9 +256,44 @@ export class AmethystManager implements ModManager {
         return { modEnabled, activated, addedToLoadOrder };
     }
 
-    // A deploy or an install adds only lines Amethyst has not seen, which it keeps, open or not.
-    async writeRefusal(): Promise<string | undefined> {
-        return undefined;
+    /**
+     * Disables the mod where it stands, and takes the plugins out of plugins.txt and loadorder.txt — as
+     * Amethyst keeps a disabled mod's: in neither. Written whole and renamed into place, LF, as `enable` writes.
+     */
+    disable(instance: Instance, mod: string, plugins: readonly string[]): ModDisabled {
+        const modlist = path.join(instance.profileDir, 'modlist.txt');
+        const mods = readTextLines(modlist, 'utf8');
+        const at = mods.indexOf(`+${mod}`);
+        if (at >= 0) {
+            mods[at] = `-${mod}`;
+            writeTextLines(modlist, mods, 'utf8');
+        }
+
+        const names = new Map(plugins.map(plugin => [plugin.toLowerCase(), plugin]));
+        const listed = (line: string) => names.has(line.replace(/^\*/, '').toLowerCase());
+        const pluginsFile = path.join(instance.profileDir, 'plugins.txt');
+        const lines = readTextLines(pluginsFile, 'latin1');
+        const deactivated = lines.filter(line => line.startsWith('*') && listed(line)).map(line => names.get(line.slice(1).toLowerCase())!);
+        if (lines.some(listed)) writeTextLines(pluginsFile, lines.filter(line => !listed(line)), 'latin1');
+        const orderFile = path.join(instance.profileDir, 'loadorder.txt');
+        const order = readTextLines(orderFile, 'utf8');
+        if (order.some(listed)) writeTextLines(orderFile, order.filter(line => !listed(line)), 'utf8');
+        return { modDisabled: at >= 0, deactivated };
+    }
+
+    /**
+     * An addition — a deploy, an install — only adds lines Amethyst has not seen, which it keeps, open or
+     * not. A change to a line it knows — a mod disabled — it writes over from memory on its next save,
+     * so that waits until its window is closed.
+     */
+    async writeRefusal(_instance: Instance, write: ProfileWrite): Promise<string | undefined> {
+        if (write === 'add' || !await this.isRunning()) return undefined;
+        return 'Amethyst is open, and on its next save it writes its own state of the mods it knows over a change ' +
+            'made outside it. Close Amethyst, then try again — or make the change in Amethyst itself, then Deploy.';
+    }
+
+    private isRunning(): Promise<boolean> {
+        return (this.options.isRunning ?? (() => amethystRunning(this.home, this.env)))();
     }
 
     /**
@@ -267,8 +302,7 @@ export class AmethystManager implements ModManager {
      * deploy wrote, Deploy links it into the game.
      */
     async afterDeploy(instance: Instance): Promise<ModManagerNotice> {
-        const running = await (this.options.isRunning ?? (() => amethystRunning(this.home, this.env)))();
-        if (running) {
+        if (await this.isRunning()) {
             return {
                 manager: this.name, status: 'deployManually',
                 nextStep: `Amethyst is open: press Refresh, then Deploy, so the game gets this mod (profile '${instance.profile}').`

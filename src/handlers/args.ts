@@ -1,6 +1,7 @@
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { HelperError } from '../backend/skyrim/helperClient.js';
 import { InstallError } from '../backend/skyrim/installer.js';
+import { ModError } from '../backend/skyrim/modList.js';
 import { NexusError } from '../backend/skyrim/nexus.js';
 import { ProjectError } from '../backend/skyrim/projects.js';
 import { ScriptCompileError } from '../backend/skyrim/externalTools.js';
@@ -140,6 +141,7 @@ export async function asRequestError<T>(work: Promise<T> | T): Promise<T> {
             (error instanceof NexusError && error.code === 'notFound') ||
             error instanceof ProjectError ||
             error instanceof InstallError ||
+            error instanceof ModError ||
             error instanceof ScriptCompileError;
         if (aboutTheRequest) throw new McpError(ErrorCode.InvalidParams, (error as Error).message);
         throw error;

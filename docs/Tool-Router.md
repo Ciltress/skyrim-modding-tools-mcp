@@ -53,6 +53,7 @@ Workflows and the error model: [`MCP-Tools.md`](./MCP-Tools.md). The vocabulary:
 | Find which mod a plugin comes from | `listMods` with `details: true` → each mod's `plugins`; `loadedFrom` names the mod whose copy the game loads instead |
 | Know whether the mods work on this game version — after a game update, say | `checkGameVersion` — SKSE, Address Library and every SKSE plugin the game loads, judged by SKSE's log of the last start and by the rules SKSE applies; `problems` names each plugin's mod and Nexus `modId` |
 | Find out why an SKSE mod does nothing in the game | `checkGameVersion` → `problems`: `refusedAtLastStart` is SKSE's own word |
+| Turn a mod off — one that does not fit the game, say — only when the user says so | `disableMod` with the mod's name from `listMods`; its plugins leave the load order, its files stay. `missingMasters` names plugins that now stop the game from starting |
 | Find an installed mod's Nexus page, or the version installed | `listMods` → `nexus.modId` (for `readNexusMod`); with `details: true`, `nexus.version` and the file |
 
 ## Mods on Nexus Mods

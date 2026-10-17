@@ -195,7 +195,7 @@ describe('reading an Amethyst instance', () => {
         const setup = makeSetup();
         const am = manager(setup);
         const mods = am.readModList(am.readInstance());
-        expect(mods.find(m => m.name === 'SkyUI')).toEqual({ name: 'SkyUI', enabled: true, managed: true });
+        expect(mods.find(m => m.name === 'SkyUI')).toEqual({ name: 'SkyUI', enabled: true, managed: true, locked: true });
         expect(mods.find(m => m.name === 'Old Mod')).toEqual({ name: 'Old Mod', enabled: false, managed: true });
         expect(mods.some(m => m.name.endsWith('_separator'))).toBe(false);
     });
@@ -252,6 +252,33 @@ describe('changing an Amethyst profile', () => {
 
         expect(am.enable(instance, 'Big Mod', ['BigMod.esm', 'BigMod - Patch.esp']).addedToLoadOrder).toEqual(['BigMod.esm', 'BigMod - Patch.esp']);
         expect(fs.readFileSync(path.join(setup.profile, 'loadorder.txt'), 'utf8')).toMatch(/\nBigMod\.esm\nBigMod - Patch\.esp\n$/);
+    });
+
+    it('disables a mod where it stands and takes its plugins out of plugins.txt and loadorder.txt, LF, once', () => {
+        const setup = makeSetup();
+        const am = manager(setup);
+        const instance = am.readInstance();
+        expect(am.disable(instance, 'Immersive Weapons', ['Immersive Weapons.esp'])).toEqual({ modDisabled: true, deactivated: ['Immersive Weapons.esp'] });
+
+        expect(fs.readFileSync(path.join(setup.profile, 'modlist.txt'), 'utf8')).toBe([
+            '+UIExtensions v1', '+Serana Dialogue Expansion - ESL', '-Weapons_separator', '-Immersive Weapons',
+            '*SkyUI', '-Old Mod', '+Unofficial Skyrim Special Edition Patch', '+Address Library All in One (1.7.104.0) v13', ''
+        ].join('\n'));
+        // As Amethyst keeps a disabled mod's plugins: in neither file (Old Mod's Old.esp is in neither).
+        expect(fs.readFileSync(path.join(setup.profile, 'plugins.txt'), 'utf8')).not.toMatch(/Immersive Weapons/);
+        expect(fs.readFileSync(path.join(setup.profile, 'loadorder.txt'), 'utf8')).toMatch(/\nSkyUI_SE\.esp\nUIExtensions\.esp\n/);
+        expect(fs.readdirSync(setup.profile).some(f => f.endsWith('.tmp'))).toBe(false);
+
+        expect(am.disable(instance, 'Immersive Weapons', ['Immersive Weapons.esp'])).toEqual({ modDisabled: false, deactivated: [] });
+    });
+
+    it('refuses a change to lines it knows while its window is open, but not an addition', async () => {
+        const setup = makeSetup();
+        const open = manager(setup, { isRunning: async () => true });
+        expect(await open.writeRefusal(open.readInstance(), 'add')).toBeUndefined();
+        expect(await open.writeRefusal(open.readInstance(), 'change')).toMatch(/Amethyst is open.*[Cc]lose Amethyst/);
+        const closed = manager(setup, { isRunning: async () => false });
+        expect(await closed.writeRefusal(closed.readInstance(), 'change')).toBeUndefined();
     });
 
     it('has Amethyst deploy when its window is closed, and asks the user when it is open', async () => {
@@ -404,6 +431,24 @@ describe('deploying into Amethyst', () => {
         expect(fs.readFileSync(path.join(setup.profile, 'modlist.txt'), 'utf8')).toMatch(/^\+Plain Mod\n\+UIExtensions v1\n/);
         expect(fs.readFileSync(path.join(setup.profile, 'plugins.txt'), 'utf8')).toMatch(/\n\*PlainMod\.esp\n$/);
         expect(runs).toEqual([expect.arrayContaining(['deploy', '489830', 'default'])]);
+    });
+
+    it('disables a mod with Amethyst closed and has it deploy; refuses a locked mod, and any while Amethyst is open', async () => {
+        const { setup, backend, runs } = makeBackend();
+        await expect(backend.disableMod({ mod: 'SkyUI' })).rejects.toThrow(/Amethyst has 'SkyUI' locked.*[Uu]nlock/);
+        const disabled = await backend.disableMod({ mod: 'Immersive Weapons' });
+        expect(disabled).toMatchObject({
+            mod: 'Immersive Weapons', profile: { name: 'default', modDisabled: true, deactivated: ['Immersive Weapons.esp'] },
+            modManager: { manager: 'amethyst', status: 'deployed' }
+        });
+        expect(runs).toEqual([expect.arrayContaining(['deploy', '489830', 'default'])]);
+
+        const projects = path.join(setup.home, 'projects');
+        const open = new SkyrimInstanceBackend({ engine: new SkyrimEngine(
+            manager(setup, { isRunning: async () => true }), scriptedHelper(), projects, { platform: linuxPlatform(path.join(setup.home, 'no-proc')) }) });
+        const modList = fs.readFileSync(path.join(setup.profile, 'modlist.txt'), 'utf8');
+        await expect(open.disableMod({ mod: 'UIExtensions v1' })).rejects.toThrow(/Amethyst is open/);
+        expect(fs.readFileSync(path.join(setup.profile, 'modlist.txt'), 'utf8')).toBe(modList);
     });
 
     it('names Amethyst in healthcheck', async () => {

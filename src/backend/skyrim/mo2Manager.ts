@@ -1,8 +1,8 @@
 import os from 'node:os';
 import path from 'node:path';
 import { loadOrderFingerprint, readInstance, readLoadOrder, readModList, resolveDataFiles, resolvePluginFiles, winePrefix, type IniPaths } from './mo2.js';
-import { activatePlugins, enableMod, refreshIfRunning, runningMo2 } from './mo2Profile.js';
-import type { Instance, ModEnabled, ModEntry, ModManager, ModManagerNotice, PluginEntry } from './modManager.js';
+import { activatePlugins, disableMod, enableMod, refreshIfRunning, removePlugins, runningMo2 } from './mo2Profile.js';
+import type { Instance, ModDisabled, ModEnabled, ModEntry, ModManager, ModManagerNotice, PluginEntry, ProfileWrite } from './modManager.js';
 import type { Platform } from './platform.js';
 
 /**
@@ -86,8 +86,8 @@ export class Mo2Manager implements ModManager {
     }
 
     // Mod Organizer writes the profile it holds back when it exits. Where it cannot be told to re-read
-    // the files — under Proton — a deploy or an install into a running instance would be undone.
-    async writeRefusal(instance: Instance): Promise<string | undefined> {
+    // the files — under Proton — any write into a running instance would be undone, an addition too.
+    async writeRefusal(instance: Instance, _write: ProfileWrite): Promise<string | undefined> {
         if (this.platform.runsWindowsPrograms) return undefined;
         if (await runningMo2(instance, this.platform, this.iniPaths()) !== 'this') return undefined;
         return `Mod Organizer is running for this instance, and under Proton the server cannot tell it to re-read its ` +
@@ -97,6 +97,11 @@ export class Mo2Manager implements ModManager {
     enable(instance: Instance, mod: string, plugins: readonly string[]): ModEnabled {
         const modEnabled = enableMod(instance, mod);
         return { modEnabled, ...activatePlugins(instance, plugins) };
+    }
+
+    disable(instance: Instance, mod: string, plugins: readonly string[]): ModDisabled {
+        const modDisabled = disableMod(instance, mod);
+        return { modDisabled, deactivated: removePlugins(instance, plugins) };
     }
 
     async afterDeploy(instance: Instance): Promise<ModManagerNotice> {

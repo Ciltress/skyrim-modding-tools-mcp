@@ -3,10 +3,12 @@ import type { HealthReport } from '../backend/Backend';
 import type { AppBackend } from '../backend/index';
 import { HelperError } from '../backend/skyrim/helperClient';
 import { InstallError } from '../backend/skyrim/installer';
+import { ModError } from '../backend/skyrim/modList';
 import { NexusError } from '../backend/skyrim/nexus';
 import { ProjectError } from '../backend/skyrim/projects';
 import type {
-    AddPatchRequest, AddPatchResult, BuildResult, ProjectFile, DeployResult, InstallModRequest, InstallModResult, NewProjectRequest, NexusDownload, NexusMod, NexusModSummary,
+    AddPatchRequest, AddPatchResult, BuildResult, ProjectFile, DeployResult, DisableModRequest, DisableModResult, InstallModRequest, InstallModResult,
+    NewProjectRequest, NexusDownload, NexusMod, NexusModSummary,
     NexusSearchQuery, NexusSearchResult, ProjectInfo, PullResult, RecordQuery, RecordRequest, RecordSearchResult,
     RecordSummary, RecordVersions, ListedMod, ModList, ModListQuery, GameVersionCheck
 } from '../backend/skyrim/SkyrimBackend';
@@ -210,6 +212,18 @@ export class InMemorySkyrimBackend implements AppBackend {
         };
     }
 
+    /** The mod `sample`, whose one plugin leaves the load order; no other mod is there. */
+    async disableMod(request: DisableModRequest): Promise<DisableModResult> {
+        if (request.mod !== SAMPLE) {
+            throw new ModError(`No mod '${request.mod}' in the profile 'Default'. listMods with \`text\` finds a mod's exact name.`);
+        }
+        return {
+            mod: SAMPLE,
+            profile: { name: 'Default', modDisabled: true, deactivated: ['Sample.esp'] },
+            modManager: { manager: 'mo2', status: 'notRunning' }
+        };
+    }
+
     /** One mod, from Nexus, with its plugin active; a text that is not in its name lists nothing. */
     async listMods(query: ModListQuery): Promise<ModList> {
         const mod: ListedMod = {
@@ -285,7 +299,7 @@ export interface FakeBackendOptions {
 
 const DOMAIN_METHODS = [
     'findRecords', 'readRecord', 'newProject', 'addPatch', 'buildProject', 'deployProject', 'pullProject',
-    'searchNexus', 'readNexusMod', 'downloadNexusFile', 'installMod', 'listMods', 'checkGameVersion'
+    'searchNexus', 'readNexusMod', 'downloadNexusFile', 'installMod', 'disableMod', 'listMods', 'checkGameVersion'
 ] as const;
 
 /**

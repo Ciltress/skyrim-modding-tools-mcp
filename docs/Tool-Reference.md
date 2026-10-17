@@ -3,7 +3,7 @@
 <!-- GENERATED FILE - do not edit by hand.
      Run `npm run build && npm run docs:tools` after changing any getTools(). -->
 
-Every tool this server can expose: **15 tools across 6 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
+Every tool this server can expose: **16 tools across 6 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
 
 **How many you can actually call is smaller.** The active `MCP_PROFILE` decides what is
 listed, and the server withholds anything the connected backend does not support.
@@ -25,7 +25,7 @@ what needs a human, not a permission system: nothing here is enforced.
 ## Families
 
 - [Bundled skills](#bundled-skills) — 1 tool
-- [Installing mods](#installing-mods) — 3 tools
+- [Installing mods](#installing-mods) — 4 tools
 - [Nexus Mods](#nexus-mods) — 3 tools
 - [Projects: authoring and patching](#projects-authoring-and-patching) — 5 tools
 - [Records in the load order](#records-in-the-load-order) — 2 tools
@@ -64,6 +64,12 @@ _no arguments_
 _writes · destructive · idempotent_
 
 `file`**\*** string · `choices` array · `name` string · `root` string · `replace` boolean
+
+**`disableMod`** — Disable a mod in the mod manager's selected profile — only when the user said so, for this mod: it stays where it is in the mod order, its files stay, and its plugins leave the load order as the mod manager does with a disabled mod's — except one another enabled mod also has (`keptActive`). Then the mod manager is told, as for installMod. `missingMasters` names active plugins that need one taken out: the game will not start until their mods are disabled too, or this one enabled again.
+
+_writes · destructive · idempotent_
+
+`mod`**\*** string
 
 ## Nexus Mods
 

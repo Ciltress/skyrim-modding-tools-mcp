@@ -128,10 +128,12 @@ describe('Mod Organizer under Proton', () => {
         write(path.join(gameUnder(setup.prefix), 'SkyrimSE.exe'));
         const manager = new Mo2Manager(setup.instanceDir, setup.platform, { winePrefix: setup.prefix, home: setup.home });
         const instance = manager.readInstance();
-        expect(await manager.writeRefusal(instance)).toBeUndefined();
+        expect(await manager.writeRefusal(instance, 'add')).toBeUndefined();
 
         write(path.join(setup.procRoot, '77', 'cmdline'), 'Z:\\home\\u\\Games\\mo2-lint\\mo2-skyrim_se-steam\\ModOrganizer.exe\0');
-        expect(await manager.writeRefusal(instance)).toMatch(/Close it, then try again/);
+        // An addition too: Mod Organizer writes the whole profile it holds back when it exits.
+        expect(await manager.writeRefusal(instance, 'add')).toMatch(/Close it, then try again/);
+        expect(await manager.writeRefusal(instance, 'change')).toMatch(/Close it, then try again/);
         // Started between that check and the end of the deploy: it may have read the profile before the deploy changed it.
         expect(await manager.afterDeploy(instance)).toMatchObject({ status: 'deployManually', nextStep: expect.stringMatching(/start it again/) });
     });

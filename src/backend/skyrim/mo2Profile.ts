@@ -80,6 +80,36 @@ export function activatePlugins(instance: Instance, plugins: readonly string[]):
     return { activated, addedToLoadOrder };
 }
 
+/** Disables a mod where it stands: `+Name` becomes `-Name`. Returns true when something changed. */
+export function disableMod(instance: Instance, mod: string): boolean {
+    const file = path.join(instance.profileDir, 'modlist.txt');
+    const lines = readLines(file, 'utf8');
+    const index = lines.indexOf(`+${mod}`);
+    if (index < 0) return false;
+    lines[index] = `-${mod}`;
+    writeLines(file, lines, 'utf8');
+    return true;
+}
+
+/**
+ * Takes plugins out of plugins.txt and loadorder.txt: Mod Organizer lists no plugin that no enabled mod
+ * has, so this is what it writes itself once their mod is disabled. Returns those that were active.
+ */
+export function removePlugins(instance: Instance, plugins: readonly string[]): string[] {
+    const names = new Map(plugins.map(plugin => [plugin.toLowerCase(), plugin]));
+    const listed = (line: string) => names.has(line.replace(/^\*/, '').toLowerCase());
+
+    const pluginsFile = path.join(instance.profileDir, 'plugins.txt');
+    const lines = readLines(pluginsFile, 'latin1');
+    const deactivated = lines.filter(line => line.startsWith('*') && listed(line)).map(line => names.get(line.slice(1).toLowerCase())!);
+    if (lines.some(listed)) writeLines(pluginsFile, lines.filter(line => !listed(line)), 'latin1');
+
+    const orderFile = path.join(instance.profileDir, 'loadorder.txt');
+    const order = readLines(orderFile, 'utf8');
+    if (order.some(listed)) writeLines(orderFile, order.filter(line => !listed(line)), 'utf8');
+    return deactivated;
+}
+
 // ---------------------------------------------------------------- the running process
 
 /**

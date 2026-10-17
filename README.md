@@ -24,6 +24,7 @@ Plugins are read and written by [Mutagen](https://github.com/Mutagen-Modding/Mut
 | `readNexusMod` | One Nexus mod page: description, requirements (SKSE, other mods, DLC), the files it offers — with an API key |
 | `downloadNexusFile` | A file of a Nexus mod into the instance's downloads folder — with a premium account's API key |
 | `installMod` | A downloaded file → a mod: unpacked, its FOMOD installer answered, enabled, its plugins active |
+| `disableMod` | A mod disabled, on the user's word: its plugins out of the load order, its files kept — and which plugins now miss a master |
 | `listMods` | The mods installed, in priority order: enabled or not, their plugins, their Nexus record, whether they carry SKSE plugins |
 | `checkGameVersion` | Whether SKSE, Address Library and each SKSE plugin fit the game version — SKSE's own log of the last start first, then the rules SKSE applies |
 

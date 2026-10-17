@@ -1,9 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseIni, PLUGIN_EXTENSIONS } from './mo2.js';
-import type { Instance, ModManager } from './modManager.js';
+import type { Instance, ModEntry, ModManager } from './modManager.js';
 import { findCaseInsensitive } from './paths.js';
 import type { ListedMod, ListedPlugin, ModList, ModListQuery } from './SkyrimBackend.js';
+
+/** A mod a request names that is not one, or not one to change: the client can fix the request. */
+export class ModError extends Error { }
 
 /**
  * The selected profile's mods as the user sees them in the mod manager: lowest priority first, a
@@ -59,6 +62,24 @@ export function listedMods(manager: ModManager, instance: Instance, query: ModLi
     };
 }
 
+/**
+ * The profile's mod a request names: by its exact name, else by the one name that differs only in letter
+ * case. A name that is neither is refused with the mods whose names hold it — listMods' rows, so
+ * separators are none.
+ */
+export function findMod(entries: readonly ModEntry[], name: string, profile: string): ModEntry {
+    const given = name.trim();
+    const mods = entries.filter(mod => !/_separator$/i.test(mod.name));
+    const exact = mods.find(mod => mod.name === given);
+    if (exact) return exact;
+    const sameLetters = mods.filter(mod => mod.name.toLowerCase() === given.toLowerCase());
+    if (sameLetters.length === 1) return sameLetters[0];
+    const holding = mods.filter(mod => mod.managed && mod.name.toLowerCase().includes(given.toLowerCase())).map(mod => mod.name);
+    throw new ModError(`No mod '${given}' in the profile '${profile}'.` + (holding.length > 0
+        ? ` Mods whose names hold it: ${holding.slice(0, 8).join(', ')}${holding.length > 8 ? `, and ${holding.length - 8} more` : ''}.`
+        : '') + ' listMods with `text` finds a mod\'s exact name.');
+}
+
 function plugin(name: string, enabled: boolean, dir: string, loaded: Map<string, string>, loadOrder: Map<string, boolean>, instance: Instance): ListedPlugin {
     const winner = enabled ? loaded.get(name.toLowerCase()) : undefined;
     if (!winner) return { name, active: false };
@@ -81,7 +102,8 @@ export function ownerOf(file: string, instance: Instance): string {
 
 const samePath = (a: string, b: string) => path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
 
-function pluginFiles(dir: string): string[] {
+/** The plugins at the top of a mod's folder, by name. */
+export function pluginFiles(dir: string): string[] {
     try {
         return fs.readdirSync(dir, { withFileTypes: true })
             .filter(entry => entry.isFile() && PLUGIN_EXTENSIONS.has(path.extname(entry.name).toLowerCase()))

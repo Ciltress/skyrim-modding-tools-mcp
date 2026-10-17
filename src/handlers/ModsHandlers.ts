@@ -8,9 +8,10 @@ const MOD_PAGE = 150;
 const MAX_MOD_PAGE = 5000;
 
 /**
- * The instance's mods: listing them, and installing a downloaded file as one — any .7z, .zip or .rar
- * in the downloads folder, downloadNexusFile's or one the user downloaded by hand, whether it carries
- * a FOMOD installer or not. Nothing here reaches Nexus.
+ * The instance's mods: listing them, checking them against the game's version, installing a downloaded
+ * file as one — any .7z, .zip or .rar in the downloads folder, downloadNexusFile's or one the user
+ * downloaded by hand, whether it carries a FOMOD installer or not — and disabling one. Nothing here
+ * reaches Nexus.
  */
 export class ModsHandlers extends BaseHandler {
     protected toolSpecs(): ToolSpec[] {
@@ -153,6 +154,40 @@ export class ModsHandlers extends BaseHandler {
                     name: optionalString(args, 'name'),
                     root: rootArg(args),
                     replace: optionalBoolean(args, 'replace')
+                }))
+            },
+            {
+                definition: {
+                    name: 'disableMod',
+                    annotations: {
+                        title: 'Disable mod',
+                        readOnlyHint: false,
+                        // Its plugins lose their place in the load order.
+                        destructiveHint: true,
+                        // A mod disabled already is left as it is.
+                        idempotentHint: true,
+                        openWorldHint: false
+                    },
+                    description:
+                        'Disable a mod in the mod manager\'s selected profile — only when the user said so, for this mod: ' +
+                        'it stays where it is in the mod order, its files stay, and its plugins leave the load order as the ' +
+                        'mod manager does with a disabled mod\'s — except one another enabled mod also has (`keptActive`). ' +
+                        'Then the mod manager is told, as for installMod. `missingMasters` names active plugins that need one ' +
+                        'taken out: the game will not start until their mods are disabled too, or this one enabled again.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            mod: {
+                                type: 'string',
+                                description: 'The mod\'s name, as listMods shows it, e.g. "Better Jumping SE".'
+                            }
+                        },
+                        required: ['mod']
+                    }
+                },
+                onFailure: 'Failed to disable the mod',
+                run: args => asRequestError(this.backend.disableMod({
+                    mod: requireString(args, 'mod', 'Give the mod\'s name as listMods shows it.')
                 }))
             }
         ];

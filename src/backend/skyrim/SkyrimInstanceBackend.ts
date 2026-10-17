@@ -11,7 +11,7 @@ import {
     topFolders, type ArchiveListing, type InstallEnvironment, type PluginHeader, type UnpackedFile
 } from './installer.js';
 import type { Instance } from './modManager.js';
-import { listedMods } from './modList.js';
+import { ModError, findMod, listedMods, ownerOf, pluginFiles } from './modList.js';
 import { checkGameVersion } from './gameVersion.js';
 import { findCaseInsensitive } from './paths.js';
 import {
@@ -22,7 +22,8 @@ import {
 import type { SkyrimEngine } from './engine.js';
 import { NexusCatalogue, markDownloadInstalled, readDownloadMeta } from './nexus.js';
 import type {
-    AddPatchRequest, AddPatchResult, BuildResult, DeployResult, InstallModQuestions, InstallModRequest, InstallModResult, GameVersionCheck, ModList, ModListQuery,
+    AddPatchRequest, AddPatchResult, BuildResult, DeployResult, DisableModRequest, DisableModResult, InstallModQuestions, InstallModRequest,
+    InstallModResult, GameVersionCheck, ModList, ModListQuery,
     NewProjectRequest, NexusAccount, NexusDownload, NexusMod, NexusSearchQuery, NexusSearchResult, ProjectFile, ProjectInfo,
     PullResult, RecordQuery, RecordRequest, RecordSearchResult, RecordVersion, RecordVersions, SkyrimBackend
 } from './SkyrimBackend.js';
@@ -440,7 +441,7 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
                 `deploy — saved in the Creation Kit or xEdit? Run pullProject to bring those changes into the project ` +
                 `first; deploying now would overwrite them.`);
         }
-        const refusal = await modManager.writeRefusal(instance);
+        const refusal = await modManager.writeRefusal(instance, 'add');
         if (refusal) throw new ProjectError(refusal);
 
         // The mod folder becomes the build plus the assets, so files removed from the project go too —
@@ -631,7 +632,7 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         if (plan.files.length === 0) {
             throw new InstallError(`Nothing of ${fileName} would be installed. Choose other options, or another \`root\`.`);
         }
-        const refusal = await modManager.writeRefusal(instance);
+        const refusal = await modManager.writeRefusal(instance, 'add');
         if (refusal) throw new InstallError(refusal);
 
         // Written from here on. A half-unpacked mod is worse than none: the file is still there to install again.
@@ -679,6 +680,70 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             } : {}),
             profile: { name: instance.profile, ...enabled },
             modManager: notice
+        };
+    }
+
+    /**
+     * A mod disabled where it stands, on the user's word: its plugins leave the load order unless another
+     * enabled mod, overwrite or the game has the same file, as the mod manager does with a disabled mod's.
+     * Everything that can be refused is refused before anything is written; its files stay.
+     */
+    async disableMod(request: DisableModRequest): Promise<DisableModResult> {
+        const modManager = this.engine.modManager;
+        const instance = modManager.readInstance();
+        const mods = modManager.readModList(instance);
+        const entry = findMod(mods, request.mod, instance.profile);
+        const mod = entry.name;
+        if (!entry.managed) {
+            throw new ModError(`'${mod}' is part of the game, which Mod Organizer lists but does not manage: it cannot be disabled.`);
+        }
+        if (entry.locked) {
+            throw new ModError(`Amethyst has '${mod}' locked, and a locked mod cannot be disabled. Unlock it in Amethyst first, then try again.`);
+        }
+        if (isProjectMod(this.engine.projectsDir, mod)) {
+            throw new ModError(
+                `'${mod}' is the mod of the project '${mod}', which deployProject keeps enabled. If the user wants it out of ` +
+                `the game, they disable it in the mod manager.`);
+        }
+        const refusal = await modManager.writeRefusal(instance, 'change');
+        if (refusal) throw new ModError(refusal);
+
+        // What the game loads once the mod is disabled: a plugin of its that another layer also has stays.
+        const files = modManager.resolvePluginFiles(instance, mods.map(m => m === entry ? { ...m, enabled: false } : m));
+        const loadOrder = modManager.readLoadOrder(instance);
+        const active = new Set(loadOrder.filter(plugin => plugin.active).map(plugin => plugin.name.toLowerCase()));
+        const own = pluginFiles(path.join(instance.modsDir, mod));
+        const leaving = own.filter(plugin => !files.has(plugin.toLowerCase()));
+        const keptActive = entry.enabled
+            ? own.filter(plugin => files.has(plugin.toLowerCase()) && active.has(plugin.toLowerCase()))
+                .map(plugin => ({ plugin, loadedFrom: ownerOf(files.get(plugin.toLowerCase())!, instance) }))
+            : [];
+
+        // Plugins the game still loads that need one taken out. Their headers are read only when one is.
+        const gone = new Set(leaving.filter(plugin => active.has(plugin.toLowerCase())).map(plugin => plugin.toLowerCase()));
+        const missingMasters: NonNullable<DisableModResult['missingMasters']> = [];
+        const staying = loadOrder.filter(plugin => plugin.active && !gone.has(plugin.name.toLowerCase()))
+            .map(plugin => files.get(plugin.name.toLowerCase())).filter((file): file is string => file !== undefined);
+        if (gone.size > 0 && staying.length > 0) {
+            await this.engine.ensureFresh();
+            const read = await this.engine.helper.call<{ plugins: { path: string; masters?: string[] }[] }>(
+                'pluginHeaders', { paths: staying }, BUILD_TIMEOUT_MS);
+            for (const plugin of read.plugins) {
+                const masters = (plugin.masters ?? []).filter(master => gone.has(master.toLowerCase()));
+                if (masters.length > 0) missingMasters.push({ plugin: path.basename(plugin.path), mod: ownerOf(plugin.path, instance), masters });
+            }
+        }
+
+        const disabled = modManager.disable(instance, mod, leaving);
+        const changed = disabled.modDisabled || disabled.deactivated.length > 0;
+        const notice = changed ? await modManager.afterDeploy(instance) : undefined;
+        return {
+            mod,
+            ...(changed ? {} : { note: `'${mod}' was disabled already: nothing changed.` }),
+            ...(keptActive.length > 0 ? { keptActive } : {}),
+            ...(missingMasters.length > 0 ? { missingMasters, warnings: [needsMastersWarning(missingMasters, mod)] } : {}),
+            profile: { name: instance.profile, ...disabled },
+            ...(notice ? { modManager: notice } : {})
         };
     }
 
@@ -750,6 +815,16 @@ function checkModName(name: string): string {
         throw new InstallError(`'${name}' cannot be a mod's name: it becomes a folder, so leave out < > : " / \\ | ? * and a trailing dot.`);
     }
     return given;
+}
+
+/** What disableMod says when plugins the game still loads need one it took out — the game will not start. */
+function needsMastersWarning(missing: NonNullable<DisableModResult['missingMasters']>, mod: string): string {
+    const plugins = missing.map(entry => entry.plugin);
+    const masters = [...new Set(missing.flatMap(entry => entry.masters))];
+    const mods = [...new Set(missing.map(entry => entry.mod))];
+    const shown = plugins.length > 5 ? `${plugins.slice(0, 5).join(', ')} and ${plugins.length - 5} more` : plugins.join(', ');
+    return `The game will not start while ${shown} ${plugins.length === 1 ? 'is' : 'are'} active without ${masters.join(', ')}: ` +
+        `disable ${mods.length === 1 ? 'its mod' : 'their mods'} too (${mods.join(', ')}), or enable '${mod}' again in the mod manager.`;
 }
 
 /** Whether a mod of this name is a project's, deployed by deployProject. */

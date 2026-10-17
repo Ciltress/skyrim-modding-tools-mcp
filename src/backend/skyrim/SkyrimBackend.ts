@@ -1,6 +1,6 @@
 import type { Backend } from '../Backend.js';
 import type { InstallerQuestions } from './installer.js';
-import type { ModEnabled, ModManagerName, ModManagerNotice, ProfileChange } from './modManager.js';
+import type { ModDisabled, ModEnabled, ModManagerName, ModManagerNotice, ProfileChange } from './modManager.js';
 
 /**
  * The domain operations the tools call, on top of the lifecycle every backend has. FormIDs are
@@ -29,6 +29,9 @@ export interface SkyrimBackend extends Backend {
      * first with what it asks, unless the request carries the choices.
      */
     installMod(request: InstallModRequest): Promise<InstallModResult | InstallModQuestions>;
+
+    /** A mod disabled where it stands, its plugins out of the load order; its files stay. */
+    disableMod(request: DisableModRequest): Promise<DisableModResult>;
 
     /** The selected profile's mods, lowest priority first: each one's plugins, Nexus record and SKSE plugins. */
     listMods(query: ModListQuery): Promise<ModList>;
@@ -138,6 +141,26 @@ export interface InstallModResult {
     nexus?: { modId: number; fileId?: number; version?: string };
     profile: { name: string } & ModEnabled;
     modManager: ModManagerNotice;
+}
+
+export interface DisableModRequest {
+    /** The mod's name as listMods shows it; a name differing only in letter case finds it too. */
+    mod: string;
+}
+
+export interface DisableModResult {
+    /** The mod's name as the mod manager has it. */
+    mod: string;
+    /** Set when the mod was disabled already, and nothing changed. */
+    note?: string;
+    /** Its plugins the game still loads, because another enabled mod, overwrite or the game has the same file. */
+    keptActive?: { plugin: string; loadedFrom: string }[];
+    /** Active plugins needing a plugin taken out: the game will not start until their mods are disabled too. */
+    missingMasters?: { plugin: string; mod: string; masters: string[] }[];
+    warnings?: string[];
+    profile: { name: string } & ModDisabled;
+    /** What the mod manager was told; absent when nothing changed. */
+    modManager?: ModManagerNotice;
 }
 
 export interface NewProjectRequest {
