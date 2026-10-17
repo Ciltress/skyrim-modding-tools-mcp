@@ -121,6 +121,8 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-17 | gemma4:26b | `all` | 7c11e20 + round 17's changes, the same | 51/51 | 5.62 s | ~1,004 tokens/s | ~49 tokens/s | 77% |
 | 2026-10-17 | gemma4:e4b | `all` | b354106, Ollama 0.40.6 (0.40.4 before) | 48/51 | 2.31 s | ~6,936 tokens/s | ~171 tokens/s | 100% |
 | 2026-10-17 | gemma4:26b | `all` | b354106, Ollama 0.40.6 | 51/51 | 14.14 s | ~674 tokens/s | ~49 tokens/s | 77% |
+| 2026-10-17 | gemma4:e4b | `all` | 3bf8544 + round 19's changes | 48/51 | 2.08 s | ~7,354 tokens/s | ~162 tokens/s | 100% |
+| 2026-10-17 | gemma4:26b | `all` | 3bf8544 + round 19's changes | 50/51 | 12.95 s | ~170 tokens/s | ~17 tokens/s | 77% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -171,96 +173,6 @@ in these runs; `--client claude-code` counts every answer that ends without `mes
 
 `--client claude-code` runs in that lean setup: the same denied built-ins, non-essential traffic off,
 side requests on the model under test, only this server.
-
-## Round 17 — a text's lines, a note's type, an escape's line (2026-10-17)
-
-**Changed before it:**
-
-- **A YAML break inside a text block** (`Value: >-`, `|`) is said as one: the line is part of the
-  text, which ends at the first line indented less than its own first, and the rest is read as fields —
-  "indent every line of the text by 4 spaces", with the line re-indented. Round 16's advice for a
-  mapping had e4b rewrite a note five times.
-- **The game's words for record types** in findRecords' suggestions: `NOTE`, `Letter`, `Journal`,
-  `Tome` → `BOOK`; `Potion`, `Poison`, `Food` → `ALCH`; `Recipe` → `COBJ`; `Clutter` → `MISC`;
-  `Arrow`, `Shield`, `Actor`, `Effect`, `Power` and others — the word itself before the types it
-  begins (`Actor` is `NPC_` before `AVIF`).
-- A probe of e4b alone (not logged) took 49 of 51, notes 8 of 9 against round 16's probe's 4 of 9: the
-  text-block message fired once and the file was fixed in one write. Its one server-side miss: the
-  copied-escapes refusal named "line 12 (two backslashes)" without the line; e4b edited another one,
-  built again and gave up. So, still before the round: **the refusal quotes each line and gives it as it
-  is to be written** — `File: Weapons\\Iron\\LongSword.nif` → `File: Weapons\Iron\LongSword.nif`.
-- Also in the build since round 16, nothing the tasks touch: path settings read as a POSIX shell reads
-  them (7c11e20).
-
-gemma4:e4b, `all` (prompt ~7,255 tokens/s, generation ~170 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 6384 | 3.5 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 7387 | 4.3 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 4839 | 3.1 |
-| patch | 3/3 | 5 | 4 | 1 | 0 | 9246 | 8.9 |
-| build | 3/3 | 5.7 | 4.7 | 0 | 0 | 13119 | 7.8 |
-| sword | 3/3 | 7 | 6 | 1 | 0 | 12845 | 13.3 |
-| sword+skill | 3/3 | 6 | 5 | 1 | 0 | 13266 | 12.1 |
-| sword+detailed | 1/3 | 16 | 15 | 11 | 1 | 16033 | 57.8 |
-| spell | 2/3 | 5 | 4 | 0 | 1 | 10447 | 29.5 |
-| spell+skill | 2/3 | 4 | 3 | 0 | 0 | 9837 | 6.4 |
-| spell+detailed | 3/3 | 5 | 4 | 0 | 0 | 10593 | 9.5 |
-| npc | 3/3 | 5 | 4 | 0 | 0 | 9115 | 10.5 |
-| npc+skill | 3/3 | 4.7 | 3.7 | 1 | 0 | 8709 | 7.6 |
-| npc+detailed | 3/3 | 6.3 | 5.3 | 2 | 0 | 9887 | 11.9 |
-| note | 3/3 | 7.7 | 6.7 | 4 | 0 | 8868 | 16 |
-| note+skill | 3/3 | 8.3 | 7.3 | 3 | 0 | 18477 | 18.7 |
-| note+detailed | 2/3 | 8 | 7 | 2 | 0 | 12770 | 15.2 |
-
-gemma4:26b, `all` (prompt ~1,004 tokens/s, generation ~49 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 5875 | 6.2 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 6982 | 7.6 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 6063 | 6.7 |
-| patch | 3/3 | 4.7 | 3.7 | 0 | 0 | 8914 | 18.2 |
-| build | 3/3 | 5.3 | 4.3 | 0 | 0 | 8125 | 13.6 |
-| sword | 3/3 | 12.3 | 11.3 | 0 | 0 | 28423 | 101.4 |
-| sword+skill | 3/3 | 7.3 | 6.3 | 1 | 0 | 15640 | 48.2 |
-| sword+detailed | 3/3 | 13.3 | 12.3 | 3 | 0 | 22282 | 103.4 |
-| spell | 3/3 | 5.7 | 4.7 | 0 | 0 | 12150 | 28.1 |
-| spell+skill | 3/3 | 4 | 3 | 0 | 0 | 9548 | 15.6 |
-| spell+detailed | 3/3 | 6.7 | 5.7 | 0 | 0 | 13360 | 37 |
-| npc | 3/3 | 8.7 | 7.7 | 3 | 0 | 12793 | 40.5 |
-| npc+skill | 3/3 | 4.7 | 3.7 | 1 | 0 | 8644 | 20.4 |
-| npc+detailed | 3/3 | 8 | 7 | 1 | 0 | 14463 | 37.4 |
-| note | 3/3 | 7.7 | 6.7 | 0 | 0 | 12693 | 47.4 |
-| note+skill | 3/3 | 7 | 6 | 1 | 0 | 12637 | 37 |
-| note+detailed | 3/3 | 7 | 6 | 0 | 0 | 12788 | 49.9 |
-
-**Seen.**
-
-- **26b: 51 of 51**, as in round 15 with JSON.
-- **e4b: 46 of 51, and two of its five misses are one bug of the helper's.** In a `sword+detailed` run,
-  an enchantment written with a misplaced `Data:` block of a dozen lines sent the field hint's search
-  for an `EditorID` in the block (`RecordFiles.ValueOf`) into catastrophic backtracking: its pattern
-  could split each line's indent and line end several ways, and with no `EditorID` there it tried them
-  all. The call reached the server's 120 s, the helper was stopped, and the `spell` run whose build was
-  queued behind it lost it ("the plugin helper exited"). Reproduced from the transcript, alone on the
-  machine — not load — and fixed after the round (below).
-- **Every copied escape was fixed by the next build**: six refusals (e4b 5, 26b 1), six one-edit fixes —
-  the quoted line was pasted into the edit as it stood. The run that lost its sword after it lost it to
-  field refusals on an enchantment written from memory: `Effects[0] has no field Damage (delete it)` —
-  "damage is Magnitude, under Data" would be the better hint.
-- **The type suggestions are taken**: four refusals (`NOTE` twice, `Note`, `WEPN`); once `BOOK` was
-  sent next, once `WEAP`, twice the search went again with no type — a call each, as before, but never
-  a dead end.
-- e4b's other misses are its own: an override of Maven's note (`addPatch`) instead of a new one; a
-  spell written from memory that built without a shock effect.
-
-**Changed after it** (measured next round): `ValueOf`'s block pattern matches each line one way only —
-the block that hung answers in milliseconds, the hint it looks for (`Enchantment:` above
-`EditorID: X` → `ObjectEffect: X`) works as before with LF, CRLF and a blank line; and the helper sets a
-5 s default match timeout on every pattern, so one like it fails a call, not the helper and the calls
-behind it.
 
 ## Round 18 — a new Ollama, two new tools (2026-10-17)
 
@@ -332,3 +244,99 @@ gemma4:26b, `all` (prompt ~674 tokens/s, generation ~49 tokens/s):
   right; and a whole text written on one line with literal `\n`, which the escape check does not look for.
 - Neither model called `listMods` or `checkGameVersion` — no task asks for them; the test instance has no
   mods and no SKSE, so a task needs a laid-out mod or two first.
+
+## Round 19 — a note read by its name, a text's lines, a field in a text (2026-10-17)
+
+**Changed before it:** round 18's three e4b misses — all notes — and what two probes after them showed
+(e4b, not recorded: notes 7/9, then notes and swords 16/18):
+
+- `readRecord` reads by an in-game name one record alone has: "Note From Maven" was refused with its
+  editor ID, and the run never read the note (round 18). A colon makes a FormID only after hex digits —
+  "Spell Tome: Flames" is a name. `addPatch` keeps to exact names.
+- The build refuses a text's line breaks copied as `\n` outside double quotes, and gives the lines they
+  were, described one by one on one line ("→ 6 lines: 1 `…`, 2 empty, …") — an answer is JSON, so a line
+  break in it would reach the model as `\n` again. An apostrophe escaped with a backslash is refused with
+  the line as YAML writes it: `'Maven''s Warning'`. No hit on the 6,038 files Spriggit wrote.
+- A record's own field indented into a text above it is refused: told to indent a text, e4b indented the
+  note's `PickUpSound` and `Keywords` too, and the note built with them as words of its text (probe).
+- A folder named for what its records are is answered with its group and the path to write —
+  "'Enchantments' is no group folder — the folder for them is ObjectEffects: write the file as
+  ObjectEffects/X.yaml"; the general hint no longer says "ObjectEffects (enchantments)", which e4b
+  made a folder's name (probe).
+- `Damage` on an item of `Effects` is answered "damage is Magnitude, under Data — beside Area and
+  Duration", not "delete it" (round 17).
+- An override that renames the record it copies builds with a warning: a "new note" was Maven's own,
+  copied with its FormKey and editor ID and renamed (probe).
+- The items-and-crafting skill has a section on books and notes: the vanilla note and book to mirror,
+  and how a text is copied. Both its rows were built.
+- Since round 18 the tool list also has `disableMod`, and `installMod` puts a plugin before an active
+  plugin that needs it — 17 server tools, 18,584 bytes of schemas. No task asks for them.
+
+gemma4:e4b, `all` (prompt ~7,354 tokens/s, generation ~162 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 6774 | 2.9 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 8064 | 3.8 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 5378 | 2.4 |
+| patch | 3/3 | 4.3 | 3.3 | 0 | 0 | 8678 | 5.8 |
+| build | 3/3 | 5 | 4 | 0 | 0 | 9310 | 7.9 |
+| sword | 1/3 | 9.3 | 8.3 | 3 | 3 | 19032 | 30.6 |
+| sword+skill | 3/3 | 6.7 | 5.7 | 2 | 0 | 14205 | 12.4 |
+| sword+detailed | 2/3 | 15.3 | 15 | 9 | 1 | 22164 | 35.4 |
+| spell | 3/3 | 5 | 4 | 0 | 0 | 11266 | 9.6 |
+| spell+skill | 3/3 | 5 | 4 | 1 | 0 | 12384 | 8.4 |
+| spell+detailed | 3/3 | 8 | 7 | 4 | 0 | 15637 | 18.6 |
+| npc | 3/3 | 5.7 | 4.7 | 1 | 0 | 10017 | 10.7 |
+| npc+skill | 3/3 | 8.7 | 7.7 | 7 | 0 | 13044 | 16.7 |
+| npc+detailed | 3/3 | 6.3 | 5.3 | 2 | 0 | 10854 | 12.5 |
+| note | 3/3 | 6.3 | 5.3 | 2 | 0 | 8973 | 12.8 |
+| note+skill | 3/3 | 8.7 | 7.7 | 5 | 0 | 17161 | 21 |
+| note+detailed | 3/3 | 6.3 | 5.3 | 2 | 0 | 11112 | 16 |
+
+gemma4:26b, `all` (prompt ~170 tokens/s, generation ~17 tokens/s — see *Seen*):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 6548 | 5.6 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 7658 | 10.5 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 6743 | 9 |
+| patch | 3/3 | 5.3 | 4.3 | 0 | 0 | 9483 | 17.9 |
+| build | 3/3 | 6 | 5 | 0 | 0 | 9647 | 18.1 |
+| sword | 2/3 | 14.3 | 13.7 | 4 | 0 | 28471 | 156.2 |
+| sword+skill | 3/3 | 6 | 5 | 0 | 0 | 14566 | 44.1 |
+| sword+detailed | 3/3 | 11.7 | 10.7 | 3 | 0 | 24488 | 177 |
+| spell | 3/3 | 6.3 | 5.3 | 0 | 0 | 13782 | 46.8 |
+| spell+skill | 3/3 | 4 | 3 | 0 | 0 | 10327 | 29.5 |
+| spell+detailed | 3/3 | 6.7 | 5.7 | 0 | 0 | 14652 | 149.4 |
+| npc | 3/3 | 6.7 | 5.7 | 2 | 0 | 9782 | 99.1 |
+| npc+skill | 3/3 | 5 | 4 | 1 | 0 | 13177 | 88 |
+| npc+detailed | 3/3 | 10.3 | 9.3 | 2 | 0 | 22245 | 192.9 |
+| note | 3/3 | 6.7 | 5.7 | 0 | 0 | 13209 | 133.4 |
+| note+skill | 3/3 | 6 | 5 | 0 | 0 | 12769 | 92.4 |
+| note+detailed | 3/3 | 7.7 | 6.7 | 0 | 0 | 13639 | 151.8 |
+
+**Seen.**
+
+- **Notes 18 of 18** for the two models (e4b in round 18: 7 of 9). e4b read Maven's note by its in-game
+  name six times this round, each answered; round 18's notes went wrong at that refusal. No run copied a
+  text's line breaks as `\n` this time, so that refusal stands on the probes and the suite.
+- **e4b 48 of 51, 26b 50 of 51** — every miss a sword:
+  - e4b sword #1 put `ObjectEffect` under the weapon's `Data`, was told "move them up, to the top level",
+    and wrote the two lines back in with their two spaces in front, under `Data` again, until it gave up.
+  - e4b sword #3 copied the Akaviri katana with its FormKey and editor ID and renamed it: it built, as a
+    change to the katana — the new warning said so, and the run ended on the build.
+  - e4b sword+detailed #3 invented an enchantment's fields — `EffectType`, `Charge`, `Damage` written
+    inside `Data` — each answered "delete it" or "damage is Magnitude", round after round.
+  - 26b sword #3 ran out of its 25 turns making a magic effect of its own. On the way it asked readRecord
+    for `045C2D:Skyrim.esm # EnchWeaponFireDamage04` — a link line with the comment readRecord itself
+    writes — and was told it is no FormID.
+- **26b's speed check is the odd one out:** its turns took 12.95 s (round 18: 14.14 s), but the check
+  after the tasks came out at a third of every earlier one. Ollama's log shows the model loaded whole on
+  the GPU, as in round 18; not looked into further.
+
+**What it points at next:** a field to move to the top level answered with the line to write at the
+margin; an `Effects` item's `EffectType` answered as `BaseEffect`, a `Charge` as the weapon's
+`EnchantmentAmount`; a `# comment` after a FormID in a record argument read as the FormID. A renamed
+override is warned about, and e4b passed the warning by — refusing it would need the build to tell a
+patch's rename from a copy.
