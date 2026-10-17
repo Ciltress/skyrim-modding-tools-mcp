@@ -10,6 +10,11 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using SkyrimHelper;
 
+// A pattern that backtracks without end on some text fails that one call, not the helper: one that hung
+// past the server's 120 s was stopped with every call queued behind it (eval round 17). Set before any
+// Regex exists — each takes the default when it is made.
+AppContext.SetData("REGEX_DEFAULT_MATCH_TIMEOUT", TimeSpan.FromSeconds(5));
+
 var answers = new StreamWriter(Console.OpenStandardOutput(), new UTF8Encoding(false)) { AutoFlush = true };
 // A library that prints would otherwise write into the answer stream.
 Console.SetOut(Console.Error);

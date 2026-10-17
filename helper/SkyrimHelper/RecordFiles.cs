@@ -267,7 +267,10 @@ public static class RecordFiles
         // A comment after the value too: readRecord writes a link's editor ID beside its FormID (`012EB7:Skyrim.esm  # IronSword`).
         if (Regex.Match(text, $@"^{Regex.Escape(key)}:[ \t]*([^\s#|>{{\[][^#\r\n]*?)[ \t]*(?:#.*?)?\r?$", RegexOptions.Multiline) is { Success: true } m)
             return m.Groups[1].Value;
-        return Regex.Match(text, $@"^{Regex.Escape(key)}:[ \t]*\r?\n(?:[ \t]+.*\r?\n)*?[ \t]+EditorID:[ \t]*(\w+)[ \t]*\r?$", RegexOptions.Multiline)
+        // Each line of the block matches one way only — its indent, a letter, the rest without the \r — or as a
+        // blank line. Written `[ \t]+.*\r?\n`, a block of a dozen lines with no EditorID in it was tried every
+        // way its indents and line ends could be split, and checkRecords hung past its 120 s (eval round 17).
+        return Regex.Match(text, $@"^{Regex.Escape(key)}:[ \t]*\r?\n(?:[ \t]+\S[^\r\n]*\r?\n|[ \t]*\r?\n)*?[ \t]+EditorID:[ \t]*(\w+)[ \t]*\r?$", RegexOptions.Multiline)
             is { Success: true } block ? block.Groups[1].Value : null;
     }
 
