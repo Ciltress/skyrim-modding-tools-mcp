@@ -115,6 +115,42 @@ export function misnamedRecordFiles(pluginDir: string): { file: string; as: stri
     return found.sort((a, b) => a.file.localeCompare(b.file));
 }
 
+/**
+ * Record files with a markdown fence in them — a line of three or more backticks or tildes — and the
+ * fence's line numbers. An answer shows a file that way, and a model copied the fence with it (eval
+ * round 15's probes).
+ */
+export function fencedRecordFiles(pluginDir: string): { file: string; lines: number[] }[] {
+    return recordFiles(pluginDir).flatMap(file => {
+        const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/)
+            .flatMap((line, i) => /^\s*(`{3,}|~{3,})/.test(line) ? [i + 1] : []);
+        return lines.length > 0 ? [{ file, lines }] : [];
+    });
+}
+
+/**
+ * Lines of record files that carry the escapes a JSON answer shows — two backslashes where the record
+ * has one, a backslash before a quote — copied as they read: e4b wrote `File: Weapons\\Iron\\Sword.nif`
+ * in about one run of seventeen (eval rounds 12–15), and the build took it. A double-quoted string is
+ * judged once decoded, since YAML escapes there too; on 6,038 files Spriggit wrote, nothing is found.
+ */
+export function copiedEscapes(pluginDir: string): { file: string; line: number; kind: 'two backslashes' | 'a backslash before a quote' }[] {
+    const kindOf = (text: string) =>
+        /\\\\/.test(text) ? 'two backslashes' as const : /\\"/.test(text) ? 'a backslash before a quote' as const : undefined;
+    return recordFiles(pluginDir).flatMap(file => fs.readFileSync(file, 'utf8').split(/\r?\n/).flatMap((text, i) => {
+        let outside = text;
+        for (const quoted of text.match(/"(?:[^"\\]|\\.)*"/g) ?? []) {
+            let decoded = '';
+            try { decoded = JSON.parse(quoted); } catch { /* a YAML escape JSON does not know: not one a copy leaves */ }
+            const kind = kindOf(decoded);
+            if (kind) return [{ file, line: i + 1, kind }];
+            outside = outside.replace(quoted, '""');
+        }
+        const kind = kindOf(outside);
+        return kind ? [{ file, line: i + 1, kind }] : [];
+    }));
+}
+
 /** YAML files in a project's folder but outside its plugin folder and build output: no build reads them. */
 export function strayRecordFiles(paths: ProjectPaths): string[] {
     const skip = new Set([paths.plugin, paths.build].map(dir => path.resolve(dir).toLowerCase()));

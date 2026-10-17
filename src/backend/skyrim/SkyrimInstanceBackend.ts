@@ -13,7 +13,7 @@ import {
 import type { Instance } from './modManager.js';
 import { findCaseInsensitive } from './paths.js';
 import {
-    ProjectError, assignFormIds, belongsAt, createProject, fileHash, keepRecordTexts, misnamedRecordFiles, looseRecordFiles, nameRecordFiles, newestSourceTime, projectExists,
+    ProjectError, assignFormIds, belongsAt, copiedEscapes, createProject, fencedRecordFiles, fileHash, keepRecordTexts, misnamedRecordFiles, looseRecordFiles, nameRecordFiles, newestSourceTime, projectExists,
     projectInfo, projectPaths, readDeployState, readProjectHeader, recordFiles, strayRecordFiles, syncFolder, syncYaml,
     whereRecordsGo, writeDeployState
 } from './projects.js';
@@ -284,6 +284,27 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
                     `${loose.map(where).join('; ')}.` : '') +
                 ` ${whereRecordsGo(paths)} Mirror a vanilla record of the same type (readRecord), leaving FormKey out.`);
         }
+        // Copied with the fence an answer shows it in, a record broke the YAML at line 1, and the reader's
+        // message sent the model to fix its indentation (eval round 15's probes): named first, plainly.
+        const fenced = fencedRecordFiles(paths.plugin);
+        if (fenced.length > 0) {
+            const lines = (numbers: number[]) => numbers.length === 1
+                ? `line ${numbers[0]}`
+                : `lines ${numbers.slice(0, -1).join(', ')} and ${numbers[numbers.length - 1]}`;
+            throw new ProjectError(
+                `${fenced.map(({ file, lines: at }) => `${file}, ${lines(at)}`).join('; ')}: a markdown fence — a line of ` +
+                'backticks, the way an answer shows a file. A record file holds only the record\'s YAML: delete the fence ' +
+                'lines and keep what is between them.');
+        }
+        // Escapes copied out of a JSON answer as they read built without a word, into a path the game cannot
+        // find (eval rounds 12–15): refused, like the fence, so the model rewrites the line.
+        const escaped = copiedEscapes(paths.plugin);
+        if (escaped.length > 0) {
+            throw new ProjectError(
+                `${escaped.map(({ file, line, kind }) => `${file}, line ${line} (${kind})`).join('; ')}: copied with the escapes ` +
+                'a JSON answer shows. In the file, write a path\'s folders apart with a single backslash, and a quote without ' +
+                'a backslash before it.');
+        }
         // With records to build, files elsewhere are named but stop nothing: a refusal only deleting a
         // file could satisfy trapped a model whose file tools could not delete (eval round 10).
         const warnings: string[] = [];
@@ -301,8 +322,9 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         const leftOut = (checked.leftOut ?? []).map(({ file, copy }) => ({ file: path.join(paths.plugin, file), copy: copy ? path.join(paths.plugin, copy) : '' }));
         const copies = leftOut.filter(({ copy }) => copy);
         if (copies.length > 0) {
-            warnings.push(`${copies.length} record file(s) in a folder that is no group were not built: ` +
-                `${copies.map(({ file, copy }) => `${file}, whose record ${copy} holds`).join('; ')}. The build reads only the group's folder.`);
+            warnings.push(`${copies.length} record file(s) the build does not read were not built: ` +
+                `${copies.map(({ file, copy }) => `${file}, whose record ${copy} holds`).join('; ')}. The build reads a record ` +
+                `only from a .yaml file directly in its group's folder.`);
         }
         // A file written empty holds no record: the way to drop one without deleting its file (eval probe 16).
         const emptied = leftOut.filter(({ copy }) => !copy);

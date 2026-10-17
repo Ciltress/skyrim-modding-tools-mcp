@@ -335,8 +335,8 @@ public static class RecordFiles
 
     /// <summary>
     /// How many record files the plugin folder holds, what is wrong with any of them, and the files left
-    /// out: in a folder that is no group, whose record a group's folder holds too — by file name or editor
-    /// ID. The reader skips such a folder; refused, the file trapped a model whose file tools could not
+    /// out: in a folder that is no group, or one below a group's folder, whose record a group's folder holds
+    /// too — by file name or editor ID — and a .yml file beside its .yaml twin. The reader skips such a folder; refused, the file trapped a model whose file tools could not
     /// delete it, after it had written the record again in the right folder (eval probe 10 after round 11).
     /// With the load order's index, a FormKey of another plugin is checked against the record it names.
     /// </summary>
@@ -357,7 +357,13 @@ public static class RecordFiles
             if (relative == "RecordData.yaml") continue;
             if (file.EndsWith(".yml", StringComparison.OrdinalIgnoreCase))
             {
-                problems.Add($"{relative} ends in .yml, which the build does not read: name it .yaml");
+                // Written again as .yaml, as the refusal said: left out — refused, the .yml file failed every build
+                // of a model whose file tools could not delete it, until it made a second project (eval round 15).
+                var twin = Path.ChangeExtension(file, ".yaml");
+                if (File.Exists(twin))
+                    leftOut.Add((relative, Path.GetRelativePath(pluginDir, twin).Replace('\\', '/')));
+                else
+                    problems.Add($"{relative} ends in .yml, which the build does not read: name it .yaml");
                 continue;
             }
             // Any other ending in a group's folder too: an enchantment saved as FlameBladeBurn.nhs went unread,
@@ -407,6 +413,17 @@ public static class RecordFiles
             if (parts.Length > 2 && !Nested.Contains(parts[0]))
             {
                 var into = Groups.ContainsKey(parts[1]) ? string.Join('/', parts[1..]) : $"{parts[0]}/{parts[^1]}";
+                // Written again where the refusal said, its record is in the group's folder: left out, like a file
+                // in a folder that is no group — refused, the first copy failed every build of a model whose file
+                // tools could not delete it (ObjectEffects/Enchantments/, eval round 15's probes).
+                var nestedId = Identity(File.ReadAllText(file)).EditorId;
+                if (grouped.Value.FirstOrDefault(g => g.Relative.Equals(into, StringComparison.OrdinalIgnoreCase)
+                        || nestedId is not null && nestedId.Equals(g.EditorId, StringComparison.OrdinalIgnoreCase)) is { Relative: { } copy })
+                {
+                    leftOut.Add((relative, copy));
+                    records--;
+                    continue;
+                }
                 problems.Add($"{relative} is in a folder below {parts[0]}/, where the build reads no record: put it directly into its group's folder, as {into}");
                 continue;
             }

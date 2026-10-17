@@ -706,6 +706,49 @@ describe('the Skyrim backend', () => {
             { ...link, file: path.join(fixture.projects, 'FlameBlade', 'plugin', 'Weapons', 'FlameBladeSword - 000800_FlameBlade.esp.yaml') }]);
     });
 
+    it('refuses a record file holding a markdown fence, naming the file and the line, before any is checked or numbered', async () => {
+        // Answers that show a file in a fence had e4b write the fence into the record, and the YAML reader's
+        // message sent it to fix the indentation (eval round 15's probes).
+        const { backend, fixture, calls } = makeBackend();
+        await backend.newProject({ project: 'HildaTheNord' });
+        const fenced = path.join(fixture.projects, 'HildaTheNord', 'plugin', 'Npcs', 'Hilda.yaml');
+        write(fenced, '```yaml\nEditorID: Hilda\nRace: NordRace\n```\n');
+
+        const refused = asRequestError(backend.buildProject('HildaTheNord'));
+
+        await expect(refused).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
+        await expect(backend.buildProject('HildaTheNord')).rejects.toThrow(
+            new RegExp(`${escape(fenced)}, lines 1 and 4.*markdown fence.*delete the fence lines`));
+        expect(calls.some(c => c.method === 'checkRecords' || c.method === 'build')).toBe(false);
+        expect(fs.readFileSync(fenced, 'utf8')).not.toMatch(/FormKey/);
+    });
+
+    it('refuses a record file with the escapes of a JSON answer copied in, naming each file and line, before any is checked', async () => {
+        // Copied out of a JSON string as it reads, a model path kept its doubled backslashes; the build took it,
+        // and the mod would ship a path the game cannot find (e4b, eval rounds 12–15).
+        const { backend, fixture, calls } = makeBackend();
+        await backend.newProject({ project: 'FlameBlade' });
+        const sword = path.join(fixture.projects, 'FlameBlade', 'plugin', 'Weapons', 'FlameBlade.yaml');
+        const note = path.join(fixture.projects, 'FlameBlade', 'plugin', 'Books', 'FlameBladeNote.yaml');
+        write(sword, 'EditorID: FlameBlade\nModel:\n  File: Weapons\\\\Iron\\\\LongSword.nif\n');
+        write(note, 'EditorID: FlameBladeNote\nBookText: <font face=\\"$HandwrittenFont\\">Burn.\n');
+
+        await expect(asRequestError(backend.buildProject('FlameBlade'))).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
+        await expect(backend.buildProject('FlameBlade')).rejects.toThrow(new RegExp(
+            `${escape(note)}, line 2 \\(a backslash before a quote\\); ${escape(sword)}, line 3 \\(two backslashes\\).*` +
+            'single backslash.*quote without'));
+        expect(calls.some(c => c.method === 'checkRecords' || c.method === 'build')).toBe(false);
+    });
+
+    it('builds a path with single backslashes, and one escaped inside double quotes', async () => {
+        const { backend, fixture } = makeBackend();
+        await backend.newProject({ project: 'FlameBlade' });
+        write(path.join(fixture.projects, 'FlameBlade', 'plugin', 'Weapons', 'FlameBlade.yaml'),
+            'EditorID: FlameBlade\nModel:\n  File: Weapons\\Iron\\LongSword.nif\nDescription: "a \\"burning\\" blade in Weapons\\\\Iron"\n');
+
+        await expect(backend.buildProject('FlameBlade')).resolves.toMatchObject({ project: 'FlameBlade' });
+    });
+
     it('has the record files checked before any of them gets a FormID, so an unbuildable one keeps its name', async () => {
         const { backend, fixture } = makeBackend();
         await backend.newProject({ project: 'FlameBlade' });
