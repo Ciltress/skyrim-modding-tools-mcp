@@ -92,6 +92,10 @@ export interface ModManager {
     readLoadOrder(instance: Instance): PluginEntry[];
     /** Where each plugin file really is, the way the game will see it. Keys are lower-case file names. */
     resolvePluginFiles(instance: Instance, mods: readonly ModEntry[]): Map<string, string>;
+    /** The same for the files of one folder of Data with these extensions, `SKSE/Plugins` say. */
+    resolveDataFiles(instance: Instance, mods: readonly ModEntry[], folder: string, extensions: ReadonlySet<string>): Map<string, string>;
+    /** The Wine prefix the game runs in, under Proton — where its My Games folder is; undefined on Windows. */
+    winePrefix(instance: Instance): string | undefined;
     /** Changes whenever the active load order may have: another profile, a mod or a plugin toggled. */
     fingerprint(): string;
     /**

@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -41,6 +42,8 @@ export interface Platform {
      * Wine prefix it runs in, if one is known. Undefined for a path on a drive this system cannot find.
      */
     windowsPaths(prefix: string | undefined): (windowsPath: string) => string | undefined;
+    /** The Documents folder the game writes My Games into: the user's own, or the Wine prefix's. Undefined where it cannot be known. */
+    documentsDir(prefix: string | undefined): Promise<string | undefined>;
 }
 
 export interface RunningProcess {
@@ -115,8 +118,28 @@ export function windowsPlatform(): Platform {
 
         windowsPaths() {
             return windowsPath => windowsPath;
+        },
+
+        // Where the user put it — OneDrive, another drive — not always ~/Documents.
+        async documentsDir() {
+            try {
+                const { stdout } = await run('reg', ['query', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders', '/v', 'Personal'], {
+                    windowsHide: true, timeout: 15_000
+                });
+                const found = documentsFromRegistry(stdout, process.env);
+                if (found) return found;
+            } catch {
+                // Without the key, the usual place is the best guess there is.
+            }
+            return path.join(os.homedir(), 'Documents');
         }
     };
+}
+
+/** The Documents folder from `reg query … /v Personal`: REG_EXPAND_SZ, its %VARIABLES% expanded. */
+export function documentsFromRegistry(stdout: string, variables: NodeJS.ProcessEnv): string | undefined {
+    const value = /\bPersonal\s+REG_(?:EXPAND_)?SZ\s+(.+?)\s*$/m.exec(stdout)?.[1];
+    return value?.replace(/%([^%]+)%/g, (whole, name: string) => variables[name] ?? whole);
 }
 
 // ---------------------------------------------------------------- Linux
@@ -210,6 +233,11 @@ export function linuxPlatform(procRoot = '/proc', drives: WineDrives = dosDevice
                 const root = drives(prefix, drive[1].toLowerCase());
                 return root === undefined ? undefined : path.join(root, ...windowsPath.slice(2).split(/[\\/]+/).filter(Boolean));
             };
+        },
+
+        // Proton makes every prefix's user steamuser.
+        async documentsDir(prefix) {
+            return prefix ? path.join(prefix, 'drive_c', 'users', 'steamuser', 'Documents') : undefined;
         }
     };
 }

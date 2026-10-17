@@ -34,7 +34,7 @@ const READ = ['findRecords', 'readRecord'] as const;
 const CORE_WRITE = ['addPatch', 'buildProject', 'deployProject'] as const;
 
 /** The mod manager's mods, read: what is installed, and whether it fits the game. */
-const INSTALLED = ['listMods'] as const;
+const INSTALLED = ['listMods', 'checkGameVersion'] as const;
 
 /** The Nexus Mods catalogue, read. */
 const NEXUS_READ = ['searchNexus', 'readNexusMod'] as const;

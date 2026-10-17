@@ -71,6 +71,9 @@ src/
   backend/skyrim/amethyst.ts        Amethyst as the mod manager: finding its config, its profile, its
                                     deploy command
   backend/skyrim/projects.ts        a project on disk: paths, FormID assignment, text sync, deploy state
+  backend/skyrim/modList.ts         listMods: the profile's mods as the manager shows them, read from files
+  backend/skyrim/sksePlugins.ts     whether an SKSE plugin fits the game: the rules, SKSE's log, the verdicts
+  backend/skyrim/gameVersion.ts     checkGameVersion's gathering: winning DLLs, SKSE, Address Library, the log
   backend/skyrim/nexus.ts           Nexus Mods: the catalogue over GraphQL, the account and downloads over
                                     v1 with NEXUS_API_KEY, BBCode as text; a download's .meta record
   backend/skyrim/installer.ts       what installMod decides before writing: a plain file's Data folder, a
@@ -100,7 +103,8 @@ src/
                            instructions, serverInfo, http, toolDocs, env — the template's machinery
   __tests__/               vitest suites, all offline; fakes.ts holds the shared doubles
 helper/SkyrimHelper/       the C# plugin helper: Session.cs (the methods), RecordIndex.cs, SpriggitFormat.cs,
-                           PeVersion.cs (an exe's version, read the same way on Windows and Linux),
+                           PeVersion.cs (an exe's version, read the same way on Windows and Linux), SksePlugins.cs (an SKSE plugin's
+                           exports and version data, read without loading it),
                            Archives.cs (downloaded files, through SharpCompress), Fomod.cs (ModuleConfig.xml as data),
                            RecordFiles.cs (a project's record files checked before a build: folders, fields,
                            copied FormKeys), RecordLinks.cs (links written as editor IDs made FormIDs)

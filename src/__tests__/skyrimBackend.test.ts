@@ -407,7 +407,7 @@ const quiet = linuxPlatform(path.join(os.tmpdir(), 'skyrim-mcp-no-proc'), hostDr
 const asWinePath = (native: string) => /^[a-z]:/i.test(native) ? native : `Z:${native.replace(/\//g, '\\')}`;
 
 /** A backend on the quiet system, with a process table of its own that is empty until a test starts something in it. */
-function makeBackend(options: { nexus?: NexusCatalogue; papyrusCompilerCandidates?: string[] } = {}) {
+function makeBackend(options: { nexus?: NexusCatalogue; papyrusCompilerCandidates?: string[]; winePrefix?: string } = {}) {
     const fixture = makeInstance();
     const procRoot = path.join(fixture.root, 'proc');
     const platform = linuxPlatform(procRoot, hostDrives);
@@ -415,7 +415,7 @@ function makeBackend(options: { nexus?: NexusCatalogue; papyrusCompilerCandidate
     const masters: Record<string, string[]> = {};
     const helperAnswers: Record<string, (params: any) => any> = {};
     const { helper, calls } = scriptedHelper(archives, masters, helperAnswers);
-    const engine = new SkyrimEngine(new Mo2Manager(fixture.instanceDir, platform), helper, fixture.projects,
+    const engine = new SkyrimEngine(new Mo2Manager(fixture.instanceDir, platform, { winePrefix: options.winePrefix }), helper, fixture.projects,
         { platform, papyrusCompilerCandidates: options.papyrusCompilerCandidates });
     const backend = new SkyrimInstanceBackend({ engine, nexus: options.nexus });
     /** Starts a Windows program in the table, as Wine does: its command line is the program's Windows path. */
@@ -1292,6 +1292,103 @@ describe('listing the mods', () => {
         const none = await backend.listMods({ text: 'nothing like it' });
         expect(none).toMatchObject({ total: 0, mods: [] });
         expect(none.note).toMatch(/3 mods/);
+    });
+});
+
+describe('checking the game version', () => {
+    const R1170 = (1 << 24) | (6 << 16) | (1170 << 4);
+    /** What the helper reads of each DLL: Good fits, Pinned names 1.6.1170 only, msdia140 is no SKSE plugin. */
+    const declared: Record<string, (file: string) => any> = {
+        'good.dll': file => ({ file, machine: 0x8664, timestamp: Date.UTC(2026, 0, 1) / 1000, query: true, load: true, version: true,
+            data: { dataVersion: 1, pluginVersion: 1, name: 'Good', author: '', independence: 5, independenceEx: 2, compatibleVersions: [], skseRequired: 0 } }),
+        'pinned.dll': file => ({ file, machine: 0x8664, timestamp: Date.UTC(2026, 0, 1) / 1000, query: true, load: true, version: true,
+            data: { dataVersion: 1, pluginVersion: 1, name: 'Pinned', author: '', independence: 0, independenceEx: 0, compatibleVersions: [R1170], skseRequired: 0 } }),
+        'msdia140.dll': file => ({ file, plugin: false })
+    };
+
+    function game(options: { winePrefix?: string } = {}) {
+        const made = makeBackend(options);
+        const { fixture, helperAnswers } = made;
+        write(path.join(fixture.profile, 'modlist.txt'), '+Good\r\n+Pinned\r\n-Disabled\r\n+Address Library\r\n+Shadow\r\n');
+        write(path.join(fixture.game, 'skse64_loader.exe'), 'MZ');
+        write(path.join(fixture.game, 'skse64_1_7_104.dll'), 'MZ');
+        write(path.join(fixture.game, 'Data', 'SKSE', 'Plugins', 'msdia140.dll'), 'MZ');
+        const mods = path.join(fixture.instanceDir, 'mods');
+        write(path.join(mods, 'Good', 'SKSE', 'Plugins', 'Good.dll'), 'MZ');
+        write(path.join(mods, 'Shadow', 'SKSE', 'Plugins', 'Good.dll'), 'MZ, lower');
+        write(path.join(mods, 'Pinned', 'skse', 'plugins', 'Pinned.dll'), 'MZ');
+        write(path.join(mods, 'Pinned', 'meta.ini'), '[General]\r\nmodid=16495\r\nversion=5.0\r\n');
+        write(path.join(mods, 'Disabled', 'SKSE', 'Plugins', 'Disabled.dll'), 'MZ');
+        write(path.join(mods, 'Address Library', 'SKSE', 'Plugins', 'versionlib-1-7-104-0.bin'), 'database');
+        const read: string[] = [];
+        helperAnswers.gameVersion = params => ({ version: /skse64_loader/i.test(params.exePath) ? '0.2.3.1' : '1.7.104.0' });
+        helperAnswers.sksePlugins = params => {
+            read.push(...params.files);
+            return { plugins: params.files.map((file: string) => declared[path.basename(file).toLowerCase()](file)) };
+        };
+        return { ...made, read };
+    }
+
+    it('judges the copy of each SKSE plugin the game loads, from enabled mods, overwrite and the game folder', async () => {
+        const { backend, fixture, read } = game();
+        const checked = await backend.checkGameVersion();
+        expect(checked).toMatchObject({
+            game: { runtime: '1.7.104' },
+            skse: { installed: true, version: '2.3.1', forThisRuntime: true },
+            addressLibrary: { file: 'versionlib-1-7-104-0.bin', installed: true },
+            plugins: { checked: 2, fit: 1, notSksePlugins: 1, inDisabledMods: 1 },
+            log: { found: false }
+        });
+        expect(checked.problems).toEqual([{
+            verdict: 'willNotLoad', reason: 'built for 1.6.1170 only, not 1.7.104', runtimes: ['1.6.1170'],
+            plugins: [{ dll: 'Pinned.dll', mod: 'Pinned', nexusModId: 16495, version: '5.0' }]
+        }]);
+        // Shadow's Good.dll loses to Good's, and a disabled mod's DLL is only counted: neither is read.
+        expect(read.map(file => path.relative(fixture.root, file)).sort()).toEqual([
+            path.join('game', 'Data', 'SKSE', 'Plugins', 'msdia140.dll'),
+            path.join('mo2', 'mods', 'Good', 'SKSE', 'Plugins', 'Good.dll'),
+            path.join('mo2', 'mods', 'Pinned', 'skse', 'plugins', 'Pinned.dll')
+        ]);
+    });
+
+    it('takes what SKSE\'s log of the last start says, found in the game\'s My Games folder', async () => {
+        const prefix = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-mcp-prefix-'));
+        roots.push(prefix);
+        const { backend, fixture } = game({ winePrefix: prefix });
+        const log = path.join(prefix, 'drive_c', 'users', 'steamuser', 'Documents', 'My Games', 'Skyrim Special Edition', 'SKSE', 'skse64.log');
+        write(log, [
+            'SKSE64 runtime: initialize (version = 2.3.1 01070680 01DD5B2135D4A5DD, os = 6.2 (9200))',
+            `plugin directory = ${asWinePath(path.join(fixture.game, 'Data', 'SKSE', 'Plugins'))}\\`,
+            'plugin Good.dll (00000001 Good 00000001) loaded correctly (handle 1)',
+            'plugin Pinned.dll (00000001 Pinned 00000001) disabled, incompatible with current runtime version 00000000 (handle 0)'
+        ].join('\r\n'));
+        const checked = await backend.checkGameVersion();
+        expect(checked.log).toMatchObject({ file: log, used: true });
+        expect(checked.problems).toMatchObject([{ verdict: 'refusedAtLastStart', reason: expect.stringMatching(/^SKSE said: disabled, incompatible/) }]);
+    });
+
+    it('says in healthcheck\'s notes, in one line, that plugins do not fit — once the helper is up', async () => {
+        const { backend } = game();
+        expect((await backend.health()).notes ?? []).not.toContainEqual(expect.stringMatching(/SKSE/));
+        await backend.checkGameVersion();
+        expect((await backend.health()).notes).toContainEqual(expect.stringMatching(/^1 SKSE plugin does not fit game 1\.7\.104 — checkGameVersion/));
+    });
+
+    it('finds SKSE in a mod\'s Root folder, where Root Builder installs it into the game folder at launch', async () => {
+        const { backend, fixture } = game();
+        fs.rmSync(path.join(fixture.game, 'skse64_loader.exe'));
+        fs.rmSync(path.join(fixture.game, 'skse64_1_7_104.dll'));
+        write(path.join(fixture.profile, 'modlist.txt'), '+Good\r\n+Pinned\r\n+SKSE\r\n-Disabled\r\n+Address Library\r\n+Shadow\r\n');
+        write(path.join(fixture.instanceDir, 'mods', 'SKSE', 'Root', 'skse64_loader.exe'), 'MZ');
+        write(path.join(fixture.instanceDir, 'mods', 'SKSE', 'Root', 'skse64_1_7_104.dll'), 'MZ');
+        expect((await backend.checkGameVersion()).skse).toEqual({ installed: true, version: '2.3.1', forThisRuntime: true });
+    });
+
+    it('says so when SKSE is not in the game folder', async () => {
+        const { backend, fixture } = game();
+        fs.rmSync(path.join(fixture.game, 'skse64_loader.exe'));
+        fs.rmSync(path.join(fixture.game, 'skse64_1_7_104.dll'));
+        expect((await backend.checkGameVersion()).skse).toMatchObject({ installed: false, note: expect.stringMatching(/skse64_loader\.exe/) });
     });
 });
 

@@ -4,7 +4,7 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { parseIni, parseModList, primaryPlugins, readLoadOrder, resolvePluginFiles } from './mo2.js';
+import { parseIni, parseModList, primaryPlugins, readLoadOrder, resolveDataFiles, resolvePluginFiles } from './mo2.js';
 import {
     InstanceConfigError, type Instance, type ModEntry, type ModManager, type ModManagerNotice, type PluginEntry,
     type ModEnabled
@@ -166,8 +166,21 @@ export class AmethystManager implements ModManager {
 
     /** While a profile is deployed, the game's own files are in Data_Core and Data holds the links. */
     resolvePluginFiles(instance: Instance, mods: readonly ModEntry[]): Map<string, string> {
-        const core = findCaseInsensitive(instance.gameDir, 'Data_Core');
-        return resolvePluginFiles(instance, mods, core ?? path.join(instance.gameDir, 'Data'));
+        return resolvePluginFiles(instance, mods, this.gameData(instance));
+    }
+
+    resolveDataFiles(instance: Instance, mods: readonly ModEntry[], folder: string, extensions: ReadonlySet<string>): Map<string, string> {
+        return resolveDataFiles(instance, mods, folder, extensions, this.gameData(instance));
+    }
+
+    private gameData(instance: Instance): string {
+        return findCaseInsensitive(instance.gameDir, 'Data_Core') ?? path.join(instance.gameDir, 'Data');
+    }
+
+    // Steam keeps a game's Proton prefix in its library: <library>/steamapps/common/<game> → <library>/steamapps/compatdata/<id>/pfx.
+    winePrefix(instance: Instance): string | undefined {
+        const prefix = path.resolve(instance.gameDir, '..', '..', 'compatdata', STEAM_APP_ID, 'pfx');
+        return fs.existsSync(prefix) ? prefix : undefined;
     }
 
     fingerprint(): string {

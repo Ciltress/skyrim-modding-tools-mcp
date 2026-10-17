@@ -67,10 +67,15 @@ function plugin(name: string, enabled: boolean, dir: string, loaded: Map<string,
 }
 
 /** Who provides a file the game loads: a mod by its name, overwrite, or the game itself. */
-function ownerOf(file: string, instance: Instance): string {
-    const dir = path.dirname(file);
-    if (samePath(dir, instance.overwriteDir)) return 'overwrite';
-    if (samePath(path.dirname(dir), instance.modsDir)) return path.basename(dir);
+export function ownerOf(file: string, instance: Instance): string {
+    const inside = (dir: string) => {
+        const relative = path.relative(dir, file);
+        return relative && !relative.startsWith('..') && !path.isAbsolute(relative) ? relative : undefined;
+    };
+    if (inside(instance.overwriteDir)) return 'overwrite';
+    // The first folder below mods: Data/SKSE/Plugins/x.dll is its mod's as much as x.esp at the top.
+    const inMods = inside(instance.modsDir);
+    if (inMods) return inMods.split(/[\\/]/)[0];
     return 'the game\'s Data folder';
 }
 
@@ -88,7 +93,7 @@ function pluginFiles(dir: string): string[] {
 }
 
 /** The mod's Nexus record from its meta.ini: the mod and file it was installed from, and their version. */
-function nexusRecord(dir: string): ListedMod['nexus'] {
+export function nexusRecord(dir: string): ListedMod['nexus'] {
     const file = findCaseInsensitive(dir, 'meta.ini');
     if (!file) return undefined;
     let ini;
@@ -111,7 +116,7 @@ function nexusRecord(dir: string): ListedMod['nexus'] {
     };
 }
 
-function hasSksePlugins(dir: string): boolean {
+export function hasSksePlugins(dir: string): boolean {
     const plugins = findCaseInsensitive(dir, 'SKSE/Plugins');
     if (!plugins) return false;
     try {

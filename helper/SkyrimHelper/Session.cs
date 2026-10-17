@@ -60,6 +60,7 @@ public sealed class Session : IDisposable
         "extractArchive" => Archives.Extract(p),
         "pluginHeaders" => PluginHeaders(p),
         "checkRecords" => CheckRecords(Required(p, "projectPluginDir")),
+        "sksePlugins" => SksePlugins.Read(p),
         _ => throw new HelperException("unknownMethod", $"No method '{method}'.")
     };
 

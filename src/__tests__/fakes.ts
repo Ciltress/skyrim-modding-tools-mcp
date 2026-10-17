@@ -8,7 +8,7 @@ import { ProjectError } from '../backend/skyrim/projects';
 import type {
     AddPatchRequest, AddPatchResult, BuildResult, ProjectFile, DeployResult, InstallModRequest, InstallModResult, NewProjectRequest, NexusDownload, NexusMod, NexusModSummary,
     NexusSearchQuery, NexusSearchResult, ProjectInfo, PullResult, RecordQuery, RecordRequest, RecordSearchResult,
-    RecordSummary, RecordVersions, ListedMod, ModList, ModListQuery
+    RecordSummary, RecordVersions, ListedMod, ModList, ModListQuery, GameVersionCheck
 } from '../backend/skyrim/SkyrimBackend';
 
 /**
@@ -219,6 +219,19 @@ export class InMemorySkyrimBackend implements AppBackend {
         const mods = query.text && !mod.name.toLowerCase().includes(query.text.toLowerCase()) ? [] : [mod];
         return { modManager: 'mo2', profile: 'Default', order: 'Lowest priority first.', total: mods.length, enabled: mods.length, mods };
     }
+
+    /** A game whose one SKSE plugin is built for another runtime. */
+    async checkGameVersion(): Promise<GameVersionCheck> {
+        return {
+            game: { runtime: '1.7.104' },
+            skse: { installed: true, version: '2.3.1', forThisRuntime: true },
+            addressLibrary: { file: 'versionlib-1-7-104-0.bin', installed: true },
+            log: { found: false },
+            plugins: { checked: 1, fit: 0, inDisabledMods: 0 },
+            problems: [{ verdict: 'willNotLoad', reason: 'built for 1.6.1170 only, not 1.7.104', runtimes: ['1.6.1170'],
+                plugins: [{ dll: 'Sample.dll', mod: 'Sample Mod', nexusModId: NEXUS_MOD.modId }] }]
+        };
+    }
 }
 
 const NEXUS_MOD: NexusModSummary = {
@@ -272,7 +285,7 @@ export interface FakeBackendOptions {
 
 const DOMAIN_METHODS = [
     'findRecords', 'readRecord', 'newProject', 'addPatch', 'buildProject', 'deployProject', 'pullProject',
-    'searchNexus', 'readNexusMod', 'downloadNexusFile', 'installMod', 'listMods'
+    'searchNexus', 'readNexusMod', 'downloadNexusFile', 'installMod', 'listMods', 'checkGameVersion'
 ] as const;
 
 /**

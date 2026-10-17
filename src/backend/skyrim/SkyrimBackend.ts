@@ -32,7 +32,13 @@ export interface SkyrimBackend extends Backend {
 
     /** The selected profile's mods, lowest priority first: each one's plugins, Nexus record and SKSE plugins. */
     listMods(query: ModListQuery): Promise<ModList>;
+
+    /** Whether SKSE, Address Library and each SKSE plugin the game loads fit its version — SKSE's log of the last start first. */
+    checkGameVersion(): Promise<GameVersionCheck>;
 }
+
+export type { GameProblem, GameVersionCheck } from './sksePlugins.js';
+import type { GameVersionCheck } from './sksePlugins.js';
 
 export interface ModListQuery {
     /** Only the mods whose name holds this, in any case. */

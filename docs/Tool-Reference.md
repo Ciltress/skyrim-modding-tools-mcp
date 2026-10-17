@@ -3,7 +3,7 @@
 <!-- GENERATED FILE - do not edit by hand.
      Run `npm run build && npm run docs:tools` after changing any getTools(). -->
 
-Every tool this server can expose: **14 tools across 6 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
+Every tool this server can expose: **15 tools across 6 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
 
 **How many you can actually call is smaller.** The active `MCP_PROFILE` decides what is
 listed, and the server withholds anything the connected backend does not support.
@@ -25,7 +25,7 @@ what needs a human, not a permission system: nothing here is enforced.
 ## Families
 
 - [Bundled skills](#bundled-skills) — 1 tool
-- [Installing mods](#installing-mods) — 2 tools
+- [Installing mods](#installing-mods) — 3 tools
 - [Nexus Mods](#nexus-mods) — 3 tools
 - [Projects: authoring and patching](#projects-authoring-and-patching) — 5 tools
 - [Records in the load order](#records-in-the-load-order) — 2 tools
@@ -52,6 +52,12 @@ From `src/handlers/ModsHandlers.ts`.
 _read-only_
 
 `text` string · `enabledOnly` boolean · `details` boolean · `limit` number, default `150` · `offset` number
+
+**`checkGameVersion`** — Whether the mods fit the installed game version: SKSE in the game folder, Address Library's file for this runtime, and every SKSE plugin the game loads — the copy that wins, from enabled mods, overwrite and the game folder — judged by SKSE's own log of the last game start where it is this game's, and by the rules SKSE and Address Library apply. `problems` groups the plugins that do not fit, each with its mod and Nexus modId: refusedAtLastStart (SKSE did not load it), willNotLoad (it will not), mayNotWork (an Address Library plugin from before 1.7.99's change: it loads, and often still works — try the game). Plugins that fit are only counted. Reads files; changes nothing.
+
+_read-only_
+
+_no arguments_
 
 **`installMod`** — Install a downloaded file (.7z, .zip, .rar) as a mod: unpack it into a new mod, enable the mod and activate its plugins at the end of the load order; then the mod manager is told, as for deployProject — when the user has to act, `modManager.nextStep` says what. A file with a FOMOD installer takes two calls: the first installs nothing and answers its steps, every option with an id like 1.1.2; the second, with `choices`, installs. A mod name already taken is refused unless `replace` is true. `missingMasters` names plugins the game cannot load until the mods they need are installed too.
 

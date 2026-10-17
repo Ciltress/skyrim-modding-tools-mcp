@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { InstanceConfigError, type Instance, type ModEntry, type PluginEntry } from './modManager.js';
+import { findCaseInsensitive } from './paths.js';
 
 /**
  * What a Mod Organizer 2 instance says about itself, read from its own files. Nothing here writes.
@@ -264,8 +265,22 @@ function listLines(text: string): string[] {
 export function resolvePluginFiles(
     instance: Instance, mods: readonly ModEntry[], dataDir = path.join(instance.gameDir, 'Data')
 ): Map<string, string> {
+    return resolveDataFiles(instance, mods, '', PLUGIN_EXTENSIONS, dataDir);
+}
+
+/**
+ * Where each file of one folder of Data really is, layered as for plugins: the game's, then enabled mods
+ * from lowest to highest priority, then overwrite — `SKSE/Plugins` for SKSE's, found whatever its case.
+ * Keys are lower-case file names.
+ */
+export function resolveDataFiles(
+    instance: Instance, mods: readonly ModEntry[], folder: string, extensions: ReadonlySet<string>,
+    dataDir = path.join(instance.gameDir, 'Data')
+): Map<string, string> {
     const files = new Map<string, string>();
-    const collect = (dir: string) => {
+    const collect = (layer: string) => {
+        const dir = folder ? findCaseInsensitive(layer, folder) : layer;
+        if (!dir) return;
         let entries: fs.Dirent[];
         try {
             entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -273,7 +288,7 @@ export function resolvePluginFiles(
             return;
         }
         for (const entry of entries) {
-            if (entry.isFile() && PLUGIN_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+            if (entry.isFile() && extensions.has(path.extname(entry.name).toLowerCase())) {
                 files.set(entry.name.toLowerCase(), path.join(dir, entry.name));
             }
         }

@@ -70,6 +70,32 @@ export class ModsHandlers extends BaseHandler {
             },
             {
                 definition: {
+                    name: 'checkGameVersion',
+                    annotations: {
+                        title: 'Check mods against the game version',
+                        readOnlyHint: true,
+                        destructiveHint: false,
+                        idempotentHint: true,
+                        openWorldHint: false
+                    },
+                    description:
+                        'Whether the mods fit the installed game version: SKSE in the game folder, Address Library\'s file for ' +
+                        'this runtime, and every SKSE plugin the game loads — the copy that wins, from enabled mods, overwrite ' +
+                        'and the game folder — judged by SKSE\'s own log of the last game start where it is this game\'s, and by ' +
+                        'the rules SKSE and Address Library apply. `problems` groups the plugins that do not fit, each with its ' +
+                        'mod and Nexus modId: refusedAtLastStart (SKSE did not load it), willNotLoad (it will not), mayNotWork ' +
+                        '(an Address Library plugin from before 1.7.99\'s change: it loads, and often still works — try the ' +
+                        'game). Plugins that fit are only counted. Reads files; changes nothing.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {}
+                    }
+                },
+                onFailure: 'Failed to check the game version',
+                run: () => asRequestError(this.backend.checkGameVersion())
+            },
+            {
+                definition: {
                     name: 'installMod',
                     annotations: {
                         title: 'Install mod',

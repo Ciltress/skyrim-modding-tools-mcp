@@ -51,6 +51,8 @@ Workflows and the error model: [`MCP-Tools.md`](./MCP-Tools.md). The vocabulary:
 | --- | --- |
 | See which mods are installed — enabled or not, in which order | `listMods` — every mod, lowest priority first as Mod Organizer shows them, a short row each; `text` narrows by name, `enabledOnly` to the enabled; a long list comes in pages (`next`, `offset`) |
 | Find which mod a plugin comes from | `listMods` with `details: true` → each mod's `plugins`; `loadedFrom` names the mod whose copy the game loads instead |
+| Know whether the mods work on this game version — after a game update, say | `checkGameVersion` — SKSE, Address Library and every SKSE plugin the game loads, judged by SKSE's log of the last start and by the rules SKSE applies; `problems` names each plugin's mod and Nexus `modId` |
+| Find out why an SKSE mod does nothing in the game | `checkGameVersion` → `problems`: `refusedAtLastStart` is SKSE's own word |
 | Find an installed mod's Nexus page, or the version installed | `listMods` → `nexus.modId` (for `readNexusMod`); with `details: true`, `nexus.version` and the file |
 
 ## Mods on Nexus Mods

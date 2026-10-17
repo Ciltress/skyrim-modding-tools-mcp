@@ -1,6 +1,6 @@
 import os from 'node:os';
 import path from 'node:path';
-import { loadOrderFingerprint, readInstance, readLoadOrder, readModList, resolvePluginFiles, winePrefix, type IniPaths } from './mo2.js';
+import { loadOrderFingerprint, readInstance, readLoadOrder, readModList, resolveDataFiles, resolvePluginFiles, winePrefix, type IniPaths } from './mo2.js';
 import { activatePlugins, enableMod, refreshIfRunning, runningMo2 } from './mo2Profile.js';
 import type { Instance, ModEnabled, ModEntry, ModManager, ModManagerNotice, PluginEntry } from './modManager.js';
 import type { Platform } from './platform.js';
@@ -51,6 +51,15 @@ export class Mo2Manager implements ModManager {
 
     resolvePluginFiles(instance: Instance, mods: readonly ModEntry[]): Map<string, string> {
         return resolvePluginFiles(instance, mods);
+    }
+
+    resolveDataFiles(instance: Instance, mods: readonly ModEntry[], folder: string, extensions: ReadonlySet<string>): Map<string, string> {
+        return resolveDataFiles(instance, mods, folder, extensions);
+    }
+
+    // Mod Organizer and the game it starts share the prefix.
+    winePrefix(): string | undefined {
+        return this.platform.runsWindowsPrograms ? undefined : winePrefix(this.location, this.namedPrefix, this.home);
     }
 
     fingerprint(): string {

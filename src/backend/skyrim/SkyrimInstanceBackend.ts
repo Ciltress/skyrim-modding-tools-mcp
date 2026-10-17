@@ -12,6 +12,7 @@ import {
 } from './installer.js';
 import type { Instance } from './modManager.js';
 import { listedMods } from './modList.js';
+import { checkGameVersion } from './gameVersion.js';
 import { findCaseInsensitive } from './paths.js';
 import {
     ProjectError, assignFormIds, belongsAt, copiedEscapes, createProject, fencedRecordFiles, fileHash, keepRecordTexts, misnamedRecordFiles, looseRecordFiles, nameRecordFiles, newestSourceTime, projectExists,
@@ -21,7 +22,7 @@ import {
 import type { SkyrimEngine } from './engine.js';
 import { NexusCatalogue, markDownloadInstalled, readDownloadMeta } from './nexus.js';
 import type {
-    AddPatchRequest, AddPatchResult, BuildResult, DeployResult, InstallModQuestions, InstallModRequest, InstallModResult, ModList, ModListQuery,
+    AddPatchRequest, AddPatchResult, BuildResult, DeployResult, InstallModQuestions, InstallModRequest, InstallModResult, GameVersionCheck, ModList, ModListQuery,
     NewProjectRequest, NexusAccount, NexusDownload, NexusMod, NexusSearchQuery, NexusSearchResult, ProjectFile, ProjectInfo,
     PullResult, RecordQuery, RecordRequest, RecordSearchResult, RecordVersion, RecordVersions, SkyrimBackend
 } from './SkyrimBackend.js';
@@ -134,7 +135,8 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             : { running: false };
         const missing = engine.missingPlugins.length;
         const failed = !engine.ready && engine.startError !== undefined;
-        const notes = engine.modManager.notes(instance);
+        const gameNote = await this.gameVersionNote();
+        const notes = [...engine.modManager.notes(instance), ...(gameNote ? [gameNote] : [])];
         return {
             // Still starting is not a fault: the instance is readable, and the helper is on its way.
             ok: !failed && missing === 0,
@@ -537,6 +539,46 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
     async listMods(query: ModListQuery): Promise<ModList> {
         const manager = this.engine.modManager;
         return listedMods(manager, manager.readInstance(), query);
+    }
+
+    /** The last game check's note, for one load order: computed once the helper is up, never waited for while it starts. */
+    private gameCheck?: { key: string; note?: string };
+
+    /**
+     * One line for healthcheck when SKSE or a plugin does not fit the game — so a modder learns it
+     * without knowing to ask (the user's decision, 2026-10-17). Undefined when all fits, or nothing is known yet.
+     */
+    private async gameVersionNote(): Promise<string | undefined> {
+        const engine = this.engine;
+        if (!engine.ready) return undefined;
+        const manager = engine.modManager;
+        const key = `${manager.fingerprint()}|${engine.gameVersion}`;
+        if (this.gameCheck?.key === key) return this.gameCheck.note;
+        let note: string | undefined;
+        try {
+            const check = await checkGameVersion(manager, engine.platform, engine.helper, manager.readInstance(), engine.gameVersion);
+            const count = (verdicts: string[]) => check.problems.filter(p => verdicts.includes(p.verdict)).reduce((n, p) => n + p.plugins.length, 0);
+            const broken = count(['refusedAtLastStart', 'willNotLoad']);
+            const maybe = count(['mayNotWork']);
+            const game = check.game.runtime;
+            note = !check.skse.installed ? `SKSE is not installed in the game folder — checkGameVersion says what to do.`
+                : check.skse.forThisRuntime === false ? `The SKSE in the game folder is not built for game ${game} — checkGameVersion says what to do.`
+                : broken + maybe > 0
+                    ? `${broken + maybe} SKSE plugin${broken + maybe === 1 ? ' does' : 's do'} not fit game ${game}` +
+                      `${maybe > 0 ? `, ${maybe} of them may still work` : ''} — checkGameVersion names them, and what to do.`
+                    : undefined;
+        } catch {
+            note = undefined;
+        }
+        this.gameCheck = { key, note };
+        return note;
+    }
+
+    async checkGameVersion(): Promise<GameVersionCheck> {
+        // The helper reads the DLLs, and the game's version on connecting.
+        await this.engine.ensureFresh();
+        const manager = this.engine.modManager;
+        return checkGameVersion(manager, this.engine.platform, this.engine.helper, manager.readInstance(), this.engine.gameVersion);
     }
 
     async installMod(request: InstallModRequest): Promise<InstallModResult | InstallModQuestions> {

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { CompilerUnavailableError, papyrusCommand, type CompileOptions } from '../backend/skyrim/externalTools';
 import type { Instance } from '../backend/skyrim/modManager';
 import { findCaseInsensitive } from '../backend/skyrim/paths';
-import { linuxPlatform, windowsPlatform, type Platform } from '../backend/skyrim/platform';
+import { documentsFromRegistry, linuxPlatform, windowsPlatform, type Platform } from '../backend/skyrim/platform';
 
 /**
  * What differs by operating system (docs/adr/0007), tested on whichever one runs the suite: the Linux
@@ -64,6 +64,22 @@ describe('the Linux platform', () => {
     });
 });
 
+describe('the Documents folder, where My Games is', () => {
+    it('reads Windows\' own record of it, the variables in it expanded, wherever the user moved it', () => {
+        const stdout = '\r\nHKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders\r\n' +
+            '    Personal    REG_EXPAND_SZ    %USERPROFILE%\\Documents\r\n\r\n';
+        expect(documentsFromRegistry(stdout, { USERPROFILE: 'C:\\Users\\me' })).toBe('C:\\Users\\me\\Documents');
+        expect(documentsFromRegistry('    Personal    REG_SZ    D:\\OneDrive\\Dokumente\r\n', {})).toBe('D:\\OneDrive\\Dokumente');
+        expect(documentsFromRegistry('ERROR: The system was unable to find the specified registry key or value.', {})).toBeUndefined();
+    });
+
+    it('is inside the Wine prefix on Linux, where Proton\'s user is steamuser', async () => {
+        expect(await linuxPlatform(tempDir()).documentsDir('/home/me/.steam/compatdata/489830/pfx'))
+            .toBe(path.join('/home/me/.steam/compatdata/489830/pfx', 'drive_c', 'users', 'steamuser', 'Documents'));
+        expect(await linuxPlatform(tempDir()).documentsDir(undefined)).toBeUndefined();
+    });
+});
+
 describe('the Papyrus command', () => {
     /** A game folder with the Creation Kit's sources, a mod with sources in lower case, and a project. */
     function setup() {
@@ -95,7 +111,8 @@ describe('the Papyrus command', () => {
         findProcesses: async () => [],
         creationKitCompiler: dir => path.join(dir, 'Papyrus Compiler', 'PapyrusCompiler.exe'),
         creationKitCompilerProblem: async () => undefined,
-        windowsPaths: () => windowsPath => windowsPath
+        windowsPaths: () => windowsPath => windowsPath,
+        documentsDir: async () => undefined
     };
 
     it('speaks the Creation Kit compiler\'s command line, with imports found whatever their case', async () => {
