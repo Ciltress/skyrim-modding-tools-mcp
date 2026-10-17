@@ -19,6 +19,15 @@ table — and saves it beside the JSON record of every call (`<out>.md`, `<out>.
 the system temp folder). Paste the entry into a new round below, and write down what changed before it
 and what the transcripts showed.
 
+Before the first task the script loads the model with a short "hi" at the round's context, so no task
+pays for the load; a model that was not loaded yet (a switch) gets `--settle` seconds more (60).
+`--client claude-code` runs the same tasks through Claude Code itself, headless, with the model behind
+a logging proxy in front of Ollama ([`scripts/eval-claude-code.mjs`](../../scripts/eval-claude-code.mjs)):
+the client a VS Code user with a local model has, its own system prompt and tools included, set up as
+the lean workspace below. Its entry adds a line: the first prompt's tokens and tools, the time to the
+first token, answers cut off, side requests. Its seconds include each session's start, where the
+server builds its record index again. `+skill` runs are left out there.
+
 **The tasks.** Each is checked against the instance itself, never against values written into the
 script. Nothing is deployed: `deployProject` stays listed, but a call to it is refused.
 
@@ -32,8 +41,15 @@ script. Nothing is deployed: `deployProject` stays listed, but a call to it is r
 | sword | a new mod FlameBlade: a new one-handed sword "Flame Blade" with a fire damage enchantment, built | a new weapon of that name (its FormID in the project's own plugin), a one-handed sword, whose enchantment lists a fire effect (`ResistValue: ResistFire`), and the build succeeded |
 | spell | a new mod StormBolt: a new Destruction spell "Storm Bolt" that deals shock damage, built | a new spell of that name, with an effect of the Destruction school and a shock effect (`ResistShock`), and the build succeeded |
 | npc | a new mod HildaTheNord: one new NPC, a female Nord named "Hilda", built | a new NPC of that name, of the race NordRace (read from the instance), flagged Female, and the build succeeded |
+| note | a new mod MavenNote: a new note "Maven's Warning" with exactly the text of the vanilla note "Note From Maven", built | a new book of that name whose text is the vanilla one (read from the instance; whitespace collapsed, so how a block is folded does not count, but a `\"` or `\n` left in does), and the build succeeded |
 
-The last three (from round 9) author new records by hand, following vanilla ones. A link — the sword's
+**No escapes copied** (from round 15): every task that leaves record files also passes only when none
+of them holds an escape a copy should have decoded — a doubled backslash or a `\"` outside a
+double-quoted string, or one still there once the string is decoded. It is what copying a JSON string
+as it reads leaves: e4b wrote `File: Weapons\\Iron\\Sword.nif` in rounds 12–13. `note` (from round 15)
+is the task built to show it: a text with quotes and line breaks, and a model path with backslashes.
+
+The authoring tasks (from round 9) author new records by hand, following vanilla ones. A link — the sword's
 enchantment, a spell's effects — is followed into the project when the model wrote the record there,
 and into the load order (through `readRecord`) when it used a vanilla one; either passes.
 
@@ -95,6 +111,12 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-16 | gemma4:26b | `all` | 9272165 + round 13's changes, 8 tasks + 3 with the skill read | 33/33 | 4.66 s | ~1,012 tokens/s | ~44 tokens/s | 77% |
 | 2026-10-16 | gemma4:e4b | `all` | 4b9333c + round 14's changes, 8 tasks + 3 with the skill read + 3 detailed | 41/42 | 1.85 s | ~6,755 tokens/s | ~164 tokens/s | 100% |
 | 2026-10-16 | gemma4:26b | `all` | 4b9333c + round 14's changes, 8 tasks + 3 with the skill read + 3 detailed | 42/42 | 4.99 s | ~988 tokens/s | ~50 tokens/s | 77% |
+| 2026-10-16 | gemma4:e4b | `all` | db246fb + round 15's changes, 9 tasks + 4 with the skill read + 4 detailed | 45/51 | 1.98 s | ~6,955 tokens/s | ~166 tokens/s | 100% |
+| 2026-10-16 | gemma4:e4b | `all`, text+tables | db246fb + round 15's changes, the same | 47/51 | 1.94 s | ~7,318 tokens/s | ~162 tokens/s | 100% |
+| 2026-10-16 | gemma4:26b | `all` | db246fb + round 15's changes, the same | 51/51 | 5.12 s | ~996 tokens/s | ~48 tokens/s | 77% |
+| 2026-10-16 | gemma4:26b | `all`, text+tables | db246fb + round 15's changes, the same | 50/51 | 5.19 s | ~1,003 tokens/s | ~49 tokens/s | 77% |
+| 2026-10-17 | gemma4:e4b | `all`, Claude Code | db246fb + rounds 15–16's changes, 9 tasks + 4 detailed | 35/39 | 2.5 s | ~6,983 tokens/s | ~166 tokens/s | 100% |
+| 2026-10-17 | gemma4:26b | `all`, Claude Code | db246fb + rounds 15–16's changes, 9 tasks + 4 detailed | 38/39 | 2.99 s | ~1,022 tokens/s | ~50 tokens/s | 77% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -102,169 +124,249 @@ afterwards the same way — they are the model's and the machine's, not the buil
 Only the latest two rounds keep their details below. The earlier ones — what changed before each and
 what its transcripts showed — are in this file's history: `git log -p -- docs/research/local-model-evals.md`.
 
-## Round 13 — the family skill named in newProject's answer, an NPC's level whole, templates (2026-10-16)
+## Reference measurements
 
-**Changed before it:** round 12's three points.
+Measurements of a setting rather than of a build, kept whole.
 
-- `newProject` answers `readFirst`: the skill of each record family, and what it covers — the list the
-  server's instructions name too, kept in one place (`FAMILY_SKILLS`).
-- A field of an NPC's level written in the wrong place — at the top, inside `Level`, or a `Level`
-  without its kind — is answered with the whole level once per file, in the flow style the build
-  reads: `Level: {MutagenObjectType: PcLevelMult, LevelMult: 1}` with `CalcMinLevel` and
-  `CalcMaxLevel` beside it, or `NpcLevel` for a fixed level. Both forms were built and read back.
-- **Templates, decided by the official plugins**: 3,258 of their 3,823 weapons have a `Template`, and
-  every one carries the template's `Data`, keywords, `Model` and `EquipmentType` itself; every
-  templated armor (2,679) its `Armature`, keywords and `BodyTemplate`; every weapon has `Data`. The
-  Creation Kit copies them in. So round 12's templated sword is no sword, the check stays as it is, and
-  the build refuses a project's weapon without `Data`, or a templated weapon or armor without the
-  template's lines, naming them and the template to read. It is checked with the links, so it never
-  hides the refusal a file was written for.
+### Thinking off (2026-10-16, gemma4:e4b, db246fb)
 
-gemma4:e4b, `all` (prompt ~7,062 tokens/s, generation ~169 tokens/s):
+`--think false`, against round 14's e4b run with gemma4's default (thinking on), the same 42 tasks:
+
+| | passed | invalid arguments | other errors | turns | seconds, all runs |
+|---|---|---|---|---|---|
+| thinking on (round 14) | 41/42 | 13 | 1 | 226 | 417 |
+| thinking off | 25/42 | 32 | 19 | 322 | 246 |
+
+41% less time, 16 tasks lost — spread over every authoring task (`npc+detailed` 0/3). **Leave thinking
+on.** It is where the time goes: in round 14 generated tokens were ~90% of 26b's wall time and thinking
+~60% of those, against ~13% for reading every tool answer. Answers in fewer tokens could not buy much
+time; that is why round 15 measures answer formats for quality instead.
+
+### Claude Code as the client (2026-10-16, Claude Code 2.1.301 on Ollama's Anthropic endpoint)
+
+The VS Code extension with `ANTHROPIC_BASE_URL` at Ollama, measured through a logging proxy on the
+`find` question (gemma4:26b unless noted):
+
+| setup | first prompt (tokens) | tools | first token of the first turn |
+|---|---|---|---|
+| as installed: every built-in tool, the user's three other MCP servers | 41,652 | 66 | 106 s |
+| the built-ins a modding session does not use denied (e4b) | 10,099 | 41 | 2.8 s |
+| … and non-essential traffic off | 9,905 | 41 | 8.7 s |
+| … and only this server and a web search (the workspace) | 7,757 | 23 | 7.6 s |
+
+Claude Code's own built-in tools were 135 KB of the first prompt's 159 KB of tool schemas (`Artifact`
+alone 32 KB; this server's 14 tools 14 KB). Denied in a folder's `.claude/settings.json`
+(`permissions.deny`), a tool leaves the prompt. The 106 s were 26b loading, then a session-title request
+Claude Code sends the main model before the first turn — 1,699 tokens with thinking, 66 s, and the turn
+queued behind it. `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` stops that request. Naming a smaller
+model for side requests (`ANTHROPIC_SMALL_FAST_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`) moves it, but on
+a 16 GB card that cannot hold both, each side request swaps the models, ~30 s each way. After the first
+turn the prompt cache holds: 1–5 s to the first token per turn. Claude Code hands the server's answer
+to the model as one text block, as sent. An answer stopping midway, as a user reported, did not happen
+in these runs; `--client claude-code` counts every answer that ends without `message_stop`.
+
+`--client claude-code` runs in that lean setup: the same denied built-ins, non-essential traffic off,
+side requests on the model under test, only this server.
+
+## Round 15 — answers in another form than JSON, a note to copy, escapes checked (2026-10-16)
+
+**Changed before it:** an idea of the user's — that local models might read answers better in a form
+other than JSON — measured for quality, since reading answers is a small part of the time (reference
+measurements above). Rows marked `text+tables` ran with it.
+
+- **A temporary switch, `MCP_ANSWER_FORMAT`**, applied where every answer passes: `json` as always;
+  `text`, the short facts on one line of JSON and every string with a line break after it, as itself,
+  in a fence named by where it sits (``text 1 (versions[0].files[0].text) — Weapons/IronSword - 012EB7_Skyrim.esm.yaml:``),
+  so a record arrives without `\n`, `\"` and doubled backslashes; `text+tables`, also each list of flat
+  rows as a markdown table, its keys written once.
+- **The eval**: the `note` task and the no-escapes check (above); the warm-up before the first task;
+  `--client claude-code` (reference measurements above).
+- **Builds**: a record file with a markdown fence in it is refused, naming its lines — e4b copied
+  ```` ```yaml ```` with the YAML in the probes, and the reader's message sent it to fix the indentation; a
+  file nested below a group's folder whose record the group's folder holds is left out with a warning
+  — e4b wrote an enchantment again from `ObjectEffects/Enchantments/` into `ObjectEffects/`, and the first
+  copy failed every build after.
+- Probes of e4b alone, one per format (not logged): `json` 44/51, `text` 44/51, `text+tables` 49/51.
+
+gemma4:e4b, `all` (prompt ~6,955 tokens/s, generation ~166 tokens/s):
 
 | task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
 |---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 6195 | 8.4 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 7353 | 3.6 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 4748 | 2.7 |
-| patch | 3/3 | 4.7 | 3.7 | 0 | 0 | 9378 | 7.3 |
-| build | 3/3 | 5.3 | 4.3 | 1 | 0 | 8646 | 8.1 |
-| sword | 3/3 | 6 | 5 | 0 | 0 | 10329 | 12.9 |
-| sword+skill | 3/3 | 5 | 4 | 0 | 0 | 9841 | 10.2 |
-| spell | 3/3 | 5 | 4 | 0 | 0 | 9246 | 9.7 |
-| spell+skill | 2/3 | 6 | 5 | 2 | 0 | 10267 | 10.7 |
-| npc | 3/3 | 12.3 | 11.3 | 6 | 0 | 14991 | 20.6 |
-| npc+skill | 2/3 | 9.7 | 8.7 | 9 | 0 | 13272 | 20.3 |
+| find | 2/3 | 1.7 | 0.7 | 0 | 0 | 6094 | 2.8 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 7318 | 3.4 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 4735 | 2.8 |
+| patch | 3/3 | 4 | 3 | 0 | 0 | 8207 | 7.8 |
+| build | 3/3 | 5.3 | 4.3 | 1 | 0 | 8695 | 7.9 |
+| sword | 3/3 | 6.7 | 5.7 | 1 | 0 | 13186 | 15.1 |
+| sword+skill | 2/3 | 5 | 4 | 0 | 0 | 11975 | 9.9 |
+| sword+detailed | 2/3 | 8 | 7.3 | 1 | 0 | 18367 | 20.3 |
+| spell | 3/3 | 5.3 | 4.3 | 0 | 0 | 10611 | 9.5 |
+| spell+skill | 2/3 | 5 | 4 | 1 | 0 | 11093 | 8.4 |
+| spell+detailed | 3/3 | 5 | 4 | 0 | 0 | 10647 | 10.1 |
+| npc | 3/3 | 7.7 | 6.7 | 4 | 0 | 9799 | 14 |
+| npc+skill | 3/3 | 7 | 6 | 3 | 0 | 10329 | 10.7 |
+| npc+detailed | 3/3 | 7.7 | 6.7 | 4 | 0 | 10570 | 15.2 |
+| note | 2/3 | 8.3 | 7.3 | 4 | 0 | 11785 | 19.2 |
+| note+skill | 2/3 | 8.7 | 7.7 | 5 | 0 | 14778 | 20.7 |
+| note+detailed | 3/3 | 8.7 | 7.7 | 3 | 0 | 14977 | 21.1 |
 
-gemma4:26b, `all` (prompt ~1,012 tokens/s, generation ~44 tokens/s):
+gemma4:e4b, `all`, `text+tables` (prompt ~7,318 tokens/s, generation ~162 tokens/s):
 
 | task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
 |---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 5847 | 16.8 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 6945 | 7.3 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 6027 | 7.7 |
-| patch | 3/3 | 4.3 | 3.3 | 0 | 0 | 7810 | 14.6 |
-| build | 3/3 | 5.3 | 4.3 | 0 | 0 | 7974 | 14.6 |
-| sword | 3/3 | 13 | 12 | 3 | 0 | 18761 | 82.8 |
-| sword+skill | 3/3 | 6 | 5 | 0 | 0 | 11552 | 45.2 |
-| spell | 3/3 | 6.3 | 5.3 | 0 | 0 | 10648 | 33.1 |
-| spell+skill | 3/3 | 6.3 | 5.3 | 0 | 0 | 10526 | 31.2 |
-| npc | 3/3 | 10.7 | 9.7 | 2 | 0 | 12783 | 49 |
-| npc+skill | 3/3 | 11.7 | 10.7 | 3 | 0 | 15325 | 40.7 |
+| find | 3/3 | 2.3 | 1.3 | 1 | 0 | 5857 | 3.2 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 7076 | 3.9 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 4717 | 2.7 |
+| patch | 3/3 | 4 | 3 | 0 | 0 | 7637 | 5.8 |
+| build | 3/3 | 5.3 | 4.3 | 1 | 0 | 8379 | 7.1 |
+| sword | 3/3 | 6.3 | 5.3 | 0 | 0 | 12686 | 13.9 |
+| sword+skill | 3/3 | 6 | 5 | 0 | 0 | 13954 | 15.5 |
+| sword+detailed | 3/3 | 12 | 11 | 4 | 1 | 22032 | 27 |
+| spell | 1/3 | 6 | 5 | 1 | 0 | 12024 | 10.7 |
+| spell+skill | 3/3 | 4.3 | 3.3 | 0 | 0 | 10639 | 7.1 |
+| spell+detailed | 2/3 | 10 | 9 | 6 | 1 | 19189 | 25.4 |
+| npc | 3/3 | 7 | 6 | 3 | 0 | 10825 | 14.6 |
+| npc+skill | 3/3 | 4.7 | 3.7 | 1 | 0 | 9056 | 7.6 |
+| npc+detailed | 2/3 | 6.7 | 6 | 3 | 0 | 10883 | 13.9 |
+| note | 3/3 | 8 | 7 | 4 | 0 | 9952 | 16.6 |
+| note+skill | 3/3 | 7 | 6 | 1 | 0 | 12531 | 11.4 |
+| note+detailed | 3/3 | 7.3 | 6.3 | 3 | 0 | 8309 | 15 |
 
-(26b's find includes loading the model. Its turns took half the time of round 12's — 4.66 s against
-9.54 — at round 11's prompt speed again, so round 12's slowness was the machine's.)
+gemma4:26b, `all` (prompt ~996 tokens/s, generation ~48 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 5872 | 5.9 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 6969 | 7.2 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 6072 | 6.7 |
+| patch | 3/3 | 4 | 3 | 0 | 0 | 7679 | 14.3 |
+| build | 3/3 | 5.7 | 4.7 | 0 | 0 | 8071 | 14 |
+| sword | 3/3 | 8.7 | 7.7 | 0 | 0 | 20857 | 65.1 |
+| sword+skill | 3/3 | 7.7 | 6.7 | 0 | 0 | 14586 | 40.2 |
+| sword+detailed | 3/3 | 12 | 11 | 3 | 0 | 22023 | 93.9 |
+| spell | 3/3 | 5 | 4 | 0 | 0 | 9920 | 26.4 |
+| spell+skill | 3/3 | 4 | 3 | 0 | 0 | 9607 | 16.3 |
+| spell+detailed | 3/3 | 5 | 4 | 0 | 0 | 9885 | 25.7 |
+| npc | 3/3 | 5.7 | 4.7 | 1 | 0 | 9244 | 25.3 |
+| npc+skill | 3/3 | 5.3 | 4.3 | 2 | 0 | 9055 | 23.3 |
+| npc+detailed | 3/3 | 8.7 | 7.7 | 1 | 0 | 15779 | 38.4 |
+| note | 3/3 | 7 | 6 | 0 | 0 | 11564 | 34.9 |
+| note+skill | 3/3 | 6 | 5 | 0 | 0 | 11875 | 31 |
+| note+detailed | 3/3 | 8 | 7 | 0 | 0 | 12180 | 44.7 |
+
+gemma4:26b, `all`, `text+tables` (prompt ~1,003 tokens/s, generation ~49 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 5473 | 5.1 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 6576 | 6.6 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 5689 | 6.4 |
+| patch | 3/3 | 4.7 | 3.7 | 0 | 0 | 8322 | 13.4 |
+| build | 3/3 | 5 | 4 | 0 | 0 | 7458 | 13.4 |
+| sword | 3/3 | 10 | 9 | 0 | 0 | 19542 | 65.8 |
+| sword+skill | 3/3 | 6 | 5 | 0 | 0 | 13005 | 36.5 |
+| sword+detailed | 3/3 | 15.3 | 14.3 | 4 | 0 | 26591 | 107.1 |
+| spell | 3/3 | 5 | 4 | 0 | 0 | 9829 | 24.2 |
+| spell+skill | 3/3 | 4 | 3 | 0 | 0 | 9465 | 16.2 |
+| spell+detailed | 3/3 | 5.7 | 4.7 | 0 | 0 | 11964 | 33.6 |
+| npc | 3/3 | 6.7 | 5.7 | 2 | 0 | 10472 | 26.3 |
+| npc+skill | 3/3 | 6 | 5 | 3 | 0 | 9340 | 30.2 |
+| npc+detailed | 3/3 | 9.3 | 8.3 | 2 | 0 | 12271 | 46.3 |
+| note | 3/3 | 8 | 7 | 1 | 0 | 12393 | 43.1 |
+| note+skill | 3/3 | 6 | 5 | 0 | 0 | 11677 | 29.8 |
+| note+detailed | 2/3 | 11.3 | 10.3 | 4 | 0 | 16659 | 70.3 |
 
 **Seen.**
 
-- **26b passed 33 of 33**, and read the family skill in all nine authoring runs where it chose (round
-  12: six of nine) — the skill `newProject`'s answer names. e4b passed the eight tasks 24 of 24 again,
-  read the skill in all nine, and made its swords and spells in one build each.
-- **The level whole ends the back and forth for 26b**: five refusals carried it, and each next build
-  succeeded. e4b's NPC #2 took it and went on to its next mistake (a voice type it made up).
-- e4b missed two runs with the skill already read. Its spell #2 also wrote a spell tome, as the skill's
-  example does, with an `InventoryArt` it made up (`HighPolyBook`); offered the closest five, it
-  answered after one refusal. Its NPC #2 wrote the NPC in two shapes by turns — every field under
-  `Configuration` (refused with eight "move it up, to the top level", one per field), then every field
-  at the top (refused: `Flags` and the level go under `Configuration`) — five builds of the same two
-  files.
-- No model wrote a weapon from a template this round; the new check went unused.
+- **The form's one measurable effect is the escapes.** With JSON, e4b left a doubled backslash in a
+  model path (`File: Clutter\\Books\\Note03.nif`) in 3 of 51 runs — as in its probe, and in rounds
+  12–13 — and each of those runs failed on that alone; the build had taken the file. With the other
+  forms: none in 102 e4b runs. 26b left none with either.
+- What the fences cost: e4b wrote one into the record file 5 times in 102 runs; each was refused and
+  fixed.
+- **Beyond the escapes, no difference.** e4b without its three escape failures is 48 of 51 with JSON
+  against 47 with `text+tables`; tables showed nothing of their own. 26b: 51 of 51 with JSON against
+  50, in fewer turns (299 against 330) and less time (1,540 s against 1,723 s). Its one miss was a
+  `.yml` file it wrote again as `.yaml` but could not delete: every build after refused the `.yml`,
+  until 26b built a second project, `MavenNote_New`.
+- Every note that was made had the vanilla text exactly, quotes and line breaks included — 34 of 34,
+  both models, both forms: decoding a text out of a JSON string was never the problem; a path's
+  backslashes were.
+- Both models still spend invalid arguments on an NPC's level and a templated weapon's lines.
 
-**What it points at next:**
+**Decided with the user:** JSON stays the only form, and the switch is removed. The escapes are
+caught where they do harm instead, by the build, for every client.
 
-- The eight "move it up" lines for one part: one line naming them all, and what the part does hold
-  (`Configuration`: its flags, level and offsets), would show e4b where the boundary is.
-- The skill's spell tome is copied into spells nobody asked a tome for; its `InventoryArt` could be
-  named in the example's prose as the one for its school.
+**Changed after it** (measured next round): a record file with the escapes of a JSON answer copied in
+— two backslashes in a path, a backslash before a quote — is refused, naming each file and line
+(nothing found on the 6,038 files of the five Creation Club plugins); a `.yml` file beside its `.yaml`
+twin is left out with a warning; `MCP_ANSWER_FORMAT` is gone.
 
-## Round 14 — tables of vanilla values in every skill, detailed prompts (2026-10-16)
+## Round 16 — through Claude Code (2026-10-17)
 
-**Changed before it:** round 13's two points, the user's two asks — tables for every record family,
-and a set of detailed prompts — and what four probes of e4b alone showed (35, 35, 38, 41 of 42).
+**Changed before it:** round 15's three changes after it. A probe of e4b alone on the eval's own
+client (not logged) took 45 of 51: the escape refusal fired five times and e4b rewrote the line each
+time — `sword+skill` and `sword+detailed` 3/3, where round 15 lost one run of each to escapes — and no
+run left an escape behind. The round itself is `--client claude-code`: the user's real client, the VS
+Code extension's CLI (2.1.301) on Ollama, set up lean (reference measurements above). `+skill` runs
+cannot be made there, so 13 tasks, 39 runs.
 
-- **Every family's skill has tables of the vanilla records and values** its records are written with,
-  each said to be Skyrim.esm's and so written without a search: magic — the damage spells by element
-  and casting, and 28 everyday spells of all five schools; items-and-crafting — the weapon kinds, 13
-  weapon enchantments, armor pieces heavy and light with their slots and addons, clothing, 18 armor
-  enchantments, 8 potions, recipe stations, materials and smithing perks; npcs — the ten playable
-  races with each sex's voice (the one vanilla NPCs of the race use most), classes, outfits, the
-  follower factions, and what goes under `Configuration`; leveled-lists — the loot and blacksmith list
-  of each weapon and armor kind, potions, bandits and spell tomes. Every row was built from test
-  projects (28 spells, 38 items, 20 NPCs, a patched list); every name was found in the load order.
-- In the skills, too: a woman's `Female` flag stated beside the voice (a table that gave the voice
-  alone made four NPCs men); a new spell names a vanilla effect, its strength being the spell's own
-  `Magnitude` (e4b wrote effects of its own "to be safe"); the spell tome made optional; the NPC
-  example's level on one line, in flow style; example paths written `<project>/plugin/…` (copied as
-  `plugin/Spells/…`, they landed in no project).
-- **Refusals**: a field refusal names the family skill's tables before a vanilla record (sent to
-  Firebolt, a shock spell took its fire effect); the misplaced fields of one part in one line, with
-  what the part holds; the NPC level as three lines indented as `Flags`; a file in a group folder with
-  another ending than `.yaml` named (`FlameBladeBurn.nhs` went unread); a build with no records names
-  each misplaced file with the full path it belongs at, first.
-- **A record file written empty is left out**, with a warning — the way to drop a record without a
-  delete tool; refused for a part no other record names, the refusal offers it. Before, an empty file
-  was built as a blank record.
-- **Warnings on a build that succeeds**: an NPC with a voice of the other sex; a new enchantment no
-  record names. Neither fires on the five Creation Club plugins.
-- `readRecord` with an in-game name answers the records of that name (`Lydia` → HousecarlWhiterun);
-  `addPatch`'s answer says a copy is an override, and how a new record like it is made.
-- The eval: `--detailed` (above).
-
-gemma4:e4b, `all` (prompt ~6,755 tokens/s, generation ~164 tokens/s):
+gemma4:e4b, `all`, Claude Code (prompt ~6,983 tokens/s, generation ~166 tokens/s). First prompt 7,693
+tokens, 22 tools; first token after 0.19 s (median of the first turns); no answer cut off, no side
+request:
 
 | task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
 |---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 6279 | 3 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 7472 | 4.3 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 4769 | 2.8 |
-| patch | 3/3 | 4.3 | 3.3 | 0 | 0 | 8397 | 7.2 |
-| build | 3/3 | 5.7 | 4.7 | 0 | 0 | 9566 | 8.4 |
-| sword | 3/3 | 6.3 | 5.7 | 0 | 0 | 13940 | 13.2 |
-| sword+skill | 3/3 | 6 | 5 | 1 | 0 | 13851 | 13.5 |
-| sword+detailed | 2/3 | 11.7 | 10.7 | 5 | 0 | 20495 | 27.6 |
-| spell | 3/3 | 5 | 4 | 0 | 0 | 10334 | 9.3 |
-| spell+skill | 3/3 | 4.3 | 3.3 | 0 | 0 | 10761 | 7.5 |
-| spell+detailed | 3/3 | 5 | 4 | 0 | 0 | 10841 | 10.2 |
-| npc | 3/3 | 8 | 7 | 3 | 1 | 11208 | 15.1 |
-| npc+skill | 3/3 | 4.7 | 3.7 | 1 | 0 | 8642 | 7.5 |
-| npc+detailed | 3/3 | 7.3 | 6.3 | 3 | 0 | 9891 | 12.3 |
+| find | 3/3 | 2 | 1 | 0 | 0 | 9424 | 12.7 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 10831 | 14 |
+| filter | 3/3 | 2.3 | 1.3 | 0 | 0 | 8697 | 13.6 |
+| patch | 3/3 | 5 | 4 | 0 | 0 | 12334 | 19.5 |
+| build | 3/3 | 6 | 5 | 0 | 0 | 13312 | 20.7 |
+| sword | 3/3 | 7.3 | 6.7 | 1 | 0 | 22617 | 27.1 |
+| sword+detailed | 3/3 | 11 | 10.3 | 3 | 0 | 25830 | 44.9 |
+| spell | 2/3 | 11 | 9.7 | 7 | 4 | 28715 | 40.8 |
+| spell+detailed | 3/3 | 6.7 | 5.7 | 1 | 0 | 19599 | 29.4 |
+| npc | 3/3 | 5 | 4 | 0 | 0 | 12372 | 18.2 |
+| npc+detailed | 3/3 | 6.3 | 5.3 | 2 | 0 | 13261 | 23.1 |
+| note | 2/3 | 10.3 | 9.3 | 7 | 0 | 14337 | 34.2 |
+| note+detailed | 1/3 | 7.3 | 6.3 | 6 | 0 | 13937 | 25.1 |
 
-gemma4:26b, `all` (prompt ~988 tokens/s, generation ~50 tokens/s):
+gemma4:26b, `all`, Claude Code (prompt ~1,022 tokens/s, generation ~50 tokens/s). First prompt 7,691
+tokens, 22 tools; first token after 1.27 s; one answer cut off (below), no side request:
 
 | task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
 |---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 5872 | 17 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 6986 | 7.3 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 6054 | 6.6 |
-| patch | 3/3 | 4.7 | 3.7 | 0 | 0 | 7876 | 13.2 |
-| build | 3/3 | 6 | 5 | 0 | 0 | 8098 | 14.2 |
-| sword | 3/3 | 10.7 | 9.7 | 0 | 0 | 21566 | 66.1 |
-| sword+skill | 3/3 | 6.3 | 5.3 | 0 | 0 | 14208 | 43.7 |
-| sword+detailed | 3/3 | 13.3 | 12.3 | 4 | 0 | 25625 | 104.3 |
-| spell | 3/3 | 5.7 | 4.7 | 0 | 0 | 10109 | 27.7 |
-| spell+skill | 3/3 | 4 | 3 | 0 | 0 | 9514 | 16.8 |
-| spell+detailed | 3/3 | 6 | 5 | 0 | 0 | 10312 | 30.1 |
-| npc | 3/3 | 6.7 | 5.7 | 1 | 0 | 9469 | 28.9 |
-| npc+skill | 3/3 | 4.7 | 3.7 | 1 | 0 | 8819 | 19.8 |
-| npc+detailed | 3/3 | 9.3 | 8.3 | 2 | 0 | 14298 | 39.4 |
-
-(26b's find includes loading the model.)
+| find | 3/3 | 2 | 1 | 0 | 0 | 9293 | 16.5 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 10433 | 19.1 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 9613 | 21.6 |
+| patch | 3/3 | 4.3 | 3.3 | 0 | 0 | 12086 | 26 |
+| build | 3/3 | 5 | 4 | 0 | 0 | 11384 | 27.3 |
+| sword | 3/3 | 12 | 11 | 0 | 0 | 29235 | 102.2 |
+| sword+detailed | 3/3 | 10 | 9 | 0 | 0 | 25317 | 85.2 |
+| spell | 3/3 | 7.3 | 6.3 | 0 | 0 | 18349 | 61.6 |
+| spell+detailed | 3/3 | 8 | 7 | 0 | 0 | 18649 | 65.6 |
+| npc | 3/3 | 9 | 8 | 2 | 2 | 17590 | 51.1 |
+| npc+detailed | 3/3 | 7.7 | 6.7 | 0 | 0 | 15230 | 55.4 |
+| note | 2/3 | 233.3 | 232.3 | 0 | 9 | 64125 | 456.4 |
+| note+detailed | 3/3 | 8.7 | 7.7 | 2 | 0 | 17252 | 75.8 |
 
 **Seen.**
 
-- **Both models passed the 33 tasks of round 13, 33 of 33**; with the detailed set, 26b 42 of 42 and
-  e4b 41 of 42.
-- **Fewer turns**: e4b's spells now take 4 calls (round 13: 4–5), its NPCs with the skill read 3.7
-  (round 13: 8.7); 26b's NPCs 5.7 (9.7) and spells 4.7 (5.3). Both read the family skill themselves
-  in all 18 runs without it pre-read. 26b still looks names up before writing them — 23 searches and
-  22 reads in 27 runs — and passes.
-- The detailed prompts cost more turns than the plain ones, not fewer: they name more values to get
-  right, and "like the Iron Sword" invites `addPatch`. e4b's one miss is that: it patched the Iron
-  Sword and renamed it, then wrote its enchantment with `FormKey: 000123:Skyrim.esm # Placeholder` —
-  the server's FormKey check did not read a line with a comment, took the record for a new one, left
-  the sword's link to it unresolved, and the reader refused the editor ID ("Malformed FormKey
-  string") five builds long.
-- No build answer carried a warning: no voice of the other sex, no unused enchantment, no empty file.
-
-**Changed after it** (measured next round): a `FormKey` line followed by a comment is read as one, so
-a made-up FormKey is refused with the way to a new record, and the link to it resolves.
+- **Claude Code passes what the eval's own client passes.** On the same 13 tasks: e4b 35 of 39 both
+  ways (the probe above); 26b 38 of 39 against 39 of 39 in round 15. Turns are a little higher (e4b
+  250 against 233; 26b 259 against 230, the looping run left out), time much higher (e4b 970 s against
+  466 s; 26b 1,991 s against 1,207 s): each run is a new session, whose server builds its record index
+  again (~10 s), and every turn carries ~7,700 tokens of Claude Code's own.
+- **26b looped in Claude Code:** in one `note` run it called `Glob` on `MavenNote/plugin/Books` 672 times
+  in a row, "No files found" each time, until the eval stopped it at 20 minutes — its one cut-off answer.
+  Nothing of the server's was involved. Claude Code in print mode has no turn limit of its own; the
+  eval now passes `--max-turns` (25, as its own client), which the CLI takes though its help does not
+  list it. In the extension, a user stops such a loop by hand.
+- e4b's misses: a spell with a magic effect of its own whose conditions it never got right; a note
+  without its `<font>` markup ("exactly the text" taken for the words); an override of Maven's note
+  (`addPatch`) instead of a new one; and a note searched for as type `NOTE` — refused with no
+  suggestion, though a note is a book (`BOOK`); 26b did the same in round 15.
+- In the probe, a note's text block that lost its indentation: the build's message for a YAML break
+  inside a text block (`Value: >-` and its lines) says to indent a field's own fields and give every
+  line a `Field: value` — advice for a mapping, not a text; e4b rewrote the file five times and never
+  indented the text.
