@@ -14,7 +14,7 @@ import { InstanceConfigError, type Instance, type ModEntry, type PluginEntry } f
 /** The base game's own masters, always active and always first. */
 const BASE_MASTERS = ['Skyrim.esm', 'Update.esm', 'Dawnguard.esm', 'HearthFires.esm', 'Dragonborn.esm'];
 
-const PLUGIN_EXTENSIONS = new Set(['.esm', '.esp', '.esl']);
+export const PLUGIN_EXTENSIONS = new Set(['.esm', '.esp', '.esl']);
 
 // ---------------------------------------------------------------- ini
 

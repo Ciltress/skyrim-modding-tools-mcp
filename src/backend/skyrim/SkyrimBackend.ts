@@ -1,6 +1,6 @@
 import type { Backend } from '../Backend.js';
 import type { InstallerQuestions } from './installer.js';
-import type { ModEnabled, ModManagerNotice, ProfileChange } from './modManager.js';
+import type { ModEnabled, ModManagerName, ModManagerNotice, ProfileChange } from './modManager.js';
 
 /**
  * The domain operations the tools call, on top of the lifecycle every backend has. FormIDs are
@@ -29,6 +29,58 @@ export interface SkyrimBackend extends Backend {
      * first with what it asks, unless the request carries the choices.
      */
     installMod(request: InstallModRequest): Promise<InstallModResult | InstallModQuestions>;
+
+    /** The selected profile's mods, lowest priority first: each one's plugins, Nexus record and SKSE plugins. */
+    listMods(query: ModListQuery): Promise<ModList>;
+}
+
+export interface ModListQuery {
+    /** Only the mods whose name holds this, in any case. */
+    text?: string;
+    enabledOnly?: boolean;
+    /** Each mod's plugins and its whole Nexus record; without, one short row a mod. */
+    details?: boolean;
+    /** How many mods to answer, from `offset`; all of them unless given. */
+    limit?: number;
+    offset?: number;
+}
+
+export interface ModList {
+    modManager: ModManagerName;
+    profile: string;
+    /** How the list is ordered, in words. */
+    order: string;
+    /** The mods matched, before the page was cut. */
+    total: number;
+    enabled: number;
+    mods: ListedMod[];
+    /** How to get the rest, when the page did not hold every mod matched. */
+    next?: string;
+    /** What a filter left out, when it left nothing. */
+    note?: string;
+}
+
+export interface ListedMod {
+    name: string;
+    enabled: boolean;
+    /** Mod Organizer's priority, separators counted: 0 is the lowest, and of two mods with the same file the higher one's is used. */
+    priority: number;
+    /** The separator the mod is listed under. */
+    section?: string;
+    /** With details. */
+    plugins?: ListedPlugin[];
+    /** What the mod manager recorded when it installed the mod from Nexus Mods (meta.ini): the modId always, the rest with details. */
+    nexus?: { modId: number; fileId?: number; version?: string; file?: string };
+    /** Whether it carries SKSE plugins: DLLs in SKSE/Plugins. */
+    skse?: true;
+}
+
+export interface ListedPlugin {
+    name: string;
+    /** Whether the game loads this copy: the mod enabled, the plugin active, and no higher mod's copy of it. */
+    active: boolean;
+    /** Where the copy the game loads comes from instead: a higher mod, overwrite, or the game's Data folder. */
+    loadedFrom?: string;
 }
 
 export interface InstallModRequest {

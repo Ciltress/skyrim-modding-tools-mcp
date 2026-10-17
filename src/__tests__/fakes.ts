@@ -8,7 +8,7 @@ import { ProjectError } from '../backend/skyrim/projects';
 import type {
     AddPatchRequest, AddPatchResult, BuildResult, ProjectFile, DeployResult, InstallModRequest, InstallModResult, NewProjectRequest, NexusDownload, NexusMod, NexusModSummary,
     NexusSearchQuery, NexusSearchResult, ProjectInfo, PullResult, RecordQuery, RecordRequest, RecordSearchResult,
-    RecordSummary, RecordVersions
+    RecordSummary, RecordVersions, ListedMod, ModList, ModListQuery
 } from '../backend/skyrim/SkyrimBackend';
 
 /**
@@ -209,6 +209,16 @@ export class InMemorySkyrimBackend implements AppBackend {
             modManager: { manager: 'mo2', status: 'notRunning' }
         };
     }
+
+    /** One mod, from Nexus, with its plugin active; a text that is not in its name lists nothing. */
+    async listMods(query: ModListQuery): Promise<ModList> {
+        const mod: ListedMod = {
+            name: 'Sample Mod', enabled: true, priority: 0, plugins: [{ name: 'Sample.esp', active: true }],
+            nexus: { modId: NEXUS_MOD.modId, fileId: 2, version: NEXUS_MOD.version, file: SAMPLE }
+        };
+        const mods = query.text && !mod.name.toLowerCase().includes(query.text.toLowerCase()) ? [] : [mod];
+        return { modManager: 'mo2', profile: 'Default', order: 'Lowest priority first.', total: mods.length, enabled: mods.length, mods };
+    }
 }
 
 const NEXUS_MOD: NexusModSummary = {
@@ -262,7 +272,7 @@ export interface FakeBackendOptions {
 
 const DOMAIN_METHODS = [
     'findRecords', 'readRecord', 'newProject', 'addPatch', 'buildProject', 'deployProject', 'pullProject',
-    'searchNexus', 'readNexusMod', 'downloadNexusFile', 'installMod'
+    'searchNexus', 'readNexusMod', 'downloadNexusFile', 'installMod', 'listMods'
 ] as const;
 
 /**

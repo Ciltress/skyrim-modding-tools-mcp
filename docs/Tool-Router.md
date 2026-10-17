@@ -45,6 +45,14 @@ Workflows and the error model: [`MCP-Tools.md`](./MCP-Tools.md). The vocabulary:
 | Put the mod into the game | `deployProject` — enables it in the mod manager; with Amethyst, also deploys or says to |
 | Bring back what you did in the Creation Kit or xEdit | `pullProject` — commit first, review with `git diff` after |
 
+## The mods you have
+
+| You want to… | Call |
+| --- | --- |
+| See which mods are installed — enabled or not, in which order | `listMods` — every mod, lowest priority first as Mod Organizer shows them, a short row each; `text` narrows by name, `enabledOnly` to the enabled; a long list comes in pages (`next`, `offset`) |
+| Find which mod a plugin comes from | `listMods` with `details: true` → each mod's `plugins`; `loadedFrom` names the mod whose copy the game loads instead |
+| Find an installed mod's Nexus page, or the version installed | `listMods` → `nexus.modId` (for `readNexusMod`); with `details: true`, `nexus.version` and the file |
+
 ## Mods on Nexus Mods
 
 | You want to… | Call |

@@ -331,6 +331,19 @@ describe('deploying into Amethyst', () => {
         return { setup, backend, runs, project: path.join(projects, 'MyPatch') };
     }
 
+    it('lists the profile\'s mods as Amethyst keeps them, lowest priority first, the locked one too', async () => {
+        const { backend } = makeBackend();
+        const listed = await backend.listMods({ details: true });
+        expect(listed).toMatchObject({ modManager: 'amethyst', profile: 'default', total: 7, enabled: 6 });
+        expect(listed.mods.map(mod => [mod.name, mod.enabled])).toEqual([
+            ['Address Library All in One (1.7.104.0) v13', true], ['Unofficial Skyrim Special Edition Patch', true], ['Old Mod', false],
+            ['SkyUI', true], ['Immersive Weapons', true], ['Serana Dialogue Expansion - ESL', true], ['UIExtensions v1', true]
+        ]);
+        // Amethyst's `*` locks a mod in place; it is a real mod, and its plugin is loaded.
+        expect(listed.mods.find(mod => mod.name === 'SkyUI')!.plugins).toEqual([{ name: 'SkyUI_SE.esp', active: true }]);
+        expect(listed.mods.find(mod => mod.name === 'Old Mod')!.plugins).toEqual([{ name: 'Old.esp', active: false }]);
+    });
+
     it('deploys a project, has Amethyst link it in, and keeps a deployed hard link current', async () => {
         const { setup, backend, runs, project } = makeBackend();
         await backend.newProject({ project: 'MyPatch' });

@@ -112,6 +112,16 @@ export function limitArg(args: any, fallback: number, max: number): number {
     return Math.min(Math.floor(value), max);
 }
 
+/** Where a page starts: 0 unless given, a whole number from 0 up. */
+export function offsetArg(args: any): number {
+    const value = args?.offset;
+    if (value === undefined || value === null) return 0;
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+        throw new McpError(ErrorCode.InvalidParams, `'offset' must be a whole number from 0 up — the \`offset\` a previous answer's \`next\` names.`);
+    }
+    return value;
+}
+
 /**
  * Failures that are about the request — a record or Nexus mod that does not exist, a malformed FormID,
  * a link to nothing, project text the plugin cannot be written from, a project in the wrong state, a

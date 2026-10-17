@@ -33,6 +33,9 @@ const READ = ['findRecords', 'readRecord'] as const;
  */
 const CORE_WRITE = ['addPatch', 'buildProject', 'deployProject'] as const;
 
+/** The mod manager's mods, read: what is installed, and whether it fits the game. */
+const INSTALLED = ['listMods'] as const;
+
 /** The Nexus Mods catalogue, read. */
 const NEXUS_READ = ['searchNexus', 'readNexusMod'] as const;
 
@@ -50,13 +53,13 @@ export const PROFILES: Record<ProfileName, ProfileDefinition> = {
         description:
             'The smallest set that can still find, read and change something. For small local models ' +
             'that receive every schema on every turn.',
-        tools: [...READ, ...CORE_WRITE, ...GUIDANCE]
+        tools: [...READ, ...INSTALLED, ...CORE_WRITE, ...GUIDANCE]
     },
     readonly: {
         description:
             'Reading, never changing. The write tools are absent rather than discouraged, so this ' +
             'profile cannot modify anything — profiles.test.ts holds every member to readOnlyHint.',
-        tools: [...READ, ...NEXUS_READ, ...ANALYSIS, ...GUIDANCE]
+        tools: [...READ, ...INSTALLED, ...NEXUS_READ, ...ANALYSIS, ...GUIDANCE]
     },
     all: {
         description:

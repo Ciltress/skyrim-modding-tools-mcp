@@ -1,16 +1,73 @@
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { BaseHandler } from './BaseHandler.js';
 import type { ToolSpec } from './BaseHandler.js';
-import { asRequestError, optionalBoolean, optionalString, requireString } from './args.js';
+import { asRequestError, limitArg, offsetArg, optionalBoolean, optionalString, requireString } from './args.js';
+
+/** listMods' page: a whole list of most setups, within core's 24 KB (a short row is ~135 bytes); a part of a Wabbajack one's. */
+const MOD_PAGE = 150;
+const MAX_MOD_PAGE = 5000;
 
 /**
- * The instance's mods: installing a downloaded file as one. Any .7z, .zip or .rar in the downloads
- * folder — downloadNexusFile's, or one the user downloaded by hand — whether it carries a FOMOD
- * installer or not. Nothing here reaches Nexus.
+ * The instance's mods: listing them, and installing a downloaded file as one — any .7z, .zip or .rar
+ * in the downloads folder, downloadNexusFile's or one the user downloaded by hand, whether it carries
+ * a FOMOD installer or not. Nothing here reaches Nexus.
  */
 export class ModsHandlers extends BaseHandler {
     protected toolSpecs(): ToolSpec[] {
         return [
+            {
+                definition: {
+                    name: 'listMods',
+                    annotations: {
+                        title: 'List mods',
+                        readOnlyHint: true,
+                        destructiveHint: false,
+                        idempotentHint: true,
+                        openWorldHint: false
+                    },
+                    description:
+                        'The mods installed in the mod manager\'s selected profile, lowest priority first as Mod Organizer ' +
+                        'shows them, one short row each: enabled or not, its priority and separator, its Nexus Mods modId ' +
+                        '(for readNexusMod), and `skse` when it carries SKSE plugins. With `details`, also its plugins — ' +
+                        'whether the game loads that copy — and the file and version installed. `total` counts every mod ' +
+                        `matched; past ${MOD_PAGE}, \`next\` says how to get the rest. Read from the files, at once.`,
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            text: {
+                                type: 'string',
+                                description: 'Only the mods whose name holds this, in any case, e.g. "SkyUI".'
+                            },
+                            enabledOnly: {
+                                type: 'boolean',
+                                description: 'Only the enabled mods.'
+                            },
+                            details: {
+                                type: 'boolean',
+                                description: 'Each mod\'s plugins, and the Nexus file and version installed.'
+                            },
+                            limit: {
+                                type: 'number',
+                                description: `How many mods to answer, 1-${MAX_MOD_PAGE}.`,
+                                default: MOD_PAGE
+                            },
+                            offset: {
+                                type: 'number',
+                                description: 'Where to start, for the rest of a long list: the offset `next` names.'
+                            }
+                        }
+                    },
+                    narrowingHint: 'Give `text`, a part of the names of the mods you want, or `enabledOnly`; leave out `details`, or lower `limit`.'
+                },
+                onFailure: 'Failed to list the mods',
+                run: args => asRequestError(this.backend.listMods({
+                    text: optionalString(args, 'text'),
+                    enabledOnly: optionalBoolean(args, 'enabledOnly'),
+                    details: optionalBoolean(args, 'details'),
+                    limit: limitArg(args, MOD_PAGE, MAX_MOD_PAGE),
+                    offset: offsetArg(args)
+                }))
+            },
             {
                 definition: {
                     name: 'installMod',

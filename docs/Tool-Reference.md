@@ -3,7 +3,7 @@
 <!-- GENERATED FILE - do not edit by hand.
      Run `npm run build && npm run docs:tools` after changing any getTools(). -->
 
-Every tool this server can expose: **13 tools across 6 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
+Every tool this server can expose: **14 tools across 6 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
 
 **How many you can actually call is smaller.** The active `MCP_PROFILE` decides what is
 listed, and the server withholds anything the connected backend does not support.
@@ -25,7 +25,7 @@ what needs a human, not a permission system: nothing here is enforced.
 ## Families
 
 - [Bundled skills](#bundled-skills) — 1 tool
-- [Installing mods](#installing-mods) — 1 tool
+- [Installing mods](#installing-mods) — 2 tools
 - [Nexus Mods](#nexus-mods) — 3 tools
 - [Projects: authoring and patching](#projects-authoring-and-patching) — 5 tools
 - [Records in the load order](#records-in-the-load-order) — 2 tools
@@ -46,6 +46,12 @@ _read-only_
 ## Installing mods
 
 From `src/handlers/ModsHandlers.ts`.
+
+**`listMods`** — The mods installed in the mod manager's selected profile, lowest priority first as Mod Organizer shows them, one short row each: enabled or not, its priority and separator, its Nexus Mods modId (for readNexusMod), and `skse` when it carries SKSE plugins. With `details`, also its plugins — whether the game loads that copy — and the file and version installed. `total` counts every mod matched; past 150, `next` says how to get the rest. Read from the files, at once.
+
+_read-only_
+
+`text` string · `enabledOnly` boolean · `details` boolean · `limit` number, default `150` · `offset` number
 
 **`installMod`** — Install a downloaded file (.7z, .zip, .rar) as a mod: unpack it into a new mod, enable the mod and activate its plugins at the end of the load order; then the mod manager is told, as for deployProject — when the user has to act, `modManager.nextStep` says what. A file with a FOMOD installer takes two calls: the first installs nothing and answers its steps, every option with an id like 1.1.2; the second, with `choices`, installs. A mod name already taken is refused unless `replace` is true. `missingMasters` names plugins the game cannot load until the mods they need are installed too.
 

@@ -11,6 +11,7 @@ import {
     topFolders, type ArchiveListing, type InstallEnvironment, type PluginHeader, type UnpackedFile
 } from './installer.js';
 import type { Instance } from './modManager.js';
+import { listedMods } from './modList.js';
 import { findCaseInsensitive } from './paths.js';
 import {
     ProjectError, assignFormIds, belongsAt, copiedEscapes, createProject, fencedRecordFiles, fileHash, keepRecordTexts, misnamedRecordFiles, looseRecordFiles, nameRecordFiles, newestSourceTime, projectExists,
@@ -20,7 +21,7 @@ import {
 import type { SkyrimEngine } from './engine.js';
 import { NexusCatalogue, markDownloadInstalled, readDownloadMeta } from './nexus.js';
 import type {
-    AddPatchRequest, AddPatchResult, BuildResult, DeployResult, InstallModQuestions, InstallModRequest, InstallModResult,
+    AddPatchRequest, AddPatchResult, BuildResult, DeployResult, InstallModQuestions, InstallModRequest, InstallModResult, ModList, ModListQuery,
     NewProjectRequest, NexusAccount, NexusDownload, NexusMod, NexusSearchQuery, NexusSearchResult, ProjectFile, ProjectInfo,
     PullResult, RecordQuery, RecordRequest, RecordSearchResult, RecordVersion, RecordVersions, SkyrimBackend
 } from './SkyrimBackend.js';
@@ -533,6 +534,11 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
      * told. Whatever can be refused is refused before anything is written; a FOMOD installer's first
      * answer writes nothing at all.
      */
+    async listMods(query: ModListQuery): Promise<ModList> {
+        const manager = this.engine.modManager;
+        return listedMods(manager, manager.readInstance(), query);
+    }
+
     async installMod(request: InstallModRequest): Promise<InstallModResult | InstallModQuestions> {
         const modManager = this.engine.modManager;
         const instance = modManager.readInstance();
