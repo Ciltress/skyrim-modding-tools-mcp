@@ -7,6 +7,15 @@
  *   node scripts/eval-ollama.mjs [--model gemma4:26b] [--profile all] [--runs 3] [--tasks find,read]
  *                                [--ctx 131072] [--max-turns 25] [--think true|false] [--out <file>]
  *                                [--with-skills] [--detailed] [--ollama http://localhost:11434]
+ *                                [--client ollama|claude-code] [--claude <exe>] [--settle 60]
+ *
+ * Before the first task the model is loaded with a short "hi", so no task's time includes the load;
+ * when it was not loaded yet (a switch from another model), --settle seconds pass before the tasks.
+ *
+ * --client claude-code runs every task through Claude Code itself, headless, with the model served by
+ * Ollama (scripts/eval-claude-code.mjs) instead of this script's own loop: what a user of the VS Code
+ * extension with a local model gets, its large system prompt included. `+skill` runs are left out —
+ * there is no way to put a skill's call into its session before the first turn.
  *
  * --with-skills runs each authoring task again as `<task>+skill`, the conversation starting with the
  * task's skill already read — a readSkill call the harness makes and puts in as the model's, left out of
@@ -39,6 +48,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { claudeCodeBinary, runClaudeCode, startProxy, writeSessionConfig } from './eval-claude-code.mjs';
+import { leftEscape, translatedValue } from './eval-yaml.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -50,13 +61,21 @@ const { values: opt } = parseArgs({
         tasks: { type: 'string' },
         ctx: { type: 'string', default: '131072' },
         'max-turns': { type: 'string', default: '25' },
+        settle: { type: 'string', default: '60' },
         think: { type: 'string' },
         out: { type: 'string' },
         'with-skills': { type: 'boolean', default: false },
         detailed: { type: 'boolean', default: false },
-        ollama: { type: 'string', default: process.env.OLLAMA_HOST || 'localhost' }
+        ollama: { type: 'string', default: process.env.OLLAMA_HOST || 'localhost' },
+        client: { type: 'string', default: 'ollama' },
+        claude: { type: 'string' }
     }
 });
+if (!['ollama', 'claude-code'].includes(opt.client)) {
+    console.error(`eval: --client is ollama or claude-code, not '${opt.client}'.`);
+    process.exit(1);
+}
+const CLAUDE_CODE = opt.client === 'claude-code';
 
 /**
  * OLLAMA_HOST is often the address Ollama binds to — `0.0.0.0`, no scheme, no port — so it is read
@@ -72,6 +91,7 @@ function ollamaUrl(raw) {
 const RUNS = Number(opt.runs);
 const NUM_CTX = Number(opt.ctx);
 const MAX_TURNS = Number(opt['max-turns']);
+const SETTLE_SECONDS = Number(opt.settle);
 const OLLAMA = ollamaUrl(opt.ollama);
 const THINK = opt.think === undefined ? undefined : opt.think === 'true';
 /** One model turn may take minutes when the model does not fit the GPU. */
@@ -113,6 +133,10 @@ if (!tags.models.some(m => m.name === opt.model || m.model === opt.model)) {
 const projectsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-eval-projects-'));
 const serverLog = outFile.replace(/\.json$/, '.server.log');
 const logStream = fs.createWriteStream(serverLog);
+/** What the server is started with, here and — with --client claude-code — by Claude Code. */
+const serverEnv = {
+    MCP_TRANSPORT: 'stdio', MCP_PROFILE: opt.profile, SKYRIM_PROJECTS_DIR: projectsDir
+};
 
 const transport = new StdioClientTransport({
     command: process.execPath,
@@ -120,7 +144,7 @@ const transport = new StdioClientTransport({
     cwd: root,
     // The instance comes from the repository's .env, which the server loads itself; dotenv never
     // overrides what is set here.
-    env: { ...process.env, MCP_TRANSPORT: 'stdio', MCP_PROFILE: opt.profile, SKYRIM_PROJECTS_DIR: projectsDir },
+    env: { ...process.env, ...serverEnv },
     stderr: 'pipe'
 });
 transport.stderr?.pipe(logStream);
@@ -172,7 +196,15 @@ const truth = {
     ironSword: await weapon('IronSword'),
     steelSword: await weapon('SteelSword'),
     nordRace: (await callServerJson('findRecords', { records: ['NordRace'], limit: 1 })).records[0]?.formId
-        ?? fail('the instance has no NordRace')
+        ?? fail('the instance has no NordRace'),
+    // A note whose text has line breaks and quotes, and whose model path has backslashes: what a copy
+    // has to carry over exactly.
+    mavenNote: await (async () => {
+        const read = await callServerJson('readRecord', { record: 'LetterRiftenBlackBriarMeadery04' });
+        const text = translatedValue(read.versions[0].files.map(f => f.text).join('\n'), 'BookText');
+        if (!text?.includes('"')) fail('could not read the text of Note From Maven');
+        return { formId: read.formId, text };
+    })()
 };
 
 // --- File tools, confined to the projects folder ------------------------------------------------
@@ -462,17 +494,45 @@ const TASKS = [
                 built: builtProject('HildaTheNord', calls)
             };
         }
+    },
+    // Reading: a vanilla record's text copied exactly, its quotes and line breaks included.
+    {
+        id: 'note',
+        skill: 'items-and-crafting',
+        prompt: 'Make a new mod called MavenNote with a new note named "Maven\'s Warning" whose text is exactly the ' +
+            'text of the note "Note From Maven". Build it, but do not deploy it.',
+        detailed: 'Make a new mod called MavenNote with a new note named "Maven\'s Warning". Make it like Maven\'s ' +
+            'note "Note From Maven" — the same model, sounds and keywords — with exactly the same text, word for word ' +
+            'and with its formatting. Build it, but do not deploy it.',
+        check: ({ calls }) => {
+            const note = newRecords('MavenNote', 'books')
+                .find(r => translatedValue(r.text, 'Name')?.toLowerCase() === "maven's warning");
+            return {
+                newNote: !!note,
+                textCopied: !!note && translatedValue(note.text, 'BookText') === truth.mavenNote.text,
+                built: builtProject('MavenNote', calls)
+            };
+        }
     }
 ];
+
+/** Every escape a copy left in the run's record files, as `file: line`. */
+function leftEscapes() {
+    return filesUnder(projectsDir).filter(file => file.endsWith('.yaml')).flatMap(file => {
+        const line = leftEscape(fs.readFileSync(file, 'utf8'));
+        return line === undefined ? [] : [`${path.relative(projectsDir, file)}: ${line.trim()}`];
+    });
+}
 
 const wanted = opt.tasks ? opt.tasks.split(',').map(s => s.trim()) : TASKS.map(t => t.id);
 const unknownTasks = wanted.filter(id => !TASKS.some(t => t.id === id));
 if (unknownTasks.length) fail(`unknown task(s) ${unknownTasks.join(', ')}; the tasks are ${TASKS.map(t => t.id).join(', ')}.`);
 const tasks = TASKS.filter(t => wanted.includes(t.id)).flatMap(t => [
     t,
-    ...opt['with-skills'] && t.skill ? [{ ...t, id: `${t.id}+skill`, preread: t.skill }] : [],
+    ...opt['with-skills'] && t.skill && !CLAUDE_CODE ? [{ ...t, id: `${t.id}+skill`, preread: t.skill }] : [],
     ...opt.detailed && t.detailed ? [{ ...t, id: `${t.id}+detailed`, prompt: t.detailed }] : []
 ]);
+if (opt['with-skills'] && CLAUDE_CODE) console.log('eval: --with-skills is left out with --client claude-code.');
 
 // --- The agent loop -----------------------------------------------------------------------------
 
@@ -589,10 +649,30 @@ async function runTask(task, run) {
         }
     }
 
+    return resultOf(task, run, { answer, calls, stop, turns, started, historyBytes: Buffer.byteLength(JSON.stringify(messages)) });
+}
+
+/** One task through Claude Code, with the model behind the proxy. */
+async function runTaskClaudeCode(task, run) {
+    emptyProjects();
+    const started = Date.now();
+    const session = await runClaudeCode({
+        binary: claudeBinary, prompt: task.prompt, model: opt.model, cwd: projectsDir, config: claudeConfig,
+        proxy, serverToolNames, maxTurns: MAX_TURNS, timeoutMs: TURN_TIMEOUT_MS
+    });
+    return resultOf(task, run, { ...session, turns: session.turnStats, started, historyBytes: null });
+}
+
+/** A run's record: the checks and the counts, the same for both clients. */
+async function resultOf(task, run, { answer, calls, stop, turns, started, historyBytes, client }) {
     const checks = stop === 'answered' || stop === 'callInText' || stop === 'maxTurns'
         ? await task.check({ answer, calls })
         : {};
-    const historyBytes = Buffer.byteLength(JSON.stringify(messages));
+    // Every task that leaves record files is held to them having no escapes a copy should have decoded.
+    const escapes = leftEscapes();
+    if (Object.keys(checks).length && filesUnder(projectsDir).some(file => file.endsWith('.yaml'))) {
+        checks.noEscapesCopied = escapes.length === 0;
+    }
     return {
         task: task.id,
         run,
@@ -613,6 +693,8 @@ async function runTask(task, run) {
         historyBytes,
         seconds: Math.round((Date.now() - started) / 100) / 10,
         answer: answer.length > 1500 ? `${answer.slice(0, 1500)}…` : answer,
+        ...(escapes.length ? { escapes } : {}),
+        ...(client ? { client } : {}),
         transcript: calls,
         turnStats: turns
     };
@@ -625,10 +707,47 @@ const toolListBytes = Buffer.byteLength(JSON.stringify(ollamaTools));
 console.log(`eval: ${serverTools.length} server tools + ${FILE_TOOLS.length} file tools, ${toolListBytes} bytes of tool schemas; ` +
     `instructions ${instructions.length} chars`);
 
+// Claude Code: its binary, the proxy in front of Ollama, and the session's settings and MCP configuration.
+const claudeBinary = CLAUDE_CODE ? claudeCodeBinary(opt.claude) : undefined;
+const claudeVersion = CLAUDE_CODE
+    ? (() => { try { return execFileSync(claudeBinary, ['--version'], { encoding: 'utf8' }).trim(); } catch (e) { fail(`Claude Code did not start (${claudeBinary}): ${e.message}`); } })()
+    : undefined;
+const proxy = CLAUDE_CODE ? await startProxy(OLLAMA) : undefined;
+const claudeDir = CLAUDE_CODE ? fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-eval-claude-')) : undefined;
+const claudeConfig = CLAUDE_CODE
+    ? writeSessionConfig({ dir: claudeDir, proxyUrl: proxy.url, model: opt.model, root, serverEnv })
+    : undefined;
+if (CLAUDE_CODE) console.log(`eval: through ${claudeVersion} (${claudeBinary})`);
+
+/**
+ * Loads the model before the first task, with a short "hi" at the context the tasks use, so no task's
+ * time includes the load. Claude Code sends no context size, so for it the warm-up sends none either:
+ * Ollama's default is then what both use. A model that was not loaded yet — a switch from another —
+ * is given --settle seconds more before the tasks start.
+ */
+async function warmUp() {
+    const resident = (await ollama('/api/ps').catch(() => ({ models: [] }))).models
+        .some(m => (m.name === opt.model || m.model === opt.model) && (CLAUDE_CODE || m.context_length === NUM_CTX));
+    const started = Date.now();
+    await ollama('/api/chat', {
+        model: opt.model, stream: false, think: false,
+        messages: [{ role: 'user', content: 'hi' }],
+        options: CLAUDE_CODE ? { num_predict: 16 } : { num_ctx: NUM_CTX, num_predict: 16 }
+    });
+    const seconds = Math.round((Date.now() - started) / 100) / 10;
+    console.log(`eval: warm-up "hi" answered in ${seconds} s${resident ? ' (the model was loaded already)' : ''}`);
+    if (!resident && SETTLE_SECONDS > 0) {
+        console.log(`eval: the model was loaded just now; waiting ${SETTLE_SECONDS} s before the first task`);
+        await new Promise(resolve => setTimeout(resolve, SETTLE_SECONDS * 1000));
+    }
+    return { seconds, wasLoaded: resident };
+}
+const warmup = await warmUp().catch(error => fail(`the warm-up failed: ${error.message}`));
+
 try {
     for (const task of tasks) {
         for (let run = 1; run <= RUNS; run++) {
-            const result = await runTask(task, run);
+            const result = CLAUDE_CODE ? await runTaskClaudeCode(task, run) : await runTask(task, run);
             results.push(result);
             const failed = Object.entries(result.checks).filter(([, ok]) => !ok).map(([name]) => name);
             console.log(`  ${task.id} #${run}: ${result.success ? 'PASS' : 'FAIL'} — ${result.stop}, ${result.turns} turns, ` +
@@ -638,7 +757,9 @@ try {
     }
 } finally {
     await client.close().catch(() => { });
+    proxy?.close();
     fs.rmSync(projectsDir, { recursive: true, force: true });
+    if (claudeDir) fs.rmSync(claudeDir, { recursive: true, force: true });
 }
 
 const loaded = await ollama('/api/ps').catch(() => ({ models: [] }));
@@ -690,11 +811,29 @@ function measuredBuild() {
 const allTurns = results.flatMap(r => r.turnStats);
 // The session's first turn loads the model; it says nothing about a turn's cost.
 const laterTurns = allTurns.slice(1);
+/** Claude Code's side of a run: what its first prompt carried, and answers that did not end. */
+const claudeSummary = CLAUDE_CODE ? (() => {
+    const firsts = results.map(r => r.turnStats[0]).filter(Boolean);
+    const firstTokens = firsts.map(t => t.firstTokenSeconds).filter(s => s !== null).sort((a, b) => a - b);
+    return {
+        version: claudeVersion,
+        binary: claudeBinary,
+        firstPrompt: results.find(r => r.client?.firstPrompt)?.client.firstPrompt ?? null,
+        firstPromptTokens: Math.max(0, ...firsts.map(t => t.promptTokens)),
+        medianFirstTokenSeconds: firstTokens.length ? firstTokens[Math.floor(firstTokens.length / 2)] : null,
+        cutAnswers: results.reduce((sum, r) => sum + (r.client?.cutAnswers ?? 0), 0),
+        sideRequests: results.reduce((sum, r) => sum + (r.client?.sideRequests.length ?? 0), 0)
+    };
+})() : undefined;
+
 const report = {
     model: opt.model,
     profile: opt.profile,
-    numCtx: NUM_CTX,
-    think: THINK ?? 'model default',
+    client: CLAUDE_CODE ? 'claude-code' : 'ollama',
+    ...(claudeSummary ? { claudeCode: claudeSummary } : {}),
+    warmup,
+    numCtx: CLAUDE_CODE ? (loaded.models.find(m => m.name === opt.model)?.context_length ?? 'Ollama default') : NUM_CTX,
+    think: CLAUDE_CODE ? "Claude Code's (adaptive)" : THINK ?? 'model default',
     runs: RUNS,
     when: new Date().toISOString(),
     build: measuredBuild(),
@@ -735,11 +874,19 @@ if (report.ollama) console.log(`eval: Ollama ran it with context ${report.ollama
 const rate = value => value === undefined ? '?' : `~${value.toLocaleString('en-US')} tokens/s`;
 if (speed) console.log(`eval: prompt ${rate(speed.promptPerSecond)} (${speed.promptTokens} tokens), generation ${rate(speed.generationPerSecond)}`);
 
-// The entry for docs/research/local-model-evals.md, where every round is recorded.
+// The entry for docs/research/local-model-evals.md, where every round is recorded. The Claude Code
+// client is named beside the profile, so rows that measured it stand out.
+const setup = [`\`${report.profile}\``, ...(CLAUDE_CODE ? ['Claude Code'] : [])].join(', ');
 const entry = [
-    `| ${report.when.slice(0, 10)} | ${report.model} | \`${report.profile}\` | ${report.build} | ${passed}/${results.length} | ` +
+    `| ${report.when.slice(0, 10)} | ${report.model} | ${setup} | ${report.build} | ${passed}/${results.length} | ` +
     `${report.secondsPerTurn ?? '?'} s | ${rate(speed?.promptPerSecond)} | ${rate(speed?.generationPerSecond)} | ${onGpu} |`,
     '',
+    ...(claudeSummary ? [
+        `Through ${claudeSummary.version}: first prompt ${claudeSummary.firstPromptTokens} tokens ` +
+        `(${claudeSummary.firstPrompt?.tools ?? '?'} tools), first token after ${claudeSummary.medianFirstTokenSeconds ?? '?'} s ` +
+        `(median of the first turns), ${claudeSummary.cutAnswers} answers cut off, ${claudeSummary.sideRequests} side requests.`,
+        ''
+    ] : []),
     '| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |',
     '|---|---|---|---|---|---|---|---|',
     ...report.summary.map(s => `| ${s.task} | ${s.passed} | ${s.turns} | ${s.calls} | ${s.invalidParams} | ${s.otherErrors} | ` +
