@@ -70,7 +70,7 @@
         },
         {
           "name": "SKYRIM_MOD_MANAGER",
-          "description": "The mod manager that keeps the mods: mo2 (Mod Organizer 2, on Windows or under Proton) or amethyst (Amethyst Mod Manager on Linux).",
+          "description": "The mod manager that keeps the mods: mo2 (Mod Organizer 2, on Windows or under Proton) or amethyst (Amethyst Mod Manager on Linux). Found by itself: Mod Organizer when SKYRIM_MO2_INSTANCE is set, else Amethyst when it has Skyrim set up.",
           "default": "mo2"
         },
         {
@@ -95,7 +95,7 @@
         },
         {
           "name": "SKYRIM_PAPYRUS_COMPILER",
-          "description": "The Papyrus compiler to use: the Creation Kit's PapyrusCompiler.exe, or russo-2025's papyrus-compiler, which runs on Linux. Defaults to the Creation Kit's on Windows; required on Linux to compile scripts."
+          "description": "The Papyrus compiler to use: the Creation Kit's PapyrusCompiler.exe, or russo-2025's papyrus-compiler, which runs on Linux. Defaults to the Creation Kit's on Windows; on Linux, papyrus-compiler on PATH, else tools/papyrus-compiler/papyrus beside the server or in the home folder."
         },
         {
           "name": "SKYRIM_HELPER_PATH",

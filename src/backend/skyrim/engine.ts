@@ -15,6 +15,8 @@ export interface EngineOptions {
     creationKitDir?: string;
     /** SKYRIM_PAPYRUS_COMPILER. */
     papyrusCompiler?: string;
+    /** Where a compiler is looked for when SKYRIM_PAPYRUS_COMPILER names none (Platform.papyrusCompilerCandidates). */
+    papyrusCompilerCandidates?: readonly string[];
 }
 
 /**
@@ -43,6 +45,7 @@ export class SkyrimEngine {
     readonly platform: Platform;
     /** The Papyrus compiler SKYRIM_PAPYRUS_COMPILER names; undefined means the platform's default. */
     readonly papyrusCompiler?: string;
+    readonly papyrusCompilerCandidates: readonly string[];
     private readonly creationKitOverride?: string;
 
     /**
@@ -57,6 +60,7 @@ export class SkyrimEngine {
     ) {
         this.platform = options.platform ?? currentPlatform();
         this.papyrusCompiler = options.papyrusCompiler;
+        this.papyrusCompilerCandidates = options.papyrusCompilerCandidates ?? [];
         this.creationKitOverride = options.creationKitDir;
     }
 

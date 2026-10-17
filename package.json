@@ -23,6 +23,7 @@
     "test:types": "tsc -p tsconfig.json --noEmit",
     "start": "node ./dist/index.js",
     "dev": "npx @modelcontextprotocol/inspector ./dist/index.js",
+    "setup": "npm ci && npm run build && node dist/setup/main.js",
     "build": "tsc",
     "docs:tools": "node scripts/generate-tool-docs.mjs",
     "smoke": "node scripts/smoke.mjs",

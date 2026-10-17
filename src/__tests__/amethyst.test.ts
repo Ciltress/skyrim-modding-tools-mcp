@@ -8,7 +8,7 @@ import type { HelperTransport } from '../backend/skyrim/helperClient';
 import { InstanceConfigError } from '../backend/skyrim/modManager';
 import { linuxPlatform } from '../backend/skyrim/platform';
 import { SkyrimInstanceBackend } from '../backend/skyrim/SkyrimInstanceBackend';
-import { missingEnv, modManagerName } from '../backend/index';
+import { chooseModManager, explainMissingEnv, missingEnv, modManagerName } from '../backend/index';
 
 /**
  * Amethyst as the mod manager, against a setup laid out the way Amethyst 2.5.4 lays out the user's
@@ -88,6 +88,13 @@ function makeSetup(options: { deployed?: boolean; profile?: string } = {}) {
     return { home, config, gameConfig, game, staging, profile, mods };
 }
 
+/** A home folder with no mod manager's settings in it. */
+function emptyHome(): string {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-no-amethyst-'));
+    roots.push(home);
+    return home;
+}
+
 function manager(setup: ReturnType<typeof makeSetup>, options: AmethystOptions = {}) {
     return new AmethystManager({ configDir: setup.config, flatpak: true }, { home: setup.home, env: {}, ...options });
 }
@@ -110,12 +117,43 @@ describe('finding Amethyst', () => {
         expect(findAmethyst(flatpak, {}, home)).toEqual({ configDir: flatpak, flatpak: true });
     });
 
-    it('chooses the mod manager by configuration, and needs the MO2 instance only for MO2', () => {
-        expect(modManagerName({})).toBe('mo2');
-        expect(modManagerName({ SKYRIM_MOD_MANAGER: 'Amethyst' })).toBe('amethyst');
-        expect(() => modManagerName({ SKYRIM_MOD_MANAGER: 'vortex' })).toThrow(/mo2 or amethyst/);
-        expect(missingEnv({})).toEqual(['SKYRIM_MO2_INSTANCE']);
-        expect(missingEnv({ SKYRIM_MOD_MANAGER: 'amethyst' })).toEqual([]);
+    it('chooses the mod manager SKYRIM_MOD_MANAGER names, and refuses one it does not know', () => {
+        const setup = makeSetup();
+        expect(modManagerName({ SKYRIM_MOD_MANAGER: 'Amethyst' }, emptyHome())).toBe('amethyst');
+        expect(modManagerName({ SKYRIM_MOD_MANAGER: 'mo2' }, setup.home)).toBe('mo2');
+        expect(() => modManagerName({ SKYRIM_MOD_MANAGER: 'vortex' }, setup.home)).toThrow(/mo2 or amethyst/);
+    });
+
+    it('without SKYRIM_MOD_MANAGER, takes what is configured: an MO2 instance, Amethyst\'s folder, Amethyst set up for Skyrim', () => {
+        const setup = makeSetup();
+        expect(chooseModManager({}, setup.home)).toEqual({ name: 'amethyst', because: expect.stringMatching(/config has Skyrim/) });
+        expect(chooseModManager({ SKYRIM_MO2_INSTANCE: 'G:\\Modding\\SkyrimSE-Test' }, setup.home).name).toBe('mo2');
+        expect(chooseModManager({ SKYRIM_AMETHYST_DIR: '~/amethyst-config' }, emptyHome()))
+            .toEqual({ name: 'amethyst', because: expect.stringMatching(/SKYRIM_AMETHYST_DIR/) });
+
+        // A native install's config counts as the Flatpak's does; a config folder with no Skyrim in it does not.
+        const native = emptyHome();
+        write(path.join(native, '.config', 'AmethystModManager', 'games', 'Skyrim Special Edition', 'paths.json'), '{}');
+        expect(modManagerName({}, native)).toBe('amethyst');
+        const noSkyrim = emptyHome();
+        fs.mkdirSync(path.join(noSkyrim, '.var', 'app', AMETHYST_FLATPAK_ID, 'config', 'AmethystModManager', 'games'), { recursive: true });
+        expect(modManagerName({}, noSkyrim)).toBe('mo2');
+        expect(modManagerName({}, emptyHome())).toBe('mo2');
+    });
+
+    it('needs the MO2 instance only when nothing else is configured, and says how to give one', () => {
+        expect(missingEnv({}, emptyHome())).toEqual(['SKYRIM_MO2_INSTANCE']);
+        expect(missingEnv({}, makeSetup().home)).toEqual([]);
+        expect(missingEnv({ SKYRIM_MOD_MANAGER: 'amethyst' }, emptyHome())).toEqual([]);
+        expect(explainMissingEnv(['SKYRIM_MO2_INSTANCE'])).toMatch(/SKYRIM_MO2_INSTANCE.*ModOrganizer\.ini.*Amethyst/);
+    });
+
+    it('says in healthcheck\'s notes that Amethyst was chosen by itself, and how to choose another', async () => {
+        const setup = makeSetup({ deployed: false });
+        const chosen = new AmethystManager({ configDir: setup.config, flatpak: true },
+            { home: setup.home, env: {}, chosenBecause: 'its config has Skyrim set up' });
+        expect(chosen.notes(chosen.readInstance())).toEqual([expect.stringMatching(/Amethyst.*its config has Skyrim set up.*SKYRIM_MOD_MANAGER=mo2/)]);
+        expect(manager(setup).notes(manager(setup).readInstance())).toEqual([]);
     });
 });
 

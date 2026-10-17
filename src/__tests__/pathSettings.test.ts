@@ -196,7 +196,11 @@ describe('every path setting goes through the one resolver', () => {
         'MCP_PROFILE', 'MCP_MAX_RESPONSE_BYTES', 'MCP_GATE', 'MCP_TRANSPORT',
         'MCP_HTTP_PORT', 'MCP_HTTP_HOST', 'MCP_HTTP_ALLOWED_ORIGINS', 'MCP_HTTP_ALLOWED_HOSTS', 'MCP_HTTP_RATE_LIMIT',
         // The system's and Amethyst's own, read exactly as Amethyst reads them, to find its files where it looks.
-        'XDG_CONFIG_HOME', 'XDG_RUNTIME_DIR', 'MOD_MANAGER_PROFILES_DIR'
+        'XDG_CONFIG_HOME', 'XDG_RUNTIME_DIR', 'MOD_MANAGER_PROFILES_DIR',
+        // The system's search path, a list of folders searched for a Papyrus compiler (Platform.papyrusCompilerCandidates).
+        'PATH',
+        // Windows' own folders, read by npm run setup to find Claude Desktop's and Mod Organizer's files.
+        'APPDATA', 'LOCALAPPDATA'
     ];
 
     it('reads a path setting nowhere but in pathSettings.ts, and knows every other variable for one that is not', () => {

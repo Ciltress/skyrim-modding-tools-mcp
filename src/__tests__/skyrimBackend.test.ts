@@ -407,7 +407,7 @@ const quiet = linuxPlatform(path.join(os.tmpdir(), 'skyrim-mcp-no-proc'), hostDr
 const asWinePath = (native: string) => /^[a-z]:/i.test(native) ? native : `Z:${native.replace(/\//g, '\\')}`;
 
 /** A backend on the quiet system, with a process table of its own that is empty until a test starts something in it. */
-function makeBackend(options: { nexus?: NexusCatalogue } = {}) {
+function makeBackend(options: { nexus?: NexusCatalogue; papyrusCompilerCandidates?: string[] } = {}) {
     const fixture = makeInstance();
     const procRoot = path.join(fixture.root, 'proc');
     const platform = linuxPlatform(procRoot, hostDrives);
@@ -415,7 +415,8 @@ function makeBackend(options: { nexus?: NexusCatalogue } = {}) {
     const masters: Record<string, string[]> = {};
     const helperAnswers: Record<string, (params: any) => any> = {};
     const { helper, calls } = scriptedHelper(archives, masters, helperAnswers);
-    const engine = new SkyrimEngine(new Mo2Manager(fixture.instanceDir, platform), helper, fixture.projects, { platform });
+    const engine = new SkyrimEngine(new Mo2Manager(fixture.instanceDir, platform), helper, fixture.projects,
+        { platform, papyrusCompilerCandidates: options.papyrusCompilerCandidates });
     const backend = new SkyrimInstanceBackend({ engine, nexus: options.nexus });
     /** Starts a Windows program in the table, as Wine does: its command line is the program's Windows path. */
     const startProgram = (pid: number, exe: string) => write(path.join(procRoot, String(pid), 'cmdline'), `${asWinePath(exe)}\0`);
@@ -951,6 +952,17 @@ describe('the Skyrim backend', () => {
         age(root);
         await expect(backend.buildProject('Scripted')).rejects.toThrow(/Papyrus compiler/);
         await expect(backend.deployProject('Scripted')).rejects.toThrow(/not been built yet/);
+    });
+
+    it('compiles with a Papyrus compiler found where one is put, when none is named', async () => {
+        const nowhere = path.join(os.tmpdir(), 'skyrim-mcp-no-compiler', 'papyrus');
+        const found = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-mcp-compiler-')), 'tools', 'papyrus-compiler', 'papyrus');
+        write(found, 'a compiler');
+        const { backend, fixture } = makeBackend({ papyrusCompilerCandidates: [nowhere, found] });
+        await newProjectWithRecord(backend, fixture.projects, 'Scripted');
+        write(path.join(fixture.projects, 'Scripted', 'scripts', 'MyQuest.psc'), 'ScriptName MyQuest extends Quest\n');
+        // Found, the compiler is taken: what stops the build now is the test game's missing script sources.
+        await expect(backend.buildProject('Scripted')).rejects.toThrow(/vanilla script sources are not in/);
     });
 
     it('notices a source file that was deleted after the build', async () => {

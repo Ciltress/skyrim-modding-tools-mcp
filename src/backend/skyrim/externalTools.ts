@@ -17,13 +17,15 @@ export class ScriptCompileError extends Error { }
 export class CompilerUnavailableError extends Error { }
 
 /** Where the vanilla script sources can be: the Creation Kit unpacks them to the first. */
-const SOURCE_FOLDERS = ['Data/Source/Scripts', 'Data/Scripts/Source'];
+export const SOURCE_FOLDERS = ['Data/Source/Scripts', 'Data/Scripts/Source'];
 const MOD_SOURCE_FOLDERS = ['Source/Scripts', 'Scripts/Source'];
 
 export interface CompileOptions {
     platform: Platform;
     /** SKYRIM_PAPYRUS_COMPILER, when set. */
     compiler?: string;
+    /** Where a compiler is looked for without one — Platform.papyrusCompilerCandidates. */
+    searched?: readonly string[];
     creationKitDir: string;
     scriptsDir: string;
     outputDir: string;
@@ -65,7 +67,7 @@ export async function compileScripts(options: CompileOptions): Promise<number> {
  */
 export async function papyrusCommand(options: CompileOptions): Promise<{ executable: string; args: string[] }> {
     const { platform, creationKitDir, scriptsDir, outputDir, instance, mods } = options;
-    const compiler = options.compiler || platform.creationKitCompiler(creationKitDir);
+    const compiler = options.compiler || platform.creationKitCompiler(creationKitDir) || options.searched?.find(file => fs.existsSync(file));
     if (!compiler) throw new CompilerUnavailableError((await platform.creationKitCompilerProblem())!);
     const vanilla = SOURCE_FOLDERS.map(folder => findCaseInsensitive(creationKitDir, folder)).find(Boolean);
     if (!fs.existsSync(compiler) || !vanilla) {

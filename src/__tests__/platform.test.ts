@@ -4,7 +4,7 @@ import path from 'node:path';
 import { CompilerUnavailableError, papyrusCommand, type CompileOptions } from '../backend/skyrim/externalTools';
 import type { Instance } from '../backend/skyrim/modManager';
 import { findCaseInsensitive } from '../backend/skyrim/paths';
-import { linuxPlatform, type Platform } from '../backend/skyrim/platform';
+import { linuxPlatform, windowsPlatform, type Platform } from '../backend/skyrim/platform';
 
 /**
  * What differs by operating system (docs/adr/0007), tested on whichever one runs the suite: the Linux
@@ -91,6 +91,7 @@ describe('the Papyrus command', () => {
         runsWindowsPrograms: true,
         path: path.win32,
         foreignPath: () => undefined,
+        papyrusCompilerCandidates: () => [],
         findProcesses: async () => [],
         creationKitCompiler: dir => path.join(dir, 'Papyrus Compiler', 'PapyrusCompiler.exe'),
         creationKitCompilerProblem: async () => undefined,
@@ -124,11 +125,43 @@ describe('the Papyrus command', () => {
         ]);
     });
 
-    it('says what to install on Linux when no compiler is named', async () => {
-        const { options } = setup();
-        const error = await papyrusCommand(options(linuxPlatform(tempDir()))).catch(e => e);
+    it('says what to install on Linux when no compiler is named or found', async () => {
+        const { root, options } = setup();
+        const error = await papyrusCommand({ ...options(linuxPlatform(tempDir())), searched: [path.join(root, 'nowhere', 'papyrus')] }).catch(e => e);
         expect(error).toBeInstanceOf(CompilerUnavailableError);
-        expect(error.message).toMatch(/SKYRIM_PAPYRUS_COMPILER/);
+        expect(error.message).toMatch(/tools\/papyrus-compiler\/papyrus.*SKYRIM_PAPYRUS_COMPILER/);
+    });
+
+    it('looks for a compiler on Linux where one is put: on PATH, then in tools/ beside the server, then in the home folder\'s', () => {
+        expect(linuxPlatform(tempDir()).papyrusCompilerCandidates('/usr/local/bin:/usr/bin:', '/home/me', '/home/me/skyrim-modding-tools-mcp')).toEqual([
+            '/usr/local/bin/papyrus-compiler',
+            '/usr/bin/papyrus-compiler',
+            // Where russo-2025's papyrus-compiler-ubuntu.tar.gz puts its executable, unpacked into a tools folder.
+            '/home/me/skyrim-modding-tools-mcp/tools/papyrus-compiler/papyrus',
+            '/home/me/tools/papyrus-compiler/papyrus'
+        ]);
+        // On Windows the Creation Kit's own is the default (Q9 of session 10): nothing is searched.
+        expect(windowsPlatform().papyrusCompilerCandidates('C:\\Tools', 'C:\\Users\\me', 'C:\\Tools\\skyrim-modding-tools-mcp')).toEqual([]);
+    });
+
+    it('takes the first compiler found, and speaks its command line', async () => {
+        const { root, options } = setup();
+        const found = path.join(root, 'server', 'tools', 'papyrus-compiler', 'papyrus');
+        write(found);
+        write(path.join(root, 'home', 'tools', 'papyrus-compiler', 'papyrus'));
+        const searched = [path.join(root, 'bin', 'papyrus-compiler'), found, path.join(root, 'home', 'tools', 'papyrus-compiler', 'papyrus')];
+        const { executable, args } = await papyrusCommand({ ...options(linuxPlatform(tempDir())), searched });
+        expect(executable).toBe(found);
+        expect(args.slice(0, 2)).toEqual(['compile', '-nocache']);
+    });
+
+    it('keeps the compiler SKYRIM_PAPYRUS_COMPILER names over one found', async () => {
+        const { root, options } = setup();
+        const found = path.join(root, 'found', 'papyrus');
+        write(found);
+        const named = path.join(root, 'tools', 'papyrus-compiler');
+        const { executable } = await papyrusCommand({ ...options(linuxPlatform(tempDir()), named), searched: [found] });
+        expect(executable).toBe(named);
     });
 
     it('refuses the Creation Kit compiler where it cannot run', async () => {

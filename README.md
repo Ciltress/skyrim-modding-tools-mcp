@@ -31,42 +31,46 @@ record family — items and crafting, magic, NPCs, leveled lists.
 
 ## Requirements
 
-- **Node.js 24**, git (with Git LFS for project assets)
-- **Skyrim Special Edition** 1.5.97 to 1.7.x, managed by
-  - **Mod Organizer 2** (2.5) on Windows, or
-  - **Amethyst Mod Manager** (2.5) on Linux — set `SKYRIM_MOD_MANAGER=amethyst`; the setup is in
-    [`docs/Hosting.md`](docs/Hosting.md) §4. Mod Organizer under Proton is experimental (§5).
-- The **.NET 10 SDK** to build the plugin helper; the .NET 10 runtime to run it
+- **Skyrim Special Edition** 1.5.97 to 1.7.x, managed by **Mod Organizer 2** (2.5) on Windows, or
+  **Amethyst Mod Manager** (2.5) on Linux. Mod Organizer under Proton is experimental
+  ([`docs/Hosting.md`](docs/Hosting.md) §5).
+- **Node.js 24** and **git**. `npm run setup` brings the rest: the .NET 10 SDK and Git LFS, and on
+  Linux a Papyrus compiler.
 - For compiling Papyrus scripts (optional otherwise): the **Creation Kit** (free on Steam) for its
-  vanilla script sources, and a compiler — on Windows the Creation Kit's own, which needs
-  **.NET Framework 3.5** (Windows Features); on Linux russo-2025's `papyrus-compiler`
+  vanilla script sources; on Windows its compiler needs **.NET Framework 3.5** (Windows Features).
 
 ## Setup
 
-```bash
-git clone <this repository>
+**Windows**, in PowerShell — the first two lines only for what you do not have yet, then open a new
+PowerShell:
+
+```powershell
+winget install --exact --id OpenJS.NodeJS.LTS
+winget install --exact --id Git.Git
+git clone https://github.com/Ciltress/skyrim-modding-tools-mcp
 cd skyrim-modding-tools-mcp
-npm install
-npm run build:helper   # the .NET plugin helper -> helper/bin
-npm run build          # the server -> dist/
-copy .env.example .env # then set SKYRIM_MO2_INSTANCE — or SKYRIM_MOD_MANAGER=amethyst
+npm run setup
 ```
 
-Register it with a client — Claude Code, Claude Desktop, VS Code:
+**Linux** (CachyOS, Arch):
 
-```json
-{
-  "mcpServers": {
-    "skyrim": {
-      "command": "node",
-      "args": ["C:/path/to/skyrim-modding-tools-mcp/dist/index.js"],
-      "env": { "SKYRIM_MO2_INSTANCE": "G:\\Modding\\SkyrimSE-Test" }
-    }
-  }
-}
+```bash
+sudo pacman -S --needed nodejs npm git
+git clone https://github.com/Ciltress/skyrim-modding-tools-mcp ~/skyrim-modding-tools-mcp
+cd ~/skyrim-modding-tools-mcp
+npm run setup
 ```
 
-Then ask `healthcheck` whether it found your instance, profile and game version.
+`npm run setup` installs the .NET 10 SDK and Git LFS if they are missing, builds the server and its
+plugin helper, and finds your mod manager — it asks for the Mod Organizer instance only when it finds
+none, and for your Nexus Mods API key if you want the Nexus tools. It registers the server with
+Claude Code, Claude Desktop and VS Code, and ends with a healthcheck: the instance, profile and game
+version it found. Everything it installs, downloads or registers, it asks about first.
+
+**Updating:** `git pull && npm run setup`, then restart your client.
+
+**By hand** instead — the settings file and each client's registration, ready to copy:
+[`docs/Hosting.md`](docs/Hosting.md) §1.1.
 
 **Work on a test instance.** Deploys write into the instance's mods and profile. A dedicated
 portable Mod Organizer on a clean game is the safe place to learn the tools — and if your instance
@@ -80,14 +84,14 @@ in a shell, on every system; a relative one is taken from the server's folder
 
 | Variable | Default | Effect |
 | --- | --- | --- |
-| `SKYRIM_MOD_MANAGER` | `mo2` | `mo2` (Mod Organizer 2) or `amethyst` (Amethyst Mod Manager, Linux) |
-| `SKYRIM_MO2_INSTANCE` | — (required with `mo2`) | The Mod Organizer instance folder; the server follows its selected profile |
+| `SKYRIM_MOD_MANAGER` | found by itself | `mo2` (Mod Organizer 2) or `amethyst` (Amethyst Mod Manager, Linux). Unset: Mod Organizer when `SKYRIM_MO2_INSTANCE` is set, else Amethyst when it has Skyrim set up |
+| `SKYRIM_MO2_INSTANCE` | — (required with Mod Organizer) | The Mod Organizer instance folder; the server follows its selected profile |
 | `SKYRIM_WINE_PREFIX` | found by itself for MO2-LINT | Mod Organizer under Proton: the Wine prefix it runs in, to read its ini's Windows paths |
 | `SKYRIM_AMETHYST_DIR` | found by itself | Amethyst's config folder, if it is neither the Flatpak's nor `~/.config`'s |
 | `NEXUS_API_KEY` | none | Your personal Nexus Mods API key; `healthcheck` shows its account. Without it the Nexus tools are not offered; `downloadNexusFile` is offered only when Nexus confirms a premium account |
 | `SKYRIM_PROJECTS_DIR` | `./projects` | Where projects live |
 | `SKYRIM_CK_DIR` | the instance's game folder | The Creation Kit, for its Papyrus compiler and vanilla script sources |
-| `SKYRIM_PAPYRUS_COMPILER` | the Creation Kit's (Windows); none (Linux) | `PapyrusCompiler.exe`, or russo-2025's `papyrus-compiler`, which runs on Linux |
+| `SKYRIM_PAPYRUS_COMPILER` | the Creation Kit's (Windows); on Linux `papyrus-compiler` on `PATH`, else `tools/papyrus-compiler/papyrus` beside the server or in your home folder | `PapyrusCompiler.exe`, or russo-2025's `papyrus-compiler`, which runs on Linux |
 | `SKYRIM_HELPER_PATH` | `helper/bin/SkyrimHelper(.exe)` | The built plugin helper |
 | `MCP_PROFILE` | `all` | `core`, `readonly` or `all` — which tools are listed and callable |
 | `MCP_MAX_RESPONSE_BYTES` | per profile | Ceiling on one answer; `0` removes it |

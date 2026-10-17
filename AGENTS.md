@@ -89,6 +89,12 @@ src/
   handlers/NexusHandlers.ts         searchNexus, readNexusMod, downloadNexusFile
   handlers/ModsHandlers.ts          installMod
   handlers/DocsHandlers.ts, SkillsHandlers.ts   readServerGuide and readSkill
+  setup/main.ts            npm run setup, a second program: prerequisites, the helper, .env, the Papyrus
+                           compiler, script sources, client registration, a healthcheck — asking only
+                           what readConfiguration() cannot find
+  setup/system.ts          setup's own operating-system seam: starting programs, package managers,
+                           Claude Desktop's and Mod Organizer's folders
+  setup/envFile.ts, registration.ts, mo2Instances.ts, compiler.ts   what setup writes and runs
   types/tools.ts           ToolDefinition / ToolProperty / ToolAnnotations — the inputSchema contract
   lib/                     logger, guides, skills, profiles, responseBudget, capabilityGate,
                            instructions, serverInfo, http, toolDocs, env — the template's machinery
@@ -177,6 +183,7 @@ scripts/eval-ollama.mjs          runs fixed modding tasks with a local model thr
 ## Working on this repo
 
 ```bash
+npm run setup          # what a modder runs: install, build, .env, registration, healthcheck
 npm install
 npm run build:helper   # dotnet publish helper/SkyrimHelper -> helper/bin (needs the .NET 10 SDK)
 npm run build          # tsc -> dist/

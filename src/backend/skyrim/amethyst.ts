@@ -44,14 +44,28 @@ export interface AmethystSetup {
  */
 export function findAmethyst(configured: string | undefined, env: NodeJS.ProcessEnv, home = os.homedir()): AmethystSetup {
     const flatpakApp = path.join(home, '.var', 'app', AMETHYST_FLATPAK_ID);
-    const flatpakDir = path.join(flatpakApp, 'config', 'AmethystModManager');
     if (configured) return { configDir: configured, flatpak: configured.startsWith(flatpakApp + path.sep) };
-    const native = path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'AmethystModManager');
-    const candidates: AmethystSetup[] = [{ configDir: flatpakDir, flatpak: true }, { configDir: native, flatpak: false }];
-    return candidates.find(c => fs.existsSync(path.join(c.configDir, 'games', GAME, 'paths.json')))
-        ?? candidates.find(c => fs.existsSync(c.configDir))
-        ?? candidates[0];
+    const candidates = configFolders(env, home);
+    return candidates.find(hasSkyrim) ?? candidates.find(c => fs.existsSync(c.configDir)) ?? candidates[0];
 }
+
+/**
+ * Whether Amethyst has Skyrim set up where it keeps its settings — which makes it the mod manager
+ * when the configuration names none.
+ */
+export function amethystHasSkyrim(env: NodeJS.ProcessEnv, home = os.homedir()): boolean {
+    return configFolders(env, home).some(hasSkyrim);
+}
+
+/** Where Amethyst keeps its settings: the Flatpak's config, then a native install's. */
+function configFolders(env: NodeJS.ProcessEnv, home: string): AmethystSetup[] {
+    return [
+        { configDir: path.join(home, '.var', 'app', AMETHYST_FLATPAK_ID, 'config', 'AmethystModManager'), flatpak: true },
+        { configDir: path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'AmethystModManager'), flatpak: false }
+    ];
+}
+
+const hasSkyrim = (setup: AmethystSetup): boolean => fs.existsSync(path.join(setup.configDir, 'games', GAME, 'paths.json'));
 
 export interface AmethystOptions {
     /** Whether Amethyst's window is open. Replaced in tests; by default, a live connect to its socket. */
@@ -60,6 +74,8 @@ export interface AmethystOptions {
     runCommand?: (executable: string, args: string[]) => Promise<void>;
     home?: string;
     env?: NodeJS.ProcessEnv;
+    /** Why Amethyst is the mod manager, when the configuration did not name it — said in healthcheck's notes. */
+    chosenBecause?: string;
 }
 
 export class AmethystManager implements ModManager {
@@ -263,10 +279,15 @@ export class AmethystManager implements ModManager {
     notes(instance: Instance): string[] {
         const state = readJson(path.join(this.gameConfigDir, 'deploy_state.json'));
         const deployed = state?.deploy_active ? String(state.last_deployed ?? '') : '';
-        return deployed && deployed !== instance.profile
-            ? [`Amethyst has the profile '${deployed}' deployed, not the selected '${instance.profile}': the game runs ` +
-               `'${deployed}' until '${instance.profile}' is deployed.`]
-            : [];
+        return [
+            ...(this.options.chosenBecause
+                ? [`Amethyst is the mod manager because ${this.options.chosenBecause}; SKYRIM_MOD_MANAGER=mo2 chooses Mod Organizer instead.`]
+                : []),
+            ...(deployed && deployed !== instance.profile
+                ? [`Amethyst has the profile '${deployed}' deployed, not the selected '${instance.profile}': the game runs ` +
+                   `'${deployed}' until '${instance.profile}' is deployed.`]
+                : [])
+        ];
     }
 }
 

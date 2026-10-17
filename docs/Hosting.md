@@ -22,19 +22,61 @@ with a diagnosis on stderr rather than on the first tool call.
 stream for every tool at once — so the logger writes to stderr, dotenv is loaded `quiet`, and
 `npm run smoke` fails the build if anything else reaches stdout.
 
+**Setting it up.** `npm run setup` does all of this — installs, builds, writes `.env`, registers
+the server with Claude Code, Claude Desktop and VS Code ([README](../README.md#setup)). By hand,
+the settings go into `.env` in the server's folder, and a client's registration says only how to
+start the server — no settings in it. (A client's `env` block would still win over `.env`.)
+
+The settings, run in the server's folder. With Amethyst there are none: the server finds it. With Mod
+Organizer, its instance folder — on Windows, in PowerShell:
+
+```powershell
+Add-Content .env 'SKYRIM_MO2_INSTANCE=G:\Modding\SkyrimSE-Test' -Encoding utf8
+```
+
+on Linux (Mod Organizer under Proton, §5):
+
+```bash
+echo 'SKYRIM_MO2_INSTANCE=~/Games/mo2-lint/mo2-skyrim_se-steam' >> .env
+```
+
+The Nexus tools want `NEXUS_API_KEY=<your key>` the same way. Then the client — **Claude Code**, for
+every folder (`--scope user`: registered for one folder, a server is missing in all others), run in
+the server's folder. In PowerShell:
+
+```powershell
+claude mcp add --scope user skyrim -- node "$PWD\dist\index.js"
+```
+
+On Linux:
+
+```bash
+claude mcp add --scope user skyrim -- node "$PWD/dist/index.js"
+```
+
+**VS Code**: *MCP: Open User Configuration* from the command palette, then add this — with the path
+to your server's folder:
+
 ```json
 {
-  "mcpServers": {
-    "skyrim": {
-      "command": "node",
-      "args": ["C:/path/to/skyrim-modding-tools-mcp/dist/index.js"],
-      "env": { "SKYRIM_MO2_INSTANCE": "G:/Modding/SkyrimSE-Test" }
-    }
+  "servers": {
+    "skyrim": { "type": "stdio", "command": "node", "args": ["C:/Users/you/skyrim-modding-tools-mcp/dist/index.js"] }
   }
 }
 ```
 
-The client's `env` block wins over `.env`.
+**Claude Desktop**: *Settings → Developer → Edit Config*, then add this — the same path:
+
+```json
+{
+  "mcpServers": {
+    "skyrim": { "command": "node", "args": ["C:/Users/you/skyrim-modding-tools-mcp/dist/index.js"] }
+  }
+}
+```
+
+A JSON file is read by no shell, so `~` does not work in its `args`: on Linux write
+`/home/you/skyrim-modding-tools-mcp/dist/index.js`.
 
 **Paths in settings.** Neither `.env` nor a client's `env` block passes through a shell, so the server
 reads every setting that names a file or folder — `SKYRIM_MO2_INSTANCE`, `SKYRIM_AMETHYST_DIR`,
@@ -142,31 +184,38 @@ be reached from elsewhere, and then put TLS in front of it.
 
 Once, on the machine with the game and Amethyst. Package names are Arch's (CachyOS).
 
-1. **Tools**: `sudo pacman -S nodejs npm dotnet-sdk git git-lfs` — Node 24 or newer, and the .NET 10
-   SDK, which brings ICU; the plugin helper does not start without it.
+1. **Tools**: `sudo pacman -S --needed nodejs npm git` — Node 24 or newer.
 2. **The server**:
    ```bash
-   git clone <repository> ~/skyrim-modding-tools-mcp && cd ~/skyrim-modding-tools-mcp
-   npm install && npm run build:helper && npm run build && npm run check:helper
+   git clone https://github.com/Ciltress/skyrim-modding-tools-mcp ~/skyrim-modding-tools-mcp
+   cd ~/skyrim-modding-tools-mcp && npm run setup
    ```
+   Setup installs the .NET 10 SDK (which brings ICU; the plugin helper does not start without it) and
+   git-lfs through pacman after a yes, builds everything, offers the Papyrus compiler (step 4), says
+   what step 3 needs, and registers the server (step 5). By hand: `sudo pacman -S dotnet-sdk git-lfs`,
+   then `npm install && npm run build:helper && npm run build && npm run check:helper`.
 3. **Vanilla script sources**, for projects with Papyrus scripts: install *Skyrim Special Edition:
    Creation Kit* in Steam, which puts `Scripts.zip` into the game's `Data`. With nothing deployed in
    Amethyst (Restore), unpack it there: `cd "<game>/Data" && unzip -n Scripts.zip`. Unpacked while a
    profile is deployed, Amethyst would count the files as the game's runtime output and move them to
    its overwrite folder at the next restore.
-4. **A Papyrus compiler**: the Creation Kit's is a Windows program. Unpack
-   `papyrus-compiler-ubuntu.tar.gz` from [russo-2025/papyrus-compiler](https://github.com/russo-2025/papyrus-compiler/releases)
-   — say to `~/tools/papyrus-compiler` — and name its executable in `SKYRIM_PAPYRUS_COMPILER`. In rare
-   cases its output differs from the Creation Kit's byte for byte, not in behaviour
-   ([research](research/2026-10-15-linux-mo2-and-platform.md) §7).
-5. **The client** — Claude Code, for one:
+4. **A Papyrus compiler**: the Creation Kit's is a Windows program. Setup downloads
+   [russo-2025's](https://github.com/russo-2025/papyrus-compiler/releases) into the server's `tools`
+   folder, where the server looks for it — after `papyrus-compiler` on `PATH`, and before
+   `~/tools/papyrus-compiler/papyrus`. By hand, in the server's folder:
    ```bash
-   claude mcp add skyrim -e SKYRIM_MOD_MANAGER=amethyst \
-     -e SKYRIM_PAPYRUS_COMPILER=$HOME/tools/papyrus-compiler/papyrus-compiler \
-     -- node $HOME/skyrim-modding-tools-mcp/dist/index.js
+   mkdir -p tools && curl -L https://github.com/russo-2025/papyrus-compiler/releases/download/2026.03.15/papyrus-compiler-ubuntu.tar.gz | tar -xz -C tools
    ```
+   `SKYRIM_PAPYRUS_COMPILER` names one anywhere else. In rare cases its output differs from the
+   Creation Kit's byte for byte, not in behaviour ([research](research/2026-10-15-linux-mo2-and-platform.md) §7).
+5. **The client**: setup registers it. By hand — no settings, Amethyst is found by itself:
+   ```bash
+   claude mcp add --scope user skyrim -- node ~/skyrim-modding-tools-mcp/dist/index.js
+   ```
+   VS Code and Claude Desktop: §1.1.
 
-The server finds Amethyst's settings by itself — the Flatpak's under
+The server finds Amethyst by itself — no `SKYRIM_MOD_MANAGER` when Amethyst has Skyrim set up — and its
+settings: the Flatpak's under
 `~/.var/app/io.github.Amethyst.ModManager/config/AmethystModManager`, a native install's under
 `~/.config/AmethystModManager` (`SKYRIM_AMETHYST_DIR` for anywhere else) — and follows the profile
 selected in Amethyst. `healthcheck` shows what it found.
@@ -219,14 +268,14 @@ setting. Claude Code pointed at Ollama loads every tool up front; `MCP_PROFILE=c
 nobody has run it on a real setup yet, and `healthcheck` says so in its `notes`.
 
 Steps 1–4 of §4 apply as they stand: the tools, the server, the vanilla script sources (Mod Organizer
-leaves the game's `Data` alone, so unpack `Scripts.zip` there at any time), and a Papyrus compiler.
-Then the client, with the instance folder as Linux spells it:
+leaves the game's `Data` alone, so setup unpacks `Scripts.zip` there after a yes), and a Papyrus
+compiler. Setup asks for the instance folder, as Linux spells it; or name it at once:
 
 ```bash
-claude mcp add skyrim -e SKYRIM_MO2_INSTANCE="$HOME/Games/mo2-lint/mo2-skyrim_se-steam" \
-  -e SKYRIM_PAPYRUS_COMPILER=$HOME/tools/papyrus-compiler/papyrus-compiler \
-  -- node $HOME/skyrim-modding-tools-mcp/dist/index.js
+npm run setup -- --instance ~/Games/mo2-lint/mo2-skyrim_se-steam
 ```
+
+By hand: the instance into `.env` and the registration without settings, as §1.1 shows.
 
 **The Wine prefix.** Mod Organizer writes Windows paths into `ModOrganizer.ini` — `Z:\home\…`, or
 `D:\…` for a second drive. The server follows each drive letter's link in the `dosdevices` folder of

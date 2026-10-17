@@ -60,7 +60,11 @@ function environmentVariablesReadBySource(): Set<string> {
 const DELIBERATELY_UNDECLARED: string[] = [
     // Not this server's settings: the system's and Amethyst's own, read only to find Amethyst's files
     // exactly where Amethyst looks for them (src/backend/skyrim/amethyst.ts).
-    'XDG_CONFIG_HOME', 'XDG_RUNTIME_DIR', 'MOD_MANAGER_PROFILES_DIR'
+    'XDG_CONFIG_HOME', 'XDG_RUNTIME_DIR', 'MOD_MANAGER_PROFILES_DIR',
+    // The system's search path, where a Papyrus compiler is looked for on Linux.
+    'PATH',
+    // Windows' own folders, read only by npm run setup (src/setup) to find Claude Desktop's and Mod Organizer's files.
+    'APPDATA', 'LOCALAPPDATA'
 ];
 
 describe('server.json', () => {

@@ -16,7 +16,7 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from 'node:http';
-import { createBackend, isPermanent, missingEnv } from './backend/index.js';
+import { createBackend, explainMissingEnv, isPermanent, missingEnv } from './backend/index.js';
 import type { AppBackend, HealthReport } from './backend/index.js';
 import { createHandlers } from './handlers/index.js';
 import type { BaseHandler } from './handlers/index.js';
@@ -133,7 +133,7 @@ export class AppServer extends Server {
     // loudly, rather than on the first tool call.
     const missing = missingEnv(env);
     if (missing.length > 0) {
-      throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+      throw new Error(`Missing required environment variables: ${missing.join(', ')}. ${explainMissingEnv(missing)}`);
     }
     const profile = resolveProfile(env);
     const responseBudget = resolveResponseBudget(profile, env);

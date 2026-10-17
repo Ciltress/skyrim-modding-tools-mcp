@@ -32,6 +32,11 @@ export interface Platform {
     /** Why the Creation Kit's compiler cannot run right now, or undefined when it can. */
     creationKitCompilerProblem(): Promise<string | undefined>;
     /**
+     * Where a Papyrus compiler is looked for, in order, when SKYRIM_PAPYRUS_COMPILER names none — only on a
+     * system with no Creation Kit compiler of its own; the first that exists at build time is used.
+     */
+    papyrusCompilerCandidates(pathVariable: string | undefined, home: string, serverDir: string): string[];
+    /**
      * How this system opens the paths a Windows program wrote — Mod Organizer into its ini — given the
      * Wine prefix it runs in, if one is known. Undefined for a path on a drive this system cannot find.
      */
@@ -101,6 +106,11 @@ export function windowsPlatform(): Platform {
                 ? undefined
                 : `The Creation Kit's Papyrus compiler needs .NET Framework 3.5, which is not installed. Turn it on in ` +
                   `Windows Features (".NET Framework 3.5 (includes .NET 2.0 and 3.0)"), then build again.`;
+        },
+
+        // The Creation Kit's compiler is the one Bethesda ships: another is used only when named.
+        papyrusCompilerCandidates() {
+            return [];
         },
 
         windowsPaths() {
@@ -176,8 +186,20 @@ export function linuxPlatform(procRoot = '/proc', drives: WineDrives = dosDevice
         },
 
         async creationKitCompilerProblem() {
-            return `The Creation Kit's Papyrus compiler is a Windows program. On Linux, set SKYRIM_PAPYRUS_COMPILER to ` +
-                `russo-2025's papyrus-compiler (https://github.com/russo-2025/papyrus-compiler/releases).`;
+            return `The Creation Kit's Papyrus compiler is a Windows program, and no other was found — not papyrus-compiler ` +
+                `on PATH, nor tools/papyrus-compiler/papyrus beside the server or in your home folder. Unpack russo-2025's ` +
+                `papyrus-compiler-ubuntu.tar.gz (https://github.com/russo-2025/papyrus-compiler/releases) into the server's ` +
+                `tools folder, or set SKYRIM_PAPYRUS_COMPILER to its papyrus.`;
+        },
+
+        // A packaged install's name on PATH, then where russo-2025's tarball puts its executable when it is
+        // unpacked into a tools folder: the server's, as the docs say, or the home folder's, as they said before.
+        papyrusCompilerCandidates(pathVariable, home, serverDir) {
+            return [
+                ...String(pathVariable ?? '').split(path.posix.delimiter).filter(Boolean).map(dir => path.posix.join(dir, 'papyrus-compiler')),
+                path.posix.join(serverDir, 'tools', 'papyrus-compiler', 'papyrus'),
+                path.posix.join(home, 'tools', 'papyrus-compiler', 'papyrus')
+            ];
         },
 
         // Mod Organizer reads `\` and `/` alike; a path with no drive letter is one of this system's already.

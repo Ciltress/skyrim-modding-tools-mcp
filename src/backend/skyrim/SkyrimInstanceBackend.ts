@@ -343,6 +343,7 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         const compiled = await compileScripts({
             platform: this.engine.platform,
             compiler: this.engine.papyrusCompiler,
+            searched: this.engine.papyrusCompilerCandidates,
             creationKitDir: this.engine.creationKitDir,
             scriptsDir: paths.scripts,
             outputDir: path.join(paths.build, 'Scripts'),
