@@ -21,6 +21,7 @@ one, at any depth; every directory containing a `SKILL.md` is one skill, and eve
 | `magic` | Spells, magic effects, enchantments, scrolls, shouts, how perks reach magic | `REFERENCE.md` |
 | `npcs` | NPCs, templates, FaceGen, outfits, factions, AI packages, followers | `REFERENCE.md` |
 | `leveled-lists` | Leveled items, NPCs and spells: how a pick works, the conflict problem | `REFERENCE.md` |
+| `game-versions` | Mods whose SKSE plugins do not fit the game version: checking, a fitting file or disabling, saves | `REFERENCE.md` (game versions, SKSE builds, the rules) |
 
 Each `SKILL.md` stays short and points at its `REFERENCE.md`, where the record family's fields,
 gotchas, real project text and typical bugs live. The `SKILL.md` of items, magic and NPCs holds one

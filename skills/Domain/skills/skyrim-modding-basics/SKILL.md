@@ -88,3 +88,4 @@ there before installing a mod or a requirement twice.
   Creation Kit's role.
 - [`TOOLS.md`](TOOLS.md) — the community's tools, what each is for, and when to send the user to one.
 - Record families, one skill each: `items-and-crafting`, `magic`, `npcs`, `leveled-lists`.
+- `game-versions` — mods whose SKSE plugins do not fit the game: finding them, and fixing each.

@@ -209,6 +209,8 @@ profile, and moves the game's own files to `Data_Core` meanwhile.
 - **Plugins and scripts survive game updates.** Only the header version and new vanilla records tie a
   plugin to a game version.
 - GOG and Steam builds of the same version differ for SKSE: they need different SKSE builds.
+- Mods that do not fit the installed version — found with `checkGameVersion`, fixed one by one — are
+  the `game-versions` skill's work.
 
 ## Papyrus and saves
 

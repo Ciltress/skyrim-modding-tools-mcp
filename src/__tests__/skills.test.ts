@@ -79,6 +79,9 @@ describe('resolveSkill', () => {
         expect(named('follower')).toBe('npcs');
         // leveled-lists names spell lists too, but magic leads with spells.
         expect(named('spell')).toBe('magic');
+        // skyrim-modding-basics names SKSE too, but game-versions leads with it.
+        expect(named('skse')).toBe('game-versions');
+        expect(named('game version')).toBe('game-versions');
     });
 
     it('answers nothing for a word no skill has', () => {

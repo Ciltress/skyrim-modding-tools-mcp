@@ -126,7 +126,7 @@ describe('judging a game\'s SKSE plugins', () => {
                 plugins: [{ dll: 'Old.dll', mod: 'Old' }, { dll: 'OldToo.dll', mod: 'OldToo' }]
             }
         ]);
-        expect(judged.nextStep).toMatch(/readNexusMod.*installMod.*replace.*ask the user/);
+        expect(judged.nextStep).toMatch(/skill game-versions.*readNexusMod.*installMod.*replace.*ask the user.*disableMod/);
     });
 
     it('takes SKSE\'s log of the last start as the fact for what it says, when it is this game\'s and the plugin is unchanged since', () => {
