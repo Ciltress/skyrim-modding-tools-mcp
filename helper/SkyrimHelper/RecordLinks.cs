@@ -60,7 +60,7 @@ public static class RecordLinks
             }
             catch (YamlException e)
             {
-                problems.Add($"{relative}: {YamlBreak(text, e)}");
+                problems.Add($"{relative}: {YamlBreak(text, e, type)}");
                 continue;
             }
             if (yaml.Documents.Count == 0 || yaml.Documents[0].RootNode is not YamlMappingNode root) continue;
@@ -181,21 +181,29 @@ public static class RecordLinks
     /// give every line a `Field: value`, e4b rewrote a note five times with its paragraphs still at the
     /// margin, where they end the text and are read as fields (eval round 16).
     /// </summary>
-    private static string YamlBreak(string text, YamlException e)
+    private static string YamlBreak(string text, YamlException e, Type type)
     {
         var lines = text.Replace("\r\n", "\n").Split('\n');
         var at = (int)e.Start.Line;
         var where = at >= 1 && at <= lines.Length ? $"line {at}, `{lines[at - 1].Trim()}`" : $"line {at}";
         if (TextLeft(lines, at) is { } block)
         {
+            // Told only to indent the text, e4b indented the fields after it too, then put both back at the margin,
+            // four times (eval round 20): what stays as it is, said with what moves.
+            var fields = RecordFiles.FieldsOf(type);
+            var next = Array.FindIndex(lines, at, line => MarginField.Match(line) is { Success: true } m && fields.Contains(m.Groups["key"].Value));
             return $"the YAML breaks at {where}: the line is part of the text under `{block.Header}` (line {block.Line}), but a text " +
                 $"ends at the first line indented less than its own first line, and the rest is read as fields. Indent every line of " +
                 $"the text by {block.Indent} spaces, as readRecord shows a text — `{new string(' ', block.Indent)}{lines[at - 1].Trim()}`; " +
-                "an empty line may stay empty";
+                "an empty line may stay empty" +
+                (next >= 0 ? $"; the record's fields after the text, from `{lines[next].Trim()}` (line {next + 1}) on, stay at the margin" : "");
         }
         var reason = Regex.Replace(e.Message, @"^\(Line:[^)]*\)( - \(Line:[^)]*\))?:\s*", "").Trim();
         return $"the YAML breaks at {where}: {reason} Indent a field's own fields by two spaces below it, and give every other line a `Field: value`";
     }
+
+    /// <summary>A field of the record at the margin, `Key: value` or `Key:`, as Spriggit writes one.</summary>
+    private static readonly Regex MarginField = new(@"^(?<key>[A-Z][A-Za-z0-9]*):(?: |$)", RegexOptions.None, TimeSpan.FromSeconds(5));
 
     /// <summary>A file's path: folders apart by a slash, or a file's extension at the end.</summary>
     private static readonly Regex FilePath = new(@"[\\/]|\.(nif|dds|tga|wav|xwm|fuz|hkx|pex|psc|swf)$", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(5));
@@ -239,7 +247,7 @@ public static class RecordLinks
                 return $"the text under `{lines[i].Trim()}` (line {i + 1}) runs on into `{lines[j].Trim()}` (line {j + 1}) — the " +
                     $"{Kind(type)}'s field {key}, indented into the text, so the record would have no {key} and the text would " +
                     $"end with it. The text ends before line {j + 1}: write that line and the field lines after it at the margin, " +
-                    "as readRecord shows them";
+                    $"as readRecord shows them; the text's own lines, above line {j + 1}, keep their spaces";
             }
         }
         return null;
