@@ -7,15 +7,19 @@
  *   node scripts/eval-ollama.mjs [--model gemma4:26b] [--profile all] [--runs 3] [--tasks find,read]
  *                                [--ctx 131072] [--max-turns 25] [--think true|false] [--out <file>]
  *                                [--with-skills] [--detailed] [--ollama http://localhost:11434]
- *                                [--client ollama|claude-code] [--claude <exe>] [--settle 60]
+ *                                [--client ollama|openclaw] [--openclaw <openclaw.mjs>]
+ *                                [--openclaw-config <openclaw.json>] [--openclaw-agent skyrim] [--settle 60]
  *
  * Before the first task the model is loaded with a short "hi", so no task's time includes the load;
  * when it was not loaded yet (a switch from another model), --settle seconds pass before the tasks.
  *
- * --client claude-code runs every task through Claude Code itself, headless, with the model served by
- * Ollama (scripts/eval-claude-code.mjs) instead of this script's own loop: what a user of the VS Code
- * extension with a local model gets, its large system prompt included. `+skill` runs are left out —
- * there is no way to put a skill's call into its session before the first turn.
+ * --client openclaw runs every task through OpenClaw itself, headless, with the model served by Ollama
+ * (scripts/eval-openclaw.mjs) instead of this script's own loop: what a user of OpenClaw with a local
+ * model gets, on their own OpenClaw configuration and agent (--openclaw-agent, else `skyrim`, else the
+ * only one) — its system prompt, its tools, Tool Search, its thinking level and context. --ctx and
+ * --think are then OpenClaw's (--think true|false|<level> passes
+ * a thinking level for the run). `+skill` runs are left out — there is no way to put a skill's call
+ * into its session before the first turn.
  *
  * --with-skills runs each authoring task again as `<task>+skill`, the conversation starting with the
  * task's skill already read — a readSkill call the harness makes and puts in as the model's, left out of
@@ -48,7 +52,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { claudeCodeBinary, runClaudeCode, startProxy, writeSessionConfig } from './eval-claude-code.mjs';
+import { openClawConfigFile, openClawEntry, openClawVersion, runOpenClaw, startProxy, writeSessionConfig } from './eval-openclaw.mjs';
 import { leftEscape, translatedValue } from './eval-yaml.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -68,14 +72,16 @@ const { values: opt } = parseArgs({
         detailed: { type: 'boolean', default: false },
         ollama: { type: 'string', default: process.env.OLLAMA_HOST || 'localhost' },
         client: { type: 'string', default: 'ollama' },
-        claude: { type: 'string' }
+        openclaw: { type: 'string' },
+        'openclaw-config': { type: 'string' },
+        'openclaw-agent': { type: 'string' }
     }
 });
-if (!['ollama', 'claude-code'].includes(opt.client)) {
-    console.error(`eval: --client is ollama or claude-code, not '${opt.client}'.`);
+if (!['ollama', 'openclaw'].includes(opt.client)) {
+    console.error(`eval: --client is ollama or openclaw, not '${opt.client}'.`);
     process.exit(1);
 }
-const CLAUDE_CODE = opt.client === 'claude-code';
+const OPENCLAW = opt.client === 'openclaw';
 
 /**
  * OLLAMA_HOST is often the address Ollama binds to — `0.0.0.0`, no scheme, no port — so it is read
@@ -94,6 +100,9 @@ const MAX_TURNS = Number(opt['max-turns']);
 const SETTLE_SECONDS = Number(opt.settle);
 const OLLAMA = ollamaUrl(opt.ollama);
 const THINK = opt.think === undefined ? undefined : opt.think === 'true';
+/** The thinking level an OpenClaw run is given: --think true|false as OpenClaw's levels, any other as written. */
+const OPENCLAW_THINKING = opt.think === undefined ? undefined
+    : opt.think === 'true' ? 'medium' : opt.think === 'false' ? 'off' : opt.think;
 /** One model turn may take minutes when the model does not fit the GPU. */
 const TURN_TIMEOUT_MS = 20 * 60_000;
 
@@ -133,10 +142,33 @@ if (!tags.models.some(m => m.name === opt.model || m.model === opt.model)) {
 const projectsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-eval-projects-'));
 const serverLog = outFile.replace(/\.json$/, '.server.log');
 const logStream = fs.createWriteStream(serverLog);
-/** What the server is started with, here and — with --client claude-code — by Claude Code. */
+/** What the server is started with, here and — with --client openclaw — by OpenClaw. */
 const serverEnv = {
     MCP_TRANSPORT: 'stdio', MCP_PROFILE: opt.profile, SKYRIM_PROJECTS_DIR: projectsDir
 };
+
+// OpenClaw: its entry script, the proxy in front of Ollama, and the session's configuration.
+const openClaw = OPENCLAW ? await (async () => {
+    const entry = openClawEntry(opt.openclaw)
+        ?? fail('OpenClaw was not found: install it (npm install -g openclaw), or pass --openclaw <path to openclaw.mjs>.');
+    let version;
+    try { version = openClawVersion(entry); } catch (error) { fail(`OpenClaw did not start (${entry}): ${error.message}`); }
+    const configFile = openClawConfigFile(opt['openclaw-config']);
+    if (!fs.existsSync(configFile)) fail(`OpenClaw's configuration ${configFile} does not exist: run openclaw onboard, or pass --openclaw-config.`);
+    const proxy = await startProxy(OLLAMA);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-eval-openclaw-'));
+    let session;
+    try {
+        session = writeSessionConfig({
+            dir, configFile, proxyUrl: proxy.url, model: opt.model, root, serverEnv, projectsDir, agent: opt['openclaw-agent']
+        });
+    } catch (error) {
+        fail(error.message);
+    }
+    return { entry, version, configFile, proxy, dir, ...session };
+})() : undefined;
+/** The context the tasks run at: --ctx, or what OpenClaw asks Ollama for (nothing: Ollama's default). */
+const CTX = OPENCLAW ? openClaw.numCtx : NUM_CTX;
 
 const transport = new StdioClientTransport({
     command: process.execPath,
@@ -190,7 +222,12 @@ async function weapon(editorId) {
     return { formId: read.formId, editorId, damage: stat(yaml, 'Damage'), weight: stat(yaml, 'Weight') };
 }
 
-console.log(`eval: ${opt.model} @ num_ctx ${NUM_CTX}, profile ${opt.profile}, ${RUNS} run(s) per task`);
+console.log(`eval: ${opt.model} @ num_ctx ${CTX ?? 'Ollama default'}, profile ${opt.profile}, ${RUNS} run(s) per task`);
+if (OPENCLAW) {
+    console.log(`eval: through ${openClaw.version} (${openClaw.entry}), on the configuration ${openClaw.configFile}` +
+        `${openClaw.agentId ? `, agent '${openClaw.agentId}'` : ''}` +
+        (openClaw.copiedFrom ? ` — ${opt.model} with the settings of its entry for ${openClaw.copiedFrom}` : ''));
+}
 console.log('eval: reading the ground truth from the instance (the first lookup builds the index)…');
 const truth = {
     ironSword: await weapon('IronSword'),
@@ -529,10 +566,10 @@ const unknownTasks = wanted.filter(id => !TASKS.some(t => t.id === id));
 if (unknownTasks.length) fail(`unknown task(s) ${unknownTasks.join(', ')}; the tasks are ${TASKS.map(t => t.id).join(', ')}.`);
 const tasks = TASKS.filter(t => wanted.includes(t.id)).flatMap(t => [
     t,
-    ...opt['with-skills'] && t.skill && !CLAUDE_CODE ? [{ ...t, id: `${t.id}+skill`, preread: t.skill }] : [],
+    ...opt['with-skills'] && t.skill && !OPENCLAW ? [{ ...t, id: `${t.id}+skill`, preread: t.skill }] : [],
     ...opt.detailed && t.detailed ? [{ ...t, id: `${t.id}+detailed`, prompt: t.detailed }] : []
 ]);
-if (opt['with-skills'] && CLAUDE_CODE) console.log('eval: --with-skills is left out with --client claude-code.');
+if (opt['with-skills'] && OPENCLAW) console.log('eval: --with-skills is left out with --client openclaw.');
 
 // --- The agent loop -----------------------------------------------------------------------------
 
@@ -652,13 +689,13 @@ async function runTask(task, run) {
     return resultOf(task, run, { answer, calls, stop, turns, started, historyBytes: Buffer.byteLength(JSON.stringify(messages)) });
 }
 
-/** One task through Claude Code, with the model behind the proxy. */
-async function runTaskClaudeCode(task, run) {
+/** One task through OpenClaw, with the model behind the proxy. */
+async function runTaskOpenClaw(task, run) {
     emptyProjects();
     const started = Date.now();
-    const session = await runClaudeCode({
-        binary: claudeBinary, prompt: task.prompt, model: opt.model, cwd: projectsDir, config: claudeConfig,
-        proxy, serverToolNames, maxTurns: MAX_TURNS, timeoutMs: TURN_TIMEOUT_MS
+    const session = await runOpenClaw({
+        entry: openClaw.entry, prompt: task.prompt, model: opt.model, cwd: projectsDir, configFile: openClaw.file,
+        proxy: openClaw.proxy, serverToolNames, maxTurns: MAX_TURNS, timeoutMs: TURN_TIMEOUT_MS, thinking: OPENCLAW_THINKING
     });
     return resultOf(task, run, { ...session, turns: session.turnStats, started, historyBytes: null });
 }
@@ -707,32 +744,20 @@ const toolListBytes = Buffer.byteLength(JSON.stringify(ollamaTools));
 console.log(`eval: ${serverTools.length} server tools + ${FILE_TOOLS.length} file tools, ${toolListBytes} bytes of tool schemas; ` +
     `instructions ${instructions.length} chars`);
 
-// Claude Code: its binary, the proxy in front of Ollama, and the session's settings and MCP configuration.
-const claudeBinary = CLAUDE_CODE ? claudeCodeBinary(opt.claude) : undefined;
-const claudeVersion = CLAUDE_CODE
-    ? (() => { try { return execFileSync(claudeBinary, ['--version'], { encoding: 'utf8' }).trim(); } catch (e) { fail(`Claude Code did not start (${claudeBinary}): ${e.message}`); } })()
-    : undefined;
-const proxy = CLAUDE_CODE ? await startProxy(OLLAMA) : undefined;
-const claudeDir = CLAUDE_CODE ? fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-eval-claude-')) : undefined;
-const claudeConfig = CLAUDE_CODE
-    ? writeSessionConfig({ dir: claudeDir, proxyUrl: proxy.url, model: opt.model, root, serverEnv })
-    : undefined;
-if (CLAUDE_CODE) console.log(`eval: through ${claudeVersion} (${claudeBinary})`);
-
 /**
  * Loads the model before the first task, with a short "hi" at the context the tasks use, so no task's
- * time includes the load. Claude Code sends no context size, so for it the warm-up sends none either:
+ * time includes the load. When OpenClaw asks for no context size, the warm-up sends none either:
  * Ollama's default is then what both use. A model that was not loaded yet — a switch from another —
  * is given --settle seconds more before the tasks start.
  */
 async function warmUp() {
     const resident = (await ollama('/api/ps').catch(() => ({ models: [] }))).models
-        .some(m => (m.name === opt.model || m.model === opt.model) && (CLAUDE_CODE || m.context_length === NUM_CTX));
+        .some(m => (m.name === opt.model || m.model === opt.model) && (CTX === undefined || m.context_length === CTX));
     const started = Date.now();
     await ollama('/api/chat', {
         model: opt.model, stream: false, think: false,
         messages: [{ role: 'user', content: 'hi' }],
-        options: CLAUDE_CODE ? { num_predict: 16 } : { num_ctx: NUM_CTX, num_predict: 16 }
+        options: { ...(CTX === undefined ? {} : { num_ctx: CTX }), num_predict: 16 }
     });
     const seconds = Math.round((Date.now() - started) / 100) / 10;
     console.log(`eval: warm-up "hi" answered in ${seconds} s${resident ? ' (the model was loaded already)' : ''}`);
@@ -747,7 +772,7 @@ const warmup = await warmUp().catch(error => fail(`the warm-up failed: ${error.m
 try {
     for (const task of tasks) {
         for (let run = 1; run <= RUNS; run++) {
-            const result = CLAUDE_CODE ? await runTaskClaudeCode(task, run) : await runTask(task, run);
+            const result = OPENCLAW ? await runTaskOpenClaw(task, run) : await runTask(task, run);
             results.push(result);
             const failed = Object.entries(result.checks).filter(([, ok]) => !ok).map(([name]) => name);
             console.log(`  ${task.id} #${run}: ${result.success ? 'PASS' : 'FAIL'} — ${result.stop}, ${result.turns} turns, ` +
@@ -757,9 +782,9 @@ try {
     }
 } finally {
     await client.close().catch(() => { });
-    proxy?.close();
+    openClaw?.proxy.close();
     fs.rmSync(projectsDir, { recursive: true, force: true });
-    if (claudeDir) fs.rmSync(claudeDir, { recursive: true, force: true });
+    if (openClaw) fs.rmSync(openClaw.dir, { recursive: true, force: true });
 }
 
 const loaded = await ollama('/api/ps').catch(() => ({ models: [] }));
@@ -777,7 +802,7 @@ async function measureSpeed() {
         const reply = await ollama('/api/generate', {
             model: opt.model, stream: false, think: false,
             prompt: `Run ${Date.now()}-${i}.\n\n${doc}\n\nSummarise the document above in about 250 words.`,
-            options: { num_ctx: NUM_CTX, num_predict: 300, seed: i }
+            options: { ...(CTX === undefined ? {} : { num_ctx: CTX }), num_predict: 300, seed: i }
         });
         samples.push({
             promptTokens: reply.prompt_eval_count,
@@ -811,13 +836,19 @@ function measuredBuild() {
 const allTurns = results.flatMap(r => r.turnStats);
 // The session's first turn loads the model; it says nothing about a turn's cost.
 const laterTurns = allTurns.slice(1);
-/** Claude Code's side of a run: what its first prompt carried, and answers that did not end. */
-const claudeSummary = CLAUDE_CODE ? (() => {
+/**
+ * OpenClaw's side of a run: what its first prompt carried — its tools, whether this server's were
+ * among them or behind Tool Search, the thinking and context it asked for — and answers that did not end.
+ */
+const openClawSummary = OPENCLAW ? (() => {
     const firsts = results.map(r => r.turnStats[0]).filter(Boolean);
     const firstTokens = firsts.map(t => t.firstTokenSeconds).filter(s => s !== null).sort((a, b) => a - b);
     return {
-        version: claudeVersion,
-        binary: claudeBinary,
+        version: openClaw.version,
+        entry: openClaw.entry,
+        config: openClaw.configFile,
+        ...(openClaw.agentId ? { agent: openClaw.agentId } : {}),
+        ...(openClaw.copiedFrom ? { modelSettingsFrom: openClaw.copiedFrom } : {}),
         firstPrompt: results.find(r => r.client?.firstPrompt)?.client.firstPrompt ?? null,
         firstPromptTokens: Math.max(0, ...firsts.map(t => t.promptTokens)),
         medianFirstTokenSeconds: firstTokens.length ? firstTokens[Math.floor(firstTokens.length / 2)] : null,
@@ -825,15 +856,16 @@ const claudeSummary = CLAUDE_CODE ? (() => {
         sideRequests: results.reduce((sum, r) => sum + (r.client?.sideRequests.length ?? 0), 0)
     };
 })() : undefined;
+const openClawFirst = openClawSummary?.firstPrompt;
 
 const report = {
     model: opt.model,
     profile: opt.profile,
-    client: CLAUDE_CODE ? 'claude-code' : 'ollama',
-    ...(claudeSummary ? { claudeCode: claudeSummary } : {}),
+    client: OPENCLAW ? 'openclaw' : 'ollama',
+    ...(openClawSummary ? { openClaw: openClawSummary } : {}),
     warmup,
-    numCtx: CLAUDE_CODE ? (loaded.models.find(m => m.name === opt.model)?.context_length ?? 'Ollama default') : NUM_CTX,
-    think: CLAUDE_CODE ? "Claude Code's (adaptive)" : THINK ?? 'model default',
+    numCtx: OPENCLAW ? (openClawFirst?.numCtx ?? 'Ollama default') : NUM_CTX,
+    think: OPENCLAW ? String(openClawFirst?.think ?? "OpenClaw's default") : THINK ?? 'model default',
     runs: RUNS,
     when: new Date().toISOString(),
     build: measuredBuild(),
@@ -874,17 +906,20 @@ if (report.ollama) console.log(`eval: Ollama ran it with context ${report.ollama
 const rate = value => value === undefined ? '?' : `~${value.toLocaleString('en-US')} tokens/s`;
 if (speed) console.log(`eval: prompt ${rate(speed.promptPerSecond)} (${speed.promptTokens} tokens), generation ${rate(speed.generationPerSecond)}`);
 
-// The entry for docs/research/local-model-evals.md, where every round is recorded. The Claude Code
+// The entry for docs/research/local-model-evals.md, where every round is recorded. The OpenClaw
 // client is named beside the profile, so rows that measured it stand out.
-const setup = [`\`${report.profile}\``, ...(CLAUDE_CODE ? ['Claude Code'] : [])].join(', ');
+const setup = [`\`${report.profile}\``, ...(OPENCLAW ? ['OpenClaw'] : [])].join(', ');
+const openClawTools = !openClawFirst ? '? tools'
+    : openClawFirst.toolSearch ? `${openClawFirst.tools} tools, this server's behind Tool Search`
+        : `${openClawFirst.tools} tools, ${openClawFirst.serverToolsListed} of them this server's`;
 const entry = [
     `| ${report.when.slice(0, 10)} | ${report.model} | ${setup} | ${report.build} | ${passed}/${results.length} | ` +
     `${report.secondsPerTurn ?? '?'} s | ${rate(speed?.promptPerSecond)} | ${rate(speed?.generationPerSecond)} | ${onGpu} |`,
     '',
-    ...(claudeSummary ? [
-        `Through ${claudeSummary.version}: first prompt ${claudeSummary.firstPromptTokens} tokens ` +
-        `(${claudeSummary.firstPrompt?.tools ?? '?'} tools), first token after ${claudeSummary.medianFirstTokenSeconds ?? '?'} s ` +
-        `(median of the first turns), ${claudeSummary.cutAnswers} answers cut off, ${claudeSummary.sideRequests} side requests.`,
+    ...(openClawSummary ? [
+        `Through ${openClawSummary.version}: first prompt ${openClawSummary.firstPromptTokens} tokens (${openClawTools}), ` +
+        `think ${report.think}, num_ctx ${report.numCtx}, first token after ${openClawSummary.medianFirstTokenSeconds ?? '?'} s ` +
+        `(median of the first turns), ${openClawSummary.cutAnswers} answers cut off, ${openClawSummary.sideRequests} side requests.`,
         ''
     ] : []),
     '| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |',
@@ -893,4 +928,4 @@ const entry = [
         `${s.maxPromptTokens} | ${s.seconds} |`)
 ].join('\n');
 fs.writeFileSync(outFile.replace(/\.json$/, '.md'), `${entry}\n`);
-console.log(`\neval: the entry for docs/research/local-model-evals.md (num_ctx ${NUM_CTX}, think ${report.think}):\n\n${entry}`);
+console.log(`\neval: the entry for docs/research/local-model-evals.md (num_ctx ${report.numCtx}, think ${report.think}):\n\n${entry}`);

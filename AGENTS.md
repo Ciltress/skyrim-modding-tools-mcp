@@ -114,6 +114,7 @@ scripts/generate-tool-docs.mjs   writes docs/Tool-Reference.md; run after changi
 scripts/smoke.mjs                drives the built server over stdio; fails on anything but frames on stdout
 scripts/check-helper.mjs         starts the built helper and checks it answers; CI runs it on both systems
 scripts/eval-ollama.mjs          runs fixed modding tasks with a local model through Ollama and scores them
+scripts/eval-openclaw.mjs        the same tasks through OpenClaw on the user's own configuration (--client openclaw)
 ```
 
 ## Conventions that matter

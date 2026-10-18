@@ -21,15 +21,21 @@ and what the transcripts showed.
 
 Before the first task the script loads the model with a short "hi" at the round's context, so no task
 pays for the load; a model that was not loaded yet (a switch) gets `--settle` seconds more (60).
-`--client claude-code` runs the same tasks through Claude Code itself, headless, with the model behind
-a logging proxy in front of Ollama ([`scripts/eval-claude-code.mjs`](../../scripts/eval-claude-code.mjs)):
-the client a VS Code user with a local model has, its own system prompt and tools included, set up as
-the lean workspace below. Its entry adds a line: the first prompt's tokens and tools, the time to the
-first token, answers cut off, side requests. Its seconds include each session's start, where the
-server builds its record index again. `+skill` runs are left out there.
+`--client openclaw` runs the same tasks through OpenClaw itself, headless (`openclaw agent exec`), with
+the model behind a logging proxy in front of Ollama ([`scripts/eval-openclaw.mjs`](../../scripts/eval-openclaw.mjs)):
+the client the user chats through, on their own OpenClaw configuration (`~/.openclaw/openclaw.json`,
+or `--openclaw-config`) — its system prompt and tools, Tool Search, the thinking level and the context
+it asks Ollama for. The eval changes only what a measurement needs: this server alone, on a fresh
+projects folder, without `deployProject`, `installMod` and `downloadNexusFile`; OpenClaw's shell
+(`exec`, `process`) denied; the model under test configured and allowed. Its entry adds a line: the
+first prompt's tokens and tools, the thinking and num_ctx OpenClaw sent, the time to the first token,
+answers cut off, side requests. Its seconds include each session's start, where the server builds its
+record index again. `+skill` runs are left out there. Until 2026-10-18 the second client was Claude
+Code (`--client claude-code`; `scripts/eval-claude-code.mjs` is in git history).
 
 **The tasks.** Each is checked against the instance itself, never against values written into the
-script. Nothing is deployed: `deployProject` stays listed, but a call to it is refused.
+script. Nothing is deployed: `deployProject` stays listed, but a call to it is refused (through
+OpenClaw it is left out of the list).
 
 | task | the prompt asks | passes when |
 |---|---|---|
@@ -173,8 +179,58 @@ turn the prompt cache holds: 1–5 s to the first token per turn. Claude Code ha
 to the model as one text block, as sent. An answer stopping midway, as a user reported, did not happen
 in these runs; `--client claude-code` counts every answer that ends without `message_stop`.
 
-`--client claude-code` runs in that lean setup: the same denied built-ins, non-essential traffic off,
-side requests on the model under test, only this server.
+Round 16's `--client claude-code` ran in that lean setup: the same denied built-ins, non-essential
+traffic off, side requests on the model under test, only this server. OpenClaw replaced it as the
+eval's second client on 2026-10-18.
+
+### OpenClaw as the client (2026-10-18, OpenClaw 2026.10.4 on Ollama's native API)
+
+The user's OpenClaw, gemma4:26b, through `--client openclaw` and a probe proxy (`find` and `patch`, one
+run each, b192d20 + the new client):
+
+| setup | passed | first prompt (tokens) | tools | think | first token of the first turn |
+|---|---|---|---|---|---|
+| as configured: Tool Search automatic, thinking OpenClaw's default | 0/2 | 7,880 | 10, this server's behind Tool Search | false | 42 s |
+| `tools.toolSearch: false`, `params.thinking: "medium"` for the model | 2/2 | 26,093 | 57, 16 of them this server's | medium | 24–59 s |
+
+- **The context was 32,768.** OpenClaw's model discovery wrote `contextTokens: 32768` into the model's
+  entry, and the native adapter sends it as `options.num_ctx`; the user's longer chats failed with
+  "request (34099 tokens) exceeds the available context size (32768 tokens)". Set to 131,072 — what the
+  eval and the user's Ollama use, so the model is not reloaded between them.
+- **Thinking is off** unless configured: for local Ollama models OpenClaw's implicit level is `off`
+  (`think: false` on every request). `agents.defaults.models["ollama/<model>"].params.thinking` sets it;
+  Ollama takes `think: "medium"` for gemma4. Thinking off cost e4b 41/42 → 25/42 (above).
+- **Tool Search hides this server.** With `tools.toolSearch` unset, OpenClaw puts every MCP tool behind
+  `tool_search` / `tool_describe` / `openclaw_tool_call` for local models and does not name them in the
+  prompt. 26b never found them: it searched its memory, listed folders, called `tool_search` through
+  `openclaw_tool_call`, and answered that it could not reach the Skyrim installation (33 turns in a probe
+  without a task limit). Found through a search, an answer comes back wrapped as untrusted external
+  content. The setting is global, not per agent.
+- **The server's `instructions` never reach the model** — OpenClaw's MCP client does not read them, with
+  Tool Search or without. What a model learns of this server is the tool descriptions. OpenClaw's own
+  skills, by contrast, are listed in its prompt with the order to read a matching one before working.
+- With Tool Search off, OpenClaw's own 41 tools are most of the 97 KB of schemas (in a probe
+  `automations` alone was 16 KB, `sessions_spawn` 10 KB). No conversation's first turn was served from
+  Ollama's prompt cache: every new chat reads the whole prompt again, 24–59 s on 26b.
+- `agent exec` on Windows: its temporary state folder fails to delete (a SQLite file still open, `EBUSY`)
+  and the run's answer is lost with it, so the eval gives each run a state folder of its own.
+
+**The modding agent** setup writes (`skyrim`: the modding skills as OpenClaw skills, thinking `max` — sent
+to Ollama as `think: "high"` — and only `read`, `write`, `edit`, `apply_patch`, `ls`, `skills_read` and
+`skyrim__*`), measured on `find`, `patch`, `sword`, `npc`, `note`, one run each:
+
+| Tool Search | passed | turns (find / patch / sword / npc / note) | first prompt (tokens) | tools | first token |
+|---|---|---|---|---|---|
+| off | 4/5 | 2 / 5 / 25 / 7 / 8 | 7,219 | 22, 16 of them this server's | 8 s |
+| on | 4/5 | 8 / 15 / 19 / 6 / 15 | 4,242 | 8, this server's behind Tool Search | 25 s |
+
+The allow list takes the first prompt from 26,093 tokens to 7,219. With Tool Search on, every call to this
+server is a search, a description and a call through `openclaw_tool_call` — two to three times the turns —
+and its miss never used the server: told to make an NPC, 26b read the npcs skill, wrote the record, a
+README and a `metadata.json` by hand, and answered that the mod was built. The miss with it off was the
+model's: four turns lost calling `skills_read` with `skill:` instead of `name:`, then a potion's damage
+effect on the enchantment, refused by the build, and the turns ran out. (The seconds do not compare: the
+GPU ran the second half at ~184 tokens/s of prompt against ~891.)
 
 ## Round 19 — a note read by its name, a text's lines, a field in a text (2026-10-17)
 
