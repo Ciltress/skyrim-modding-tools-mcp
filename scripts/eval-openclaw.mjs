@@ -190,7 +190,21 @@ export function writeSessionConfig({ dir, configFile, proxyUrl, model, root, ser
     if (!agentId && ids.length > 0) {
         throw new Error(`OpenClaw's configuration has the agents ${ids.join(', ')}: name the one to measure with --openclaw-agent`);
     }
-    if (agentId) agents.entries = { [agentId]: { ...entries[agentId], workspace: projectsDir, cwd: projectsDir } };
+    if (agentId) {
+        agents.entries = { [agentId]: { ...entries[agentId], workspace: projectsDir, cwd: projectsDir } };
+        // What names an agent left out — the heartbeat's, the system agent's, talk's — names the kept one,
+        // or OpenClaw refuses the whole configuration.
+        const removed = new Set(ids.filter(id => id !== agentId));
+        (function retarget(node) {
+            if (!node || typeof node !== 'object' || node === agents.entries) return;
+            for (const [key, value] of Object.entries(node)) {
+                if (typeof value === 'string' && /agentId$/i.test(key) && removed.has(value)) node[key] = agentId;
+                else if (Array.isArray(value) && /(agents|agentIds)$/i.test(key) && value.some(v => removed.has(v))) {
+                    node[key] = [...new Set(value.map(v => removed.has(v) ? agentId : v))];
+                } else retarget(value);
+            }
+        })(config);
+    }
 
     // The model under test is the primary one, allowed and set up wherever another Ollama model is.
     const ref = `ollama/${model}`;
