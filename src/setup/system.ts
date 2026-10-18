@@ -15,7 +15,7 @@ export interface SetupSystem {
     has(program: string): Promise<boolean>;
     /** Unpacks a zip into `dest`, keeping files already there; false when it could not. */
     extractZip(zip: string, dest: string): Promise<boolean>;
-    /** The package manager that installs the SDK and git-lfs here, if there is one setup knows. */
+    /** The package manager that installs the SDK here, if there is one setup knows. */
     packageManager(): Promise<PackageManager | undefined>;
     /** Claude Desktop's config file, where its folder exists: Desktop installed. */
     claudeDesktopConfig(home: string, env: NodeJS.ProcessEnv): string | undefined;
@@ -31,13 +31,13 @@ export interface RunResult {
 }
 
 export type PackageManager = 'pacman' | 'apt-get' | 'dnf' | 'winget';
-export type Prerequisite = 'dotnet' | 'git-lfs';
+export type Prerequisite = 'dotnet';
 
 const PACKAGES: Record<PackageManager, Record<Prerequisite, string>> = {
-    pacman: { dotnet: 'dotnet-sdk', 'git-lfs': 'git-lfs' },
-    'apt-get': { dotnet: 'dotnet-sdk-10.0', 'git-lfs': 'git-lfs' },
-    dnf: { dotnet: 'dotnet-sdk-10.0', 'git-lfs': 'git-lfs' },
-    winget: { dotnet: 'Microsoft.DotNet.SDK.10', 'git-lfs': 'GitHub.GitLFS' }
+    pacman: { dotnet: 'dotnet-sdk' },
+    'apt-get': { dotnet: 'dotnet-sdk-10.0' },
+    dnf: { dotnet: 'dotnet-sdk-10.0' },
+    winget: { dotnet: 'Microsoft.DotNet.SDK.10' }
 };
 
 /** The command that installs `missing` with `manager` — winget takes one package per command, so the first. */

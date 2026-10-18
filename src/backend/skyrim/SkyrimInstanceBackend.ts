@@ -912,7 +912,8 @@ function afterLocalWrites<T>(call: Promise<T>): Promise<T> {
 
 /**
  * The projects folder's own git rules, written once: build output and deploy state stay out of git,
- * binary assets go to Git LFS (docs/adr/0004).
+ * binary assets go to Git LFS (docs/adr/0004) — where it is installed; git ignores a filter it has no
+ * driver for, so without it they are ordinary files.
  */
 function prepareProjectsFolder(projectsDir: string): void {
     fs.mkdirSync(projectsDir, { recursive: true });
@@ -922,7 +923,7 @@ function prepareProjectsFolder(projectsDir: string): void {
     if (!fs.existsSync(attributes)) {
         const binary = ['nif', 'dds', 'tga', 'png', 'hkx', 'wav', 'xwm', 'fuz', 'lip', 'bsa', 'swf', 'pex', 'esp', 'esm', 'esl'];
         fs.writeFileSync(attributes,
-            '# Binary assets live in Git LFS. Run `git lfs install` once per machine.\n' +
+            '# Binary assets go to Git LFS where it is installed (git lfs install); without it, git keeps them as ordinary files.\n' +
             binary.map(ext => `*.${ext} filter=lfs diff=lfs merge=lfs -text`).join('\n') + '\n');
     }
 }

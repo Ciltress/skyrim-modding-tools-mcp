@@ -37,8 +37,11 @@ record family — items and crafting, magic, NPCs, leveled lists.
 - **Skyrim Special Edition** 1.5.97 to 1.7.x, managed by **Mod Organizer 2** (2.5) on Windows, or
   **Amethyst Mod Manager** (2.5) on Linux. Mod Organizer under Proton is experimental
   ([`docs/Hosting.md`](docs/Hosting.md) §5).
-- **Node.js 24** and **git**. `npm run setup` brings the rest: the .NET 10 SDK and Git LFS, and on
-  Linux a Papyrus compiler.
+- **Node.js 24** and **git**. `npm run setup` brings the rest: the .NET 10 SDK, and on Linux a Papyrus
+  compiler.
+- Optional: **Git LFS**, if you keep your projects in git and they hold meshes or textures — the
+  projects folder's `.gitattributes` sends those to it once it is installed. Without it, git keeps them
+  as ordinary files.
 - For compiling Papyrus scripts (optional otherwise): the **Creation Kit** (free on Steam) for its
   vanilla script sources; on Windows its compiler needs **.NET Framework 3.5** (Windows Features).
 
@@ -64,7 +67,7 @@ cd ~/skyrim-modding-tools-mcp
 npm run setup
 ```
 
-`npm run setup` installs the .NET 10 SDK and Git LFS if they are missing, builds the server and its
+`npm run setup` installs the .NET 10 SDK if it is missing, builds the server and its
 plugin helper, and finds your mod manager — it asks for the Mod Organizer instance only when it finds
 none, and for your Nexus Mods API key if you want the Nexus tools. It registers the server with
 Claude Code, Claude Desktop, VS Code and OpenClaw — in OpenClaw with a "Skyrim Modding" agent that has

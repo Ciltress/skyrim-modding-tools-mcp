@@ -222,9 +222,9 @@ Once, on the machine with the game and Amethyst. Package names are Arch's (Cachy
    git clone https://github.com/Ciltress/skyrim-modding-tools-mcp ~/skyrim-modding-tools-mcp
    cd ~/skyrim-modding-tools-mcp && npm run setup
    ```
-   Setup installs the .NET 10 SDK (which brings ICU; the plugin helper does not start without it) and
-   git-lfs through pacman after a yes, builds everything, offers the Papyrus compiler (step 4), says
-   what step 3 needs, and registers the server (step 5). By hand: `sudo pacman -S dotnet-sdk git-lfs`,
+   Setup installs the .NET 10 SDK (which brings ICU; the plugin helper does not start without it)
+   through pacman after a yes, builds everything, offers the Papyrus compiler (step 4), says
+   what step 3 needs, and registers the server (step 5). By hand: `sudo pacman -S dotnet-sdk`,
    then `npm install && npm run build:helper && npm run build && npm run check:helper`.
 3. **Vanilla script sources**, for projects with Papyrus scripts: install *Skyrim Special Edition:
    Creation Kit* in Steam, which puts `Scripts.zip` into the game's `Data`. With nothing deployed in

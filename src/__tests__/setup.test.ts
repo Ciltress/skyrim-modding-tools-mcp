@@ -153,9 +153,9 @@ describe('Mod Organizer\'s instances', () => {
 
 describe('installing what is missing', () => {
     it('names the packages for each system\'s package manager', () => {
-        expect(installCommand('pacman', ['dotnet', 'git-lfs'])).toEqual(['sudo', 'pacman', '-S', '--needed', '--noconfirm', 'dotnet-sdk', 'git-lfs']);
+        expect(installCommand('pacman', ['dotnet'])).toEqual(['sudo', 'pacman', '-S', '--needed', '--noconfirm', 'dotnet-sdk']);
         expect(installCommand('apt-get', ['dotnet'])).toEqual(['sudo', 'apt-get', 'install', '-y', 'dotnet-sdk-10.0']);
-        expect(installCommand('dnf', ['git-lfs'])).toEqual(['sudo', 'dnf', 'install', '-y', 'git-lfs']);
+        expect(installCommand('dnf', ['dotnet'])).toEqual(['sudo', 'dnf', 'install', '-y', 'dotnet-sdk-10.0']);
         expect(installCommand('winget', ['dotnet'])).toEqual(
             ['winget', 'install', '--exact', '--id', 'Microsoft.DotNet.SDK.10', '--accept-package-agreements', '--accept-source-agreements']);
     });

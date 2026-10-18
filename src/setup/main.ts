@@ -6,7 +6,7 @@
  * says, which it never changes, so a later `git pull` meets no local edit — and `npm run build` (Node is
  * all those need); this does the rest, asking only what it cannot find:
  *
- *   1. the .NET 10 SDK and git-lfs, installed after a yes;
+ *   1. the .NET 10 SDK, installed after a yes;
  *   2. the plugin helper, built and started once;
  *   3. the settings — the Mod Organizer instance where none is found, the optional Nexus key — written
  *      into `.env`, keeping what is there;
@@ -38,7 +38,7 @@ import { downloadCompiler } from './compiler.js';
 import { setEnvValues } from './envFile.js';
 import { skyrimInstances } from './mo2Instances.js';
 import { claudeCodeArgs, desktopConfigWithServer, OPENCLAW_AGENT, openClawPatch, SERVER_NAME, vsCodeArgs, type OpenClawSections } from './registration.js';
-import { installCommand, setupSystem, type Prerequisite, type SetupSystem } from './system.js';
+import { installCommand, setupSystem, type SetupSystem } from './system.js';
 
 const ENTRY = path.join(PROJECT_ROOT, 'dist', 'index.js');
 const ENV_FILE = path.join(PROJECT_ROOT, '.env');
@@ -104,30 +104,30 @@ interface Run {
 
 const display = (command: readonly string[]) => command.map(a => /\s/.test(a) ? `"${a}"` : a).join(' ');
 
-/** 1. The .NET 10 SDK, which builds the helper, and git-lfs, which projects keep meshes and textures in. */
+/**
+ * 1. The .NET 10 SDK, which builds the helper — the one prerequisite setup installs. Git LFS is not one:
+ * the projects folder's `.gitattributes` sends meshes and textures to it where it is installed, and git
+ * keeps them as ordinary files where it is not.
+ */
 async function prerequisites(run: Run): Promise<boolean> {
     const { ui, system, left } = run;
     const dotnet = async () => /^10\./m.test((await system.run('dotnet', ['--list-sdks'], { capture: true })).stdout);
-    const lfs = async () => (await system.run('git', ['lfs', 'version'], { capture: true })).code === 0;
-    const missing: Prerequisite[] = [...(await dotnet() ? [] : ['dotnet' as const]), ...(await lfs() ? [] : ['git-lfs' as const])];
-    if (missing.length === 0) {
-        ui.say('The .NET 10 SDK and git-lfs are installed.');
+    if (await dotnet()) {
+        ui.say('The .NET 10 SDK is installed.');
         return true;
     }
-    const names = missing.map(p => p === 'dotnet' ? 'the .NET 10 SDK' : 'git-lfs').join(' and ');
     const manager = await system.packageManager();
     if (!manager) {
-        left.push(`Install ${names} (https://dotnet.microsoft.com/download, https://git-lfs.com), then run npm run setup again.`);
-        return !missing.includes('dotnet');
+        left.push('Install the .NET 10 SDK (https://dotnet.microsoft.com/download), then run npm run setup again.');
+        return false;
     }
-    const commands = manager === 'winget' ? missing.map(p => installCommand(manager, [p])) : [installCommand(manager, missing)];
-    if (!await ui.yes(`${names[0].toUpperCase()}${names.slice(1)} ${missing.length > 1 ? 'are' : 'is'} missing. Install now? This runs: ${commands.map(display).join(' && ')}`)) {
-        left.push(`Install ${names}: ${commands.map(display).join(' && ')} — then run npm run setup again.`);
-        return !missing.includes('dotnet');
+    const command = installCommand(manager, ['dotnet']);
+    if (!await ui.yes(`The .NET 10 SDK is missing. Install now? This runs: ${display(command)}`)) {
+        left.push(`Install the .NET 10 SDK: ${display(command)} — then run npm run setup again.`);
+        return false;
     }
-    for (const [program, ...args] of commands) await system.run(program, args);
-    if (missing.includes('git-lfs') && await lfs()) await system.run('git', ['lfs', 'install'], { capture: true });
-    if (missing.includes('dotnet') && !await dotnet()) {
+    await system.run(command[0], command.slice(1));
+    if (!await dotnet()) {
         // winget changes PATH for terminals opened after it, not for this one.
         left.push('The .NET SDK is not found yet: open a new terminal and run npm run setup again.');
         return false;
@@ -438,7 +438,7 @@ async function main(): Promise<void> {
     const ui = process.stdin.isTTY && process.stdout.isTTY ? terminalUi() : unattendedUi();
     const run: Run = { ui, system: setupSystem(currentPlatform().name), left: [], instanceArg: at >= 0 ? argv[at + 1] : undefined };
     try {
-        ui.step('1. The .NET SDK and git-lfs');
+        ui.step('1. The .NET SDK');
         const dotnet = await prerequisites(run);
         ui.step('2. The plugin helper');
         if (dotnet) await helper(run);
