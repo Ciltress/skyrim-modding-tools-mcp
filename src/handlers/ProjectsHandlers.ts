@@ -149,12 +149,26 @@ export class ProjectsHandlers extends BaseHandler {
                         'record that exists, compiles the project\'s Papyrus scripts and writes the plugin with the ' +
                         'header this game version needs. Refuses a project with no records, fields a record type does ' +
                         'not have, files below a group\'s folder, and a FormKey copied from another record — each named. ' +
-                        'Record files outside the plugin folder are not built, and named in `warnings`. Does not touch ' +
-                        'the mod manager — deployProject does.',
+                        'What builds but likely not as meant — record files outside the plugin folder, an override ' +
+                        'renamed as if it were a new record, a woman\'s voice on a man — is answered with status ' +
+                        '`built_with_warnings` and the `warnings` first: the plugin is written, and each warning says ' +
+                        'what to fix. Does not touch the mod manager — deployProject does.',
                     inputSchema: { type: 'object', properties: { project: PROJECT }, required: ['project'] }
                 },
                 onFailure: 'Failed to build the project',
-                run: args => asRequestError(this.backend.buildProject(requireString(args, 'project')))
+                run: async args => {
+                    const { warnings, ...built } = await asRequestError(this.backend.buildProject(requireString(args, 'project')));
+                    if (!warnings?.length) return built;
+                    // A warning at the end of an answer that said success was passed by: five of e4b's eight misses
+                    // in eval round 21 end on one, each a build that did what was not asked.
+                    return {
+                        status: 'built_with_warnings',
+                        warnings,
+                        nextStep: `Built, with ${warnings.length === 1 ? 'a warning' : `${warnings.length} warnings`}: ` +
+                            'read each — fix what it says and build again, unless the user asked for it so.',
+                        ...built
+                    };
+                }
             },
             {
                 definition: {

@@ -17,6 +17,8 @@ import { NexusCatalogue } from '../backend/skyrim/nexus';
 import { HelperError, HelperMissingError, HelperUnavailableError, type HelperTransport } from '../backend/skyrim/helperClient';
 import { CompilerUnavailableError, ScriptCompileError } from '../backend/skyrim/externalTools';
 import { asRequestError } from '../handlers/args';
+import { createHandlers } from '../handlers/index';
+import type { AppBackend } from '../backend/index';
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 
 /**
@@ -644,6 +646,26 @@ describe('the Skyrim backend', () => {
 
         expect(built.records).toBe(1);
         expect(built.warnings).toEqual([note]);
+    });
+
+    it('answers a build with warnings with a status of its own, the warnings and what to do first', async () => {
+        // Behind "status":"success", a warning at the answer's end was passed by: five of e4b's eight misses in
+        // eval round 21 end on a build that warned, each an override renamed as if it were a new record.
+        const { backend, fixture, helperAnswers } = makeBackend();
+        await newProjectWithRecord(backend, fixture.projects, 'MavenNote');
+        const note = 'Books/Note.yaml: overrides LetterRiftenBlackBriarMeadery04 of Skyrim.esm and renames it';
+        helperAnswers.checkRecords = () => ({ records: 1, leftOut: [], notes: [note] });
+        const handler = createHandlers(backend as unknown as AppBackend).find(h => h.getTools().some(t => t.name === 'buildProject'))!;
+        const answer = async () => JSON.parse((await handler.handle('buildProject', { project: 'MavenNote' })).content[0].text);
+
+        const warned = await answer();
+
+        expect(Object.keys(warned).slice(0, 3)).toEqual(['status', 'warnings', 'nextStep']);
+        expect(warned).toMatchObject({ status: 'built_with_warnings', warnings: [note], nextStep: expect.stringMatching(/^Built, with a warning: read each/), records: 1 });
+        expect(fs.existsSync(warned.output)).toBe(true);
+        helperAnswers.checkRecords = () => ({ records: 1, leftOut: [] });
+        expect(await answer()).toMatchObject({ status: 'success', records: 1 });
+        expect(await answer()).not.toHaveProperty('warnings');
     });
 
     it('refuses a build that read no record from the files, and leaves no plugin to deploy', async () => {
