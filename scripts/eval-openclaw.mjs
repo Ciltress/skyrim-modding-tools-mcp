@@ -199,10 +199,12 @@ export function writeSessionConfig({ dir, configFile, proxyUrl, model, root, ser
     if (!agentId && ids.length > 0) {
         throw new Error(`OpenClaw's configuration has the agents ${ids.join(', ')}: name the one to measure with --openclaw-agent`);
     }
-    // The agent's workspace files, as its gateway runs read them: from its own workspace, else the default one.
+    // The agent's workspace files, as its gateway runs read them: from its own workspace, else the default one —
+    // read once, so every run measures the same files, whatever happens to the workspace meanwhile.
     const workspace = agentId && (entries[agentId].workspace ?? (ids.length === 1 ? agents.defaults?.workspace : undefined));
     const workspaceFiles = workspace
         ? WORKSPACE_FILES.map(name => path.join(workspace.replace(/^~(?=$|[\\/])/, os.homedir()), name)).filter(file => fs.existsSync(file))
+            .map(file => ({ name: path.basename(file), text: fs.readFileSync(file, 'utf8') }))
         : [];
     if (agentId) {
         agents.entries = {
@@ -307,7 +309,7 @@ const ANSI = /\x1b\[[0-9;]*m/g;
  */
 export async function runOpenClaw({ entry, prompt, model, cwd, configFile, workspaceFiles = [], proxy, serverToolNames, maxTurns, timeoutMs, thinking }) {
     proxy.log.length = 0;
-    for (const file of workspaceFiles) fs.copyFileSync(file, path.join(cwd, path.basename(file)));
+    for (const file of workspaceFiles) fs.writeFileSync(path.join(cwd, file.name), file.text);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-eval-openclaw-run-'));
     // A state folder of the run's own: OpenClaw's temporary one fails to delete on Windows (a SQLite
     // file still open, EBUSY), and the run's answer is lost with it.
@@ -386,9 +388,9 @@ export async function runOpenClaw({ entry, prompt, model, cwd, configFile, works
     // The workspace files OpenClaw put into the prompt: those whose first line the system prompt holds.
     const system = (first?.body?.messages ?? []).filter(m => m.role === 'system').map(m => m.content ?? '').join('\n');
     const inPrompt = workspaceFiles.filter(file => {
-        const heading = fs.readFileSync(file, 'utf8').split('\n').find(line => line.trim());
+        const heading = file.text.split('\n').find(line => line.trim());
         return heading && system.includes(heading.trim());
-    }).map(file => path.basename(file));
+    }).map(file => file.name);
     return {
         calls,
         answer: envelope?.final || last?.content || '',

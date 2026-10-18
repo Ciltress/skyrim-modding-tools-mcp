@@ -226,7 +226,7 @@ console.log(`eval: ${opt.model} @ num_ctx ${CTX ?? 'Ollama default'}, profile ${
 if (OPENCLAW) {
     console.log(`eval: through ${openClaw.version} (${openClaw.entry}), on the configuration ${openClaw.configFile}` +
         `${openClaw.agentId ? `, agent '${openClaw.agentId}'` : ''}` +
-        `${openClaw.workspaceFiles.length ? ` with ${openClaw.workspaceFiles.map(f => path.basename(f)).join(', ')}` : ''}` +
+        `${openClaw.workspaceFiles.length ? ` with ${openClaw.workspaceFiles.map(f => f.name).join(', ')}` : ''}` +
         (openClaw.copiedFrom ? ` — ${opt.model} with the settings of its entry for ${openClaw.copiedFrom}` : ''));
 }
 console.log('eval: reading the ground truth from the instance (the first lookup builds the index)…');
@@ -774,8 +774,21 @@ const warmup = await warmUp().catch(error => fail(`the warm-up failed: ${error.m
 try {
     for (const task of tasks) {
         for (let run = 1; run <= RUNS; run++) {
-            const result = OPENCLAW ? await runTaskOpenClaw(task, run) : await runTask(task, run);
+            let result;
+            try {
+                result = OPENCLAW ? await runTaskOpenClaw(task, run) : await runTask(task, run);
+            } catch (error) {
+                // A fault of the harness fails its run, not the round.
+                result = {
+                    task: task.id, run, success: false, checks: {}, stop: `evalError:${String(error?.message ?? error).split('\n')[0]}`,
+                    turns: 0, calls: 0, invalidParams: 0, unknownTools: 0, otherErrors: 0, deployRefused: 0, truncated: 0,
+                    argsAsText: 0, maxPromptTokens: 0, outputTokens: 0, historyBytes: null, seconds: 0, answer: '',
+                    transcript: [], turnStats: []
+                };
+            }
             results.push(result);
+            // The runs so far, kept for a round that does not get to its end.
+            fs.writeFileSync(outFile.replace(/\.json$/, '.partial.json'), JSON.stringify(results));
             const failed = Object.entries(result.checks).filter(([, ok]) => !ok).map(([name]) => name);
             console.log(`  ${task.id} #${run}: ${result.success ? 'PASS' : 'FAIL'} — ${result.stop}, ${result.turns} turns, ` +
                 `${result.calls} calls (${result.invalidParams} invalid, ${result.otherErrors} other errors), ` +
@@ -850,7 +863,7 @@ const openClawSummary = OPENCLAW ? (() => {
         entry: openClaw.entry,
         config: openClaw.configFile,
         ...(openClaw.agentId ? { agent: openClaw.agentId } : {}),
-        workspaceFiles: openClaw.workspaceFiles.map(f => path.basename(f)),
+        workspaceFiles: openClaw.workspaceFiles.map(f => f.name),
         ...(openClaw.copiedFrom ? { modelSettingsFrom: openClaw.copiedFrom } : {}),
         firstPrompt: results.find(r => r.client?.firstPrompt)?.client.firstPrompt ?? null,
         firstPromptTokens: Math.max(0, ...firsts.map(t => t.promptTokens)),
