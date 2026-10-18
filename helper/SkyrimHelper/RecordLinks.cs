@@ -199,6 +199,19 @@ public static class RecordLinks
                 (next >= 0 ? $"; the record's fields after the text, from `{lines[next].Trim()}` (line {next + 1}) on, stay at the margin" : "");
         }
         var reason = Regex.Replace(e.Message, @"^\(Line:[^)]*\)( - \(Line:[^)]*\))?:\s*", "").Trim();
+        // Told to remove a FormKey line, e4b wrote the line below it over it, and was then sent to fix its indentation
+        // while it looked for the FormKey line again, until its turns ran out (eval round 21): both lines, named.
+        if (Regex.Match(reason, @"^Duplicate key (?<key>[A-Za-z0-9_]+)") is { Success: true } duplicate && at >= 2 && at <= lines.Length)
+        {
+            var key = duplicate.Groups["key"].Value;
+            var indent = lines[at - 1].Length - lines[at - 1].TrimStart().Length;
+            var first = Array.FindLastIndex(lines, at - 2, line => line.Length - line.TrimStart().Length == indent && line.TrimStart().StartsWith($"{key}:"));
+            if (first >= 0)
+                return $"the YAML breaks at {where}: {key} is written twice, on lines {first + 1} and {at}, and a field is written once — " +
+                    (lines[first].Trim() == lines[at - 1].Trim()
+                        ? "delete one of the two lines, they are the same"
+                        : $"keep the one meant, `{lines[first].Trim()}` or `{lines[at - 1].Trim()}`, and delete the other");
+        }
         return $"the YAML breaks at {where}: {reason} Indent a field's own fields by two spaces below it, and give every other line a `Field: value`";
     }
 
