@@ -64,7 +64,9 @@ const DELIBERATELY_UNDECLARED: string[] = [
     // The system's search path, where a Papyrus compiler is looked for on Linux.
     'PATH',
     // Windows' own folders, read only by npm run setup (src/setup) to find Claude Desktop's and Mod Organizer's files.
-    'APPDATA', 'LOCALAPPDATA'
+    'APPDATA', 'LOCALAPPDATA',
+    // OpenClaw's own, read only by npm run setup to keep an OpenClaw agent in the workspace OpenClaw gave it.
+    'OPENCLAW_STATE_DIR', 'OPENCLAW_WORKSPACE_DIR'
 ];
 
 describe('server.json', () => {

@@ -200,7 +200,9 @@ describe('every path setting goes through the one resolver', () => {
         // The system's search path, a list of folders searched for a Papyrus compiler (Platform.papyrusCompilerCandidates).
         'PATH',
         // Windows' own folders, read by npm run setup to find Claude Desktop's and Mod Organizer's files.
-        'APPDATA', 'LOCALAPPDATA'
+        'APPDATA', 'LOCALAPPDATA',
+        // OpenClaw's own, read by npm run setup as OpenClaw reads them, to keep an agent in its workspace.
+        'OPENCLAW_STATE_DIR', 'OPENCLAW_WORKSPACE_DIR'
     ];
 
     it('reads a path setting nowhere but in pathSettings.ts, and knows every other variable for one that is not', () => {

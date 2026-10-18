@@ -6,7 +6,7 @@ import { parse } from 'dotenv';
 import { checksumMatches, PAPYRUS_COMPILER } from '../setup/compiler';
 import { envValue, setEnvValues } from '../setup/envFile';
 import { skyrimInstances } from '../setup/mo2Instances';
-import { claudeCodeArgs, desktopConfigWithServer, SERVER_NAME, vsCodeArgs } from '../setup/registration';
+import { claudeCodeArgs, desktopConfigWithServer, OPENCLAW_AGENT, openClawPatch, SERVER_NAME, vsCodeArgs } from '../setup/registration';
 import { installCommand, windowsCommandLine } from '../setup/system';
 
 /**
@@ -88,6 +88,54 @@ describe('registering the server', () => {
     it('leaves a Claude Desktop config it cannot read alone, saying so', () => {
         expect(() => desktopConfigWithServer('{ "mcpServers": ', entry)).toThrow(/cannot be read as JSON.*left as it is/);
         expect(() => desktopConfigWithServer('[1, 2]', entry)).toThrow(/left as it is/);
+    });
+});
+
+describe('registering the server with OpenClaw', () => {
+    const root = path.join('C:\\Tools', 'skyrim-modding-tools-mcp');
+    const place = {
+        entry: path.join(root, 'dist', 'index.js'),
+        skillsDir: path.join(root, 'skills', 'Domain'),
+        skills: ['skyrim-modding-basics', 'magic'],
+        projectsDir: path.join(root, 'projects'),
+        workspace: path.join('C:\\Users\\me', '.openclaw', 'workspace')
+    };
+    type Patch = { mcp: unknown; skills: { load: { extraDirs: string[] } }; agents: { entries: Record<string, unknown> } };
+    const patchFor = (current: Parameters<typeof openClawPatch>[0]) => openClawPatch(current, place) as Patch;
+
+    it('adds the server, its skills folder, and an agent for modding with the skills and only the tools it needs', () => {
+        const patch = patchFor({ agents: { entries: { main: { workspace: 'D:\\claw' } } }, skills: { entries: { weather: { enabled: true } } } });
+        expect(patch.mcp).toEqual({ servers: { skyrim: { command: 'node', args: [place.entry] } } });
+        expect(patch.skills).toEqual({ load: { extraDirs: [place.skillsDir] } });
+        expect(patch.agents.entries).toEqual({
+            [OPENCLAW_AGENT]: {
+                name: 'Skyrim Modding',
+                cwd: place.projectsDir,
+                skills: place.skills,
+                thinkingDefault: 'max',
+                tools: { allow: ['read', 'write', 'edit', 'apply_patch', 'ls', 'skills_read', 'skyrim__*'] }
+            }
+        });
+    });
+
+    it('keeps the skill folders OpenClaw already loads, and adds its own once', () => {
+        expect(patchFor({ skills: { load: { extraDirs: ['~/my-skills'] } } }).skills.load.extraDirs).toEqual(['~/my-skills', place.skillsDir]);
+        expect(patchFor({ skills: { load: { extraDirs: [place.skillsDir.toUpperCase(), '~/my-skills'] } } }).skills.load.extraDirs)
+            .toEqual([place.skillsDir.toUpperCase(), '~/my-skills']);
+    });
+
+    it('leaves an agent of that name as the user has made it, and registers the server again', () => {
+        const patch = patchFor({ agents: { entries: { main: { workspace: 'D:\\claw' }, skyrim: { tools: { allow: ['read', 'skyrim__*', 'web_search'] } } } } });
+        expect(patch.agents.entries).toEqual({});
+        expect(patch.mcp).toEqual({ servers: { skyrim: { command: 'node', args: [place.entry] } } });
+    });
+
+    it('keeps the one agent there was in its workspace, which a second agent would move into a subfolder', () => {
+        expect(patchFor({ agents: { entries: { main: { name: 'Main' } } } }).agents.entries.main).toEqual({ workspace: place.workspace });
+        expect(patchFor({ agents: { defaults: { workspace: 'D:\\claw' }, entries: { main: {} } } }).agents.entries.main).toEqual({ workspace: 'D:\\claw' });
+        // No agent configured: OpenClaw's implicit one is `main`.
+        expect(patchFor({}).agents.entries.main).toEqual({ workspace: place.workspace });
+        expect(patchFor({ agents: { entries: { a: {}, b: {} } } }).agents.entries).not.toHaveProperty('a');
     });
 });
 

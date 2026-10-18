@@ -67,8 +67,9 @@ npm run setup
 `npm run setup` installs the .NET 10 SDK and Git LFS if they are missing, builds the server and its
 plugin helper, and finds your mod manager — it asks for the Mod Organizer instance only when it finds
 none, and for your Nexus Mods API key if you want the Nexus tools. It registers the server with
-Claude Code, Claude Desktop and VS Code, and ends with a healthcheck: the instance, profile and game
-version it found. Everything it installs, downloads or registers, it asks about first.
+Claude Code, Claude Desktop, VS Code and OpenClaw — in OpenClaw with a "Skyrim Modding" agent that has
+the modding skills — and ends with a healthcheck: the instance, profile and game version it found.
+Everything it installs, downloads or registers, it asks about first.
 
 **Updating:** `git pull && npm run setup`, then restart your client.
 

@@ -23,7 +23,7 @@ stream for every tool at once — so the logger writes to stderr, dotenv is load
 `npm run smoke` fails the build if anything else reaches stdout.
 
 **Setting it up.** `npm run setup` does all of this — installs, builds, writes `.env`, registers
-the server with Claude Code, Claude Desktop and VS Code ([README](../README.md#setup)). By hand,
+the server with Claude Code, Claude Desktop, VS Code and OpenClaw ([README](../README.md#setup)). By hand,
 the settings go into `.env` in the server's folder, and a client's registration says only how to
 start the server — no settings in it. (A client's `env` block would still win over `.env`.)
 
@@ -77,6 +77,38 @@ to your server's folder:
 
 A JSON file is read by no shell, so `~` does not work in its `args`: on Linux write
 `/home/you/skyrim-modding-tools-mcp/dist/index.js`.
+
+**OpenClaw** reads none of a server's `instructions`, and for a local model it hides MCP tools behind
+its Tool Search, so setup registers more than the server: the modding skills as OpenClaw skills (which
+it lists in its prompt), and an agent for modding with those skills, thinking on (OpenClaw sends a
+local model none unless told) and only the tools it needs — what it writes is
+[`openClawPatch`](../src/setup/registration.ts), as one `openclaw config patch`. By hand, in
+`~/.openclaw/openclaw.json`:
+
+```json5
+{
+  mcp: { servers: { skyrim: { command: "node", args: ["C:/Users/you/skyrim-modding-tools-mcp/dist/index.js"] } } },
+  skills: { load: { extraDirs: ["C:/Users/you/skyrim-modding-tools-mcp/skills/Domain"] } },
+  agents: {
+    entries: {
+      skyrim: {
+        name: "Skyrim Modding",
+        cwd: "C:/Users/you/skyrim-modding-tools-mcp/projects",
+        skills: ["skyrim-modding-basics", "items-and-crafting", "magic", "npcs", "leveled-lists", "game-versions"],
+        thinkingDefault: "max",
+        tools: { allow: ["read", "write", "edit", "apply_patch", "ls", "skills_read", "skyrim__*"] }
+      }
+    }
+  }
+}
+```
+
+If `main` was your only agent and has no `workspace` of its own, give it the one it had
+(`workspace: "~/.openclaw/workspace"`): with a second agent, OpenClaw moves it into a subfolder. With a
+local model, also turn off Tool Search — `tools: { toolSearch: false }`, which applies to every agent (setup
+asks apart): behind it, the agent took two to three times the turns and once never used the server
+([measured](research/local-model-evals.md)). Then `openclaw gateway restart` — the gateway takes a new
+agent only when it starts.
 
 **Paths in settings.** Neither `.env` nor a client's `env` block passes through a shell, so the server
 reads every setting that names a file or folder — `SKYRIM_MO2_INSTANCE`, `SKYRIM_AMETHYST_DIR`,

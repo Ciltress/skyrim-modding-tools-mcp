@@ -26,6 +26,8 @@ export interface SetupSystem {
 export interface RunResult {
     code: number;
     stdout: string;
+    /** What the program said on stderr; empty unless captured. */
+    stderr: string;
 }
 
 export type PackageManager = 'pacman' | 'apt-get' | 'dnf' | 'winget';
@@ -67,10 +69,11 @@ function runWith(command: string, args: readonly string[], shell: boolean, optio
             ? spawn(windowsCommandLine(command, args), { shell: true, cwd: options.cwd, stdio: options.capture ? ['ignore', 'pipe', 'pipe'] : 'inherit', windowsHide: true })
             : spawn(command, args, { cwd: options.cwd, stdio: options.capture ? ['ignore', 'pipe', 'pipe'] : 'inherit' });
         let stdout = '';
+        let stderr = '';
         child.stdout?.setEncoding('utf8').on('data', chunk => { stdout += chunk; });
-        child.stderr?.resume();
-        child.on('error', () => resolve({ code: 127, stdout }));
-        child.on('close', code => resolve({ code: code ?? 1, stdout }));
+        child.stderr?.setEncoding('utf8').on('data', chunk => { stderr += chunk; });
+        child.on('error', () => resolve({ code: 127, stdout, stderr }));
+        child.on('close', code => resolve({ code: code ?? 1, stdout, stderr }));
     });
 }
 
