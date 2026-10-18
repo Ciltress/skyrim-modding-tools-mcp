@@ -5,7 +5,7 @@ import path from 'node:path';
 /**
  * What differs by operating system for setup — its own seam beside the server's Platform
  * (docs/adr/0007), picked once by setupSystem(): how a program is started, which package manager
- * installs what is missing, where Claude Desktop and Mod Organizer keep their files.
+ * installs what is missing, where Claude Desktop and Mod Organizer keep their files, which programs run.
  */
 export interface SetupSystem {
     readonly name: 'windows' | 'linux';
@@ -21,6 +21,8 @@ export interface SetupSystem {
     claudeDesktopConfig(home: string, env: NodeJS.ProcessEnv): string | undefined;
     /** Where Mod Organizer keeps its global instances, if this system has such a place. */
     mo2InstancesDir(env: NodeJS.ProcessEnv): string | undefined;
+    /** The programs running now; empty when they cannot be listed. */
+    processes(): Promise<RunningProgram[]>;
 }
 
 export interface RunResult {
@@ -28,6 +30,31 @@ export interface RunResult {
     stdout: string;
     /** What the program said on stderr; empty unless captured. */
     stderr: string;
+}
+
+export interface RunningProgram {
+    pid: number;
+    /** The program that started it. */
+    parentPid: number;
+    name: string;
+    commandLine: string;
+}
+
+/**
+ * What to close before the helper can be rebuilt: the programs that started a server whose helper runs
+ * from `helperDir` — Windows replaces no program file while it runs, and Linux overwrites none. A helper
+ * runs under its server, which runs under its client; one whose server is gone is named itself.
+ */
+export function helperHolders(programs: readonly RunningProgram[], helperDir: string): RunningProgram[] {
+    const byPid = new Map(programs.map(p => [p.pid, p]));
+    const dir = helperDir.toLowerCase();
+    const holders = new Map<number, RunningProgram>();
+    for (const helper of programs.filter(p => p.commandLine.toLowerCase().includes(dir))) {
+        const server = byPid.get(helper.parentPid);
+        const holder = (server && byPid.get(server.parentPid)) ?? server ?? helper;
+        holders.set(holder.pid, holder);
+    }
+    return [...holders.values()];
 }
 
 export type PackageManager = 'pacman' | 'apt-get' | 'dnf' | 'winget';
@@ -99,6 +126,16 @@ export function windowsSetup(): SetupSystem {
         },
         mo2InstancesDir(env) {
             return env.LOCALAPPDATA ? path.join(env.LOCALAPPDATA, 'ModOrganizer') : undefined;
+        },
+        async processes() {
+            const listed = await system.run('powershell', ['-NoProfile', '-Command',
+                'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,CommandLine | ConvertTo-Json -Compress'], { capture: true });
+            try {
+                const rows = [JSON.parse(listed.stdout)].flat() as Array<{ ProcessId: number; ParentProcessId: number; Name: string; CommandLine: string | null }>;
+                return rows.map(r => ({ pid: r.ProcessId, parentPid: r.ParentProcessId, name: r.Name, commandLine: r.CommandLine ?? '' }));
+            } catch {
+                return [];
+            }
         }
     };
     return system;
@@ -123,6 +160,19 @@ export function linuxSetup(): SetupSystem {
         // Under Proton, Mod Organizer's global instances are inside a Wine prefix: a folder is pasted instead.
         mo2InstancesDir() {
             return undefined;
+        },
+        async processes() {
+            return safeList('/proc').filter(entry => /^\d+$/.test(entry)).flatMap(pid => {
+                try {
+                    // "pid (name) state ppid …" — the name can hold spaces and parentheses, so up to the last ')'.
+                    const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+                    const close = stat.lastIndexOf(')');
+                    const commandLine = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0').filter(Boolean).join(' ');
+                    return [{ pid: Number(pid), parentPid: Number(stat.slice(close + 2).split(' ')[1]), name: stat.slice(stat.indexOf('(') + 1, close), commandLine }];
+                } catch {
+                    return []; // Ended meanwhile, or not ours to read.
+                }
+            });
         }
     };
     return system;

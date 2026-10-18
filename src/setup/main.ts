@@ -38,7 +38,7 @@ import { downloadCompiler } from './compiler.js';
 import { setEnvValues } from './envFile.js';
 import { skyrimInstances } from './mo2Instances.js';
 import { claudeCodeArgs, desktopConfigWithServer, OPENCLAW_AGENT, openClawPatch, openClawWorkspaceFiles, SERVER_NAME, vsCodeArgs, type OpenClawSections } from './registration.js';
-import { installCommand, setupSystem, type SetupSystem } from './system.js';
+import { helperHolders, installCommand, setupSystem, type RunningProgram, type SetupSystem } from './system.js';
 
 const ENTRY = path.join(PROJECT_ROOT, 'dist', 'index.js');
 const ENV_FILE = path.join(PROJECT_ROOT, '.env');
@@ -135,13 +135,29 @@ async function prerequisites(run: Run): Promise<boolean> {
     return true;
 }
 
-/** 2. The plugin helper: built, then started once to see it answers. */
+/**
+ * 2. The plugin helper: built, then started once to see it answers. A helper that a running server uses
+ * cannot be replaced; then the programs that started those servers are named, to be closed first.
+ */
 async function helper(run: Run): Promise<void> {
     const { ui, system, left } = run;
     const built = await system.run('npm', ['run', 'build:helper'], { cwd: PROJECT_ROOT });
+    const holders = built.code === 0 ? [] : helperHolders(await system.processes(), path.join(PROJECT_ROOT, 'helper', 'bin'));
+    if (holders.length > 0) {
+        left.push(`The plugin helper could not be replaced while a running Skyrim server uses it. Close what started ` +
+            `${holders.length === 1 ? 'it' : 'them'}, then run npm run setup again: ${holders.map(describeProgram).join('; ')}.`);
+        return;
+    }
     const checked = built.code === 0 && (await system.run('npm', ['run', 'check:helper'], { cwd: PROJECT_ROOT })).code === 0;
     if (checked) ui.say('The plugin helper is built and answers.');
     else left.push('The plugin helper did not build or start: see the output above, then run npm run setup again.');
+}
+
+/** A program as a person finds it among their windows: its name, its PID, how it was started — OpenClaw's gateway by the command that stops it. */
+function describeProgram(program: RunningProgram): string {
+    if (/openclaw/i.test(program.commandLine)) return `OpenClaw's gateway (${program.name}, PID ${program.pid}): openclaw gateway stop`;
+    const started = program.commandLine.trim();
+    return `${program.name} (PID ${program.pid}${started ? `: ${started.length > 120 ? `${started.slice(0, 120)}…` : started}` : ''})`;
 }
 
 /** The settings as the server will read them: its process's environment over `.env`. */

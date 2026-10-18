@@ -12,7 +12,7 @@ import { discoverSkills, FAMILY_SKILLS } from '../lib/skills';
 import {
     claudeCodeArgs, desktopConfigWithServer, OPENCLAW_AGENT, OPENCLAW_AGENT_TOOLS, openClawPatch, openClawWorkspaceFiles, SERVER_NAME, vsCodeArgs
 } from '../setup/registration';
-import { installCommand, windowsCommandLine } from '../setup/system';
+import { helperHolders, installCommand, windowsCommandLine } from '../setup/system';
 
 /**
  * `npm run setup`'s parts that decide something: what it writes into `.env` and Claude Desktop's config,
@@ -176,6 +176,25 @@ describe('the modding agent\'s workspace files', () => {
     });
 });
 
+describe('a helper in use', () => {
+    const dir = path.join('C:\\Tools', 'skyrim-modding-tools-mcp', 'helper', 'bin');
+    const program = (pid: number, parentPid: number, name: string, commandLine: string) => ({ pid, parentPid, name, commandLine });
+
+    it('names what started each server whose helper runs from the folder, once each, and a helper whose server is gone', () => {
+        const programs = [
+            program(1, 0, 'explorer.exe', 'C:\\Windows\\Explorer.EXE'),
+            program(10, 1, 'claude.exe', 'C:\\Users\\me\\AppData\\Local\\AnthropicClaude\\claude.exe'),
+            program(11, 10, 'node.exe', 'node C:\\Tools\\skyrim-modding-tools-mcp\\dist\\index.js'),
+            program(12, 11, 'SkyrimHelper.exe', `"${path.join(dir, 'SkyrimHelper.exe')}"`),
+            program(13, 10, 'node.exe', 'node C:\\Tools\\skyrim-modding-tools-mcp\\dist\\index.js'),
+            program(14, 13, 'SkyrimHelper.exe', path.join(dir, 'SkyrimHelper.exe').toUpperCase()),
+            program(20, 99, 'SkyrimHelper.exe', path.join(dir, 'SkyrimHelper.exe')),
+            program(30, 1, 'SkyrimHelper.exe', 'D:\\elsewhere\\helper\\bin\\SkyrimHelper.exe')
+        ];
+        expect(helperHolders(programs, dir).map(p => p.pid)).toEqual([10, 20]);
+        expect(helperHolders(programs.filter(p => p.name !== 'SkyrimHelper.exe'), dir)).toEqual([]);
+    });
+});
 
 describe('Mod Organizer\'s instances', () => {
     it('offers the global instances that manage Skyrim Special Edition, and no others', () => {

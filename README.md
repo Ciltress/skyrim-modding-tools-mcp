@@ -75,7 +75,8 @@ the modding skills and a workspace telling it how to use the server — and ends
 instance, profile and game version it found. Everything it installs, downloads or registers, it asks
 about first.
 
-**Updating:** `git pull && npm run setup`, then restart your client.
+**Updating:** `git pull && npm run setup`, then restart your client. A client still running the server
+keeps the plugin helper in use; setup then names what to close.
 
 **By hand** instead — the settings file and each client's registration, ready to copy:
 [`docs/Hosting.md`](docs/Hosting.md) §1.1.
