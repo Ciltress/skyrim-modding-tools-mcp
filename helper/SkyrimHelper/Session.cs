@@ -148,8 +148,9 @@ public sealed class Session : IDisposable
             var found = new List<RecordIndex.Entry>();
             foreach (var raw in wanted.Select(r => r!.GetValue<string>()))
             {
-                var key = raw.Contains(':') ? ParseFormKey(raw)
-                    : idx.ByEditorId.TryGetValue(raw.Trim(), out var byId) ? byId : (FormKey?)null;
+                var key = FormIdShape.IsMatch(raw) ? ParseFormKey(raw)
+                    : idx.ByEditorId.TryGetValue(raw.Trim(), out var byId) ? byId
+                    : EditorIdWithPlugin(raw, idx) ?? (raw.Contains(':') ? ParseFormKey(raw) : (FormKey?)null);
                 if (key is { } k && idx.ByFormKey.TryGetValue(k, out var entry)) found.Add(entry);
                 else notFound.Add(raw);
             }
@@ -547,6 +548,7 @@ public sealed class Session : IDisposable
         // A FormID is hex digits before its colon; "Spell Tome: Flames" is a name.
         if (FormIdShape.IsMatch(raw)) return ParseFormKey(raw);
         if (Index.ByEditorId.TryGetValue(raw.Trim(), out var key)) return key;
+        if (EditorIdWithPlugin(raw, Index) is { } withPlugin) return withPlugin;
         // An in-game name, sent as an editor ID: "Lydia", whose editor ID is HousecarlWhiterun (eval probe 15).
         var withName = Index.ByFormKey.Values.Where(e => e.EditorId is not null && string.Equals(e.Name, raw.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
         if (byName && withName.Count == 1) return withName[0].FormKey;
@@ -561,6 +563,22 @@ public sealed class Session : IDisposable
     }
 
     private static readonly Regex FormIdShape = new(@"^\s*[0-9A-Fa-f]{1,8}\s*:", RegexOptions.None, TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// An editor ID with the plugin that defines it after a colon, written the way a FormID is —
+    /// SteelSword:Skyrim.esm (eval round 21) — names that record. With a plugin that does not define it, the
+    /// refusal gives the FormID it has.
+    /// </summary>
+    private static FormKey? EditorIdWithPlugin(string raw, RecordIndex index)
+    {
+        var colon = raw.LastIndexOf(':');
+        var editorId = colon > 0 ? raw[..colon].Trim() : "";
+        if (editorId.Length == 0 || !index.ByEditorId.TryGetValue(editorId, out var key)) return null;
+        return key.ModKey.FileName.String.Equals(raw[(colon + 1)..].Trim(), StringComparison.OrdinalIgnoreCase)
+            ? key
+            : throw new HelperException("badRequest",
+                $"'{raw.Trim()}' is not a FormID: {editorId} is {FormKeyText(key)}, defined in {key.ModKey.FileName} — write that, or {editorId} alone.");
+    }
 
     private static FormKey ParseFormKey(string raw) =>
         FormKey.TryFactory(raw.Trim(), out var key)
