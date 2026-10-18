@@ -123,6 +123,8 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-17 | gemma4:26b | `all` | b354106, Ollama 0.40.6 | 51/51 | 14.14 s | ~674 tokens/s | ~49 tokens/s | 77% |
 | 2026-10-17 | gemma4:e4b | `all` | 3bf8544 + round 19's changes | 48/51 | 2.08 s | ~7,354 tokens/s | ~162 tokens/s | 100% |
 | 2026-10-17 | gemma4:26b | `all` | 3bf8544 + round 19's changes | 50/51 | 12.95 s | ~170 tokens/s | ~17 tokens/s | 77% |
+| 2026-10-17 | gemma4:e4b | `all` | 37156ce + round 20's changes | 46/51 | 1.91 s | ~7,387 tokens/s | ~181 tokens/s | 100% |
+| 2026-10-18 | gemma4:26b | `all` | 37156ce + round 20's changes | 51/51 | 7.88 s | ~1,088 tokens/s | ~40 tokens/s | 77% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -173,77 +175,6 @@ in these runs; `--client claude-code` counts every answer that ends without `mes
 
 `--client claude-code` runs in that lean setup: the same denied built-ins, non-essential traffic off,
 side requests on the model under test, only this server.
-
-## Round 18 — a new Ollama, two new tools (2026-10-17)
-
-**Changed before it:** round 17's change after it (`ValueOf`'s pattern; a 5 s timeout on every helper
-pattern); path settings read as a POSIX shell reads them, the server finding the mod manager and the
-Papyrus compiler itself, `npm run setup` — nothing the tasks touch; two new tools in every profile's list,
-`listMods` and `checkGameVersion` (16 server tools, 17,689 bytes of schemas; no task asks for them); and
-**Ollama 0.40.4 → 0.40.6**, the user's update before the round.
-
-gemma4:e4b, `all` (prompt ~6,936 tokens/s, generation ~171 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 6782 | 7.7 |
-| read | 3/3 | 2.7 | 1.7 | 0 | 0 | 7772 | 3.3 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 5169 | 2.7 |
-| patch | 3/3 | 4 | 3 | 0 | 0 | 9294 | 7.7 |
-| build | 3/3 | 5.3 | 4.3 | 0 | 0 | 10075 | 7.9 |
-| sword | 3/3 | 8.7 | 7.7 | 3 | 0 | 16550 | 19.3 |
-| sword+skill | 3/3 | 6 | 5 | 1 | 0 | 13700 | 11.6 |
-| sword+detailed | 3/3 | 9 | 8 | 1 | 0 | 21250 | 24.7 |
-| spell | 3/3 | 5 | 4 | 0 | 0 | 11032 | 10.9 |
-| spell+skill | 3/3 | 5.7 | 4.7 | 2 | 0 | 12750 | 11.3 |
-| spell+detailed | 3/3 | 5.7 | 4.7 | 1 | 0 | 11614 | 16.6 |
-| npc | 3/3 | 6 | 5.3 | 2 | 0 | 10539 | 14.5 |
-| npc+skill | 3/3 | 7 | 6 | 3 | 2 | 10969 | 11 |
-| npc+detailed | 3/3 | 8.7 | 7.7 | 5 | 0 | 11335 | 15.1 |
-| note | 1/3 | 9.7 | 8.7 | 7 | 0 | 11903 | 44.4 |
-| note+skill | 3/3 | 7.3 | 6.3 | 2 | 0 | 15473 | 16.9 |
-| note+detailed | 2/3 | 11 | 10 | 8 | 0 | 12127 | 26 |
-
-gemma4:26b, `all` (prompt ~674 tokens/s, generation ~49 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 6334 | 10.7 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 7436 | 10.8 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 6534 | 8.4 |
-| patch | 3/3 | 4.3 | 3.3 | 0 | 0 | 8291 | 17.1 |
-| build | 3/3 | 5.3 | 4.3 | 0 | 0 | 8508 | 35.1 |
-| sword | 3/3 | 9.3 | 8.3 | 0 | 0 | 23958 | 331.2 |
-| sword+skill | 3/3 | 6 | 5 | 0 | 0 | 13191 | 131 |
-| sword+detailed | 3/3 | 15.7 | 14.7 | 6 | 1 | 28837 | 362.5 |
-| spell | 3/3 | 5 | 4 | 0 | 0 | 10254 | 74.7 |
-| spell+skill | 3/3 | 4 | 3 | 0 | 0 | 9984 | 42.8 |
-| spell+detailed | 3/3 | 6.3 | 5.3 | 1 | 0 | 11089 | 61.9 |
-| npc | 3/3 | 6 | 5 | 1 | 0 | 9844 | 100.1 |
-| npc+skill | 3/3 | 4.3 | 3.3 | 0 | 0 | 9285 | 22.4 |
-| npc+detailed | 3/3 | 10.7 | 9.7 | 1 | 1 | 25927 | 55.7 |
-| note | 3/3 | 8 | 7 | 1 | 0 | 13105 | 55.6 |
-| note+skill | 3/3 | 6.7 | 5.7 | 0 | 0 | 12297 | 71.8 |
-| note+detailed | 3/3 | 6.3 | 5.3 | 0 | 0 | 8451 | 97.1 |
-
-**Seen.**
-
-- **26b: 51 of 51** again; **e4b: 48 of 51** (round 17: 46) — no run lost to the helper, whose hang in
-  round 17 cost two.
-- **Ollama 0.40.6 is about 2.5 times slower for gemma4:26b on this machine at these contexts.** The same
-  tasks, the same turns (~9.9k prompt tokens, ~290 written): 14.14 s a turn against 5.62 s. Ollama's own
-  log, read for the two rounds' 26b windows: the prompt cache is used as before — 754 prompt tokens
-  evaluated per request on average, median 328, the same checkpoints kept and dropped — but a request
-  generates at ~26 tokens/s against ~61, and reads its new prompt tokens in 3.1 s against 1.0 s. The
-  summary's benchmark (one short prompt, ~2.9k tokens) shows ~49 tokens/s for both: the slowdown is in long
-  contexts. e4b barely moved (1.91 → 2.31 s a turn). The higher GPU load the user saw after the update is
-  longer work, not more done. Hosting.md says so; rolling back is the user's call.
-- e4b's three misses are notes, and each points at something to say: a single-quoted text with its
-  apostrophe escaped by a backslash (`'Maven\'s Warning'` — YAML doubles it, `'Maven''s Warning'`), which
-  the YAML break's message does not mention; a line the escape refusal quoted twice that e4b did not get
-  right; and a whole text written on one line with literal `\n`, which the escape check does not look for.
-- Neither model called `listMods` or `checkGameVersion` — no task asks for them; the test instance has no
-  mods and no SKSE, so a task needs a laid-out mod or two first.
 
 ## Round 19 — a note read by its name, a text's lines, a field in a text (2026-10-17)
 
@@ -340,3 +271,85 @@ margin; an `Effects` item's `EffectType` answered as `BaseEffect`, a `Charge` as
 `EnchantmentAmount`; a `# comment` after a FormID in a record argument read as the FormID. A renamed
 override is warned about, and e4b passed the warning by — refusing it would need the build to tell a
 patch's rename from a copy.
+
+## Round 20 — hints that give the line to write (2026-10-18)
+
+**Changed before it:** round 19's sword misses, and a probe after them (e4b swords, not recorded: 8/9):
+
+- A field written a level too deep is answered with its lines and where they go: "move them up: at the
+  margin, with no spaces in front — `ObjectEffect: EnchFlameDamage`, `EnchantmentAmount: 500`". Told "to
+  the top level", e4b wrote the lines back with their two spaces in front (round 19).
+- An item of `Effects` with `EffectType` or `Type` is answered "it is BaseEffect, naming the
+  MagicEffect"; a `Charge` anywhere in an enchantment, "an enchantment's charge is the weapon's or
+  armor's EnchantmentAmount" — both had been "delete it".
+- A record argument with readRecord's own comment after its FormID — `045C2D:Skyrim.esm  #
+  EnchWeaponFireDamage04` — is read as the FormID, in readRecord, findRecords and addPatch.
+- A link written as a file's path is answered as one: "'1stPersonWeapons\FlameBlade.nif', a file —
+  FirstPersonModel names a Static record, the one that holds the file … an iron sword's is
+  `FirstPersonModel: 1stPersonIronSword`" (the probe: the same line rewritten three times).
+
+gemma4:e4b, `all` (prompt ~7,387 tokens/s, generation ~181 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 6981 | 3.2 |
+| read | 3/3 | 2.3 | 1.3 | 0 | 0 | 7795 | 2.6 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 6816 | 2.7 |
+| patch | 3/3 | 4.3 | 3.3 | 1 | 0 | 9026 | 7.2 |
+| build | 3/3 | 6 | 5 | 2 | 0 | 9416 | 8.1 |
+| sword | 3/3 | 7 | 6 | 1 | 0 | 17205 | 14.5 |
+| sword+skill | 3/3 | 6.3 | 5.3 | 1 | 0 | 13966 | 11.4 |
+| sword+detailed | 2/3 | 9.3 | 8.3 | 1 | 0 | 17888 | 18.5 |
+| spell | 3/3 | 5 | 4 | 0 | 0 | 11054 | 10.2 |
+| spell+skill | 3/3 | 4.3 | 3.3 | 0 | 0 | 11231 | 6.7 |
+| spell+detailed | 3/3 | 7.3 | 6.3 | 2 | 0 | 13913 | 14.8 |
+| npc | 2/3 | 8.3 | 7.3 | 5 | 0 | 11730 | 17.5 |
+| npc+skill | 3/3 | 4 | 3 | 0 | 0 | 9122 | 6.5 |
+| npc+detailed | 2/3 | 7 | 6 | 4 | 1 | 11084 | 13.4 |
+| note | 2/3 | 9.7 | 8.7 | 7 | 0 | 17796 | 27.1 |
+| note+skill | 3/3 | 6.7 | 5.7 | 2 | 0 | 13738 | 12.7 |
+| note+detailed | 2/3 | 8.3 | 7.3 | 2 | 1 | 10590 | 17 |
+
+gemma4:26b, `all` (prompt ~1,088 tokens/s, generation ~40 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 6548 | 6.8 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 7653 | 8.6 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 6733 | 8.1 |
+| patch | 3/3 | 5 | 4 | 0 | 0 | 9437 | 23.8 |
+| build | 3/3 | 5.3 | 4.3 | 0 | 0 | 8741 | 17.6 |
+| sword | 3/3 | 8.3 | 7.3 | 0 | 0 | 19987 | 75.2 |
+| sword+skill | 3/3 | 6 | 5 | 0 | 0 | 14408 | 59.4 |
+| sword+detailed | 3/3 | 13.3 | 12.3 | 4 | 1 | 26083 | 167.3 |
+| spell | 3/3 | 5.7 | 4.7 | 0 | 0 | 10774 | 35.9 |
+| spell+skill | 3/3 | 4 | 3 | 0 | 0 | 10135 | 19.2 |
+| spell+detailed | 3/3 | 9 | 8 | 2 | 0 | 19496 | 80.4 |
+| npc | 3/3 | 7.7 | 6.7 | 3 | 0 | 66031 | 68.1 |
+| npc+skill | 3/3 | 6.3 | 5.3 | 2 | 0 | 10789 | 44.3 |
+| npc+detailed | 3/3 | 7.7 | 6.7 | 1 | 0 | 14178 | 51.4 |
+| note | 3/3 | 7 | 6 | 0 | 0 | 12968 | 51.4 |
+| note+skill | 3/3 | 6 | 5 | 0 | 0 | 12539 | 34.1 |
+| note+detailed | 3/3 | 8 | 7 | 0 | 0 | 15508 | 89.3 |
+
+**Seen.**
+
+- **26b 51 of 51**, at 7.88 s a turn (round 19: 12.95 s), and its speed check back near the earlier
+  ones (~40 tokens/s): round 19's odd check was the machine at the time, not the build.
+- **e4b 46 of 51** (round 19: 48): its swords went to 8 of 9 (round 19: 6 of 9), and its misses moved —
+  one each in sword+detailed, npc, npc+detailed, note and note+detailed:
+  - **Three of the five end on a build that succeeded, with a warning the run passed by:** npc #2 took
+    Hilda's `Female` flag out while moving her level, was told "speaks with FemaleNord, a woman's voice,
+    but has no Female", and reported the note to the user instead of fixing it; note+detailed #2 built
+    Maven's own note, renamed, past the new warning; sword+detailed #3 enchanted the Iron Sword itself,
+    an override, instead of making a new sword.
+  - note #3 swung between two refusals, each fixing one half: told to indent the text's lines, it
+    indented the note's fields too; told to put the fields back at the margin, it put the text there as
+    well — four times, until its turns ran out.
+  - npc+detailed #3 wrote its NPC outside the project, was told the path to write it to three times,
+    and ended saying it had.
+- e4b read Maven's note by its in-game name five times, each answered.
+
+**What it points at next:** each of the two text refusals says what stays as it is — the text's lines
+keep their spaces, the fields after them stay at the margin. And warnings a run passes by: a build that
+succeeds with a warning is what three of the five misses end on.
