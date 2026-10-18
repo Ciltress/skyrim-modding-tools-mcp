@@ -81,9 +81,12 @@ A JSON file is read by no shell, so `~` does not work in its `args`: on Linux wr
 **OpenClaw** reads none of a server's `instructions`, and for a local model it hides MCP tools behind
 its Tool Search, so setup registers more than the server: the modding skills as OpenClaw skills (which
 it lists in its prompt), and an agent for modding with those skills, thinking on (OpenClaw sends a
-local model none unless told) and only the tools it needs — what it writes is
-[`openClawPatch`](../src/setup/registration.ts), as one `openclaw config patch`. By hand, in
-`~/.openclaw/openclaw.json`:
+local model none unless told), only the tools it needs, and a workspace of its own — what it writes is
+[`openClawPatch`](../src/setup/registration.ts), as one `openclaw config patch`. Into that workspace go
+the files OpenClaw puts into the agent's prompt: `AGENTS.md`, carrying what the server's `instructions`
+say, `SOUL.md`, `USER.md` with the instance the server is bound to, and `IDENTITY.md`
+([`openClawWorkspaceFiles`](../src/setup/registration.ts)); a file already there is yours and kept. By
+hand, in `~/.openclaw/openclaw.json`:
 
 ```json5
 {
@@ -93,6 +96,7 @@ local model none unless told) and only the tools it needs — what it writes is
     entries: {
       skyrim: {
         name: "Skyrim Modding",
+        workspace: "~/.openclaw/workspace-skyrim",
         cwd: "C:/Users/you/skyrim-modding-tools-mcp/projects",
         skills: ["skyrim-modding-basics", "skyrim-modding-items-and-crafting", "skyrim-modding-magic", "skyrim-modding-npcs", "skyrim-modding-leveled-lists", "skyrim-modding-game-versions"],
         thinkingDefault: "max",

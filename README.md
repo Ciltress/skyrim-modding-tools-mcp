@@ -71,8 +71,9 @@ npm run setup
 plugin helper, and finds your mod manager — it asks for the Mod Organizer instance only when it finds
 none, and for your Nexus Mods API key if you want the Nexus tools. It registers the server with
 Claude Code, Claude Desktop, VS Code and OpenClaw — in OpenClaw with a "Skyrim Modding" agent that has
-the modding skills — and ends with a healthcheck: the instance, profile and game version it found.
-Everything it installs, downloads or registers, it asks about first.
+the modding skills and a workspace telling it how to use the server — and ends with a healthcheck: the
+instance, profile and game version it found. Everything it installs, downloads or registers, it asks
+about first.
 
 **Updating:** `git pull && npm run setup`, then restart your client.
 

@@ -37,7 +37,7 @@ import { discoverSkills } from '../lib/skills.js';
 import { downloadCompiler } from './compiler.js';
 import { setEnvValues } from './envFile.js';
 import { skyrimInstances } from './mo2Instances.js';
-import { claudeCodeArgs, desktopConfigWithServer, OPENCLAW_AGENT, openClawPatch, SERVER_NAME, vsCodeArgs, type OpenClawSections } from './registration.js';
+import { claudeCodeArgs, desktopConfigWithServer, OPENCLAW_AGENT, openClawPatch, openClawWorkspaceFiles, SERVER_NAME, vsCodeArgs, type OpenClawSections } from './registration.js';
 import { installCommand, setupSystem, type SetupSystem } from './system.js';
 
 const ENTRY = path.join(PROJECT_ROOT, 'dist', 'index.js');
@@ -363,12 +363,16 @@ async function registerOpenClaw(run: Run): Promise<void> {
     const stateDir = process.env.OPENCLAW_STATE_DIR || path.join(os.homedir(), '.openclaw');
     const projectsDir = pathSetting(currentEnv(), 'SKYRIM_PROJECTS_DIR', { platform: currentPlatform(), home: os.homedir(), base: PROJECT_ROOT })
         ?? DEFAULT_PROJECTS_DIR;
+    // Where OpenClaw puts an agent's workspace when it names none — named all the same, so that a default
+    // workspace set later does not move it.
+    const agentWorkspace = path.join(stateDir, `workspace-${OPENCLAW_AGENT}`);
     const patch = openClawPatch(current, {
         entry: ENTRY,
         skillsDir: path.join(PROJECT_ROOT, 'skills', 'Domain'),
         skills: discoverSkills().filter(skill => skill.collection === 'domain').map(skill => skill.name),
         projectsDir,
-        workspace: process.env.OPENCLAW_WORKSPACE_DIR || path.join(stateDir, 'workspace')
+        workspace: process.env.OPENCLAW_WORKSPACE_DIR || path.join(stateDir, 'workspace'),
+        agentWorkspace
     });
     const file = path.join(os.tmpdir(), `skyrim-openclaw-${process.pid}.json`);
     fs.writeFileSync(file, JSON.stringify(patch, null, 2));
@@ -385,6 +389,11 @@ async function registerOpenClaw(run: Run): Promise<void> {
     ui.say(`Registered with OpenClaw: the server and the modding skills, ` + (agentAdded
         ? `and the agent '${OPENCLAW_AGENT}' (Skyrim Modding), working in ${projectsDir} — choose it for modding.`
         : `for the agent '${OPENCLAW_AGENT}' that was there already, left as it is.`));
+    // Also into the workspace an earlier run gave the agent, so a run that could not write them can.
+    const given = current.agents?.entries?.[OPENCLAW_AGENT]?.workspace;
+    if (agentAdded || (given && path.resolve(given).toLowerCase() === path.resolve(agentWorkspace).toLowerCase())) {
+        writeWorkspaceFiles(run, agentWorkspace);
+    }
     // With a local model, OpenClaw puts an MCP server's tools behind its Tool Search: the modding agent took two
     // to three times the turns, and once never used the server (docs/research/local-model-evals.md). The
     // setting is OpenClaw's, for every agent, so it is asked apart.
@@ -397,6 +406,31 @@ async function registerOpenClaw(run: Run): Promise<void> {
     }
     // The gateway takes a new agent only when it starts.
     left.push('Restart OpenClaw\'s gateway so it knows the server and the agent: openclaw gateway restart');
+}
+
+/**
+ * The modding agent's workspace files (registration.ts says what each holds): OpenClaw reads none of the
+ * server's `instructions`, so these carry them. One the folder has already is the user's, and kept.
+ */
+function writeWorkspaceFiles(run: Run, dir: string): void {
+    const { ui, left } = run;
+    let boundTo: string | undefined;
+    try {
+        const { modManager } = readConfiguration(currentEnv());
+        modManager.readInstance();
+        boundTo = modManager.describe();
+    } catch { /* No instance yet: said in the settings step. */ }
+    const files = openClawWorkspaceFiles(boundTo, new Date().toISOString().slice(0, 10));
+    const kept = Object.keys(files).filter(name => fs.existsSync(path.join(dir, name)));
+    try {
+        fs.mkdirSync(dir, { recursive: true });
+        for (const [name, text] of Object.entries(files)) if (!kept.includes(name)) fs.writeFileSync(path.join(dir, name), text);
+    } catch (error) {
+        left.push(`The modding agent's workspace files could not be written into ${dir} (${(error as Error).message}): run npm run setup again.`);
+        return;
+    }
+    ui.say(`The modding agent's workspace files are in ${dir}` +
+        (kept.length ? `, where your own ${kept.join(', ')} ${kept.length === 1 ? 'is' : 'are'} kept.` : '.'));
 }
 
 /**

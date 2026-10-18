@@ -6,7 +6,12 @@ import { parse } from 'dotenv';
 import { checksumMatches, PAPYRUS_COMPILER } from '../setup/compiler';
 import { envValue, setEnvValues } from '../setup/envFile';
 import { skyrimInstances } from '../setup/mo2Instances';
-import { claudeCodeArgs, desktopConfigWithServer, OPENCLAW_AGENT, openClawPatch, SERVER_NAME, vsCodeArgs } from '../setup/registration';
+import type { AppBackend } from '../backend';
+import { createHandlers } from '../handlers';
+import { discoverSkills, FAMILY_SKILLS } from '../lib/skills';
+import {
+    claudeCodeArgs, desktopConfigWithServer, OPENCLAW_AGENT, OPENCLAW_AGENT_TOOLS, openClawPatch, openClawWorkspaceFiles, SERVER_NAME, vsCodeArgs
+} from '../setup/registration';
 import { installCommand, windowsCommandLine } from '../setup/system';
 
 /**
@@ -98,18 +103,20 @@ describe('registering the server with OpenClaw', () => {
         skillsDir: path.join(root, 'skills', 'Domain'),
         skills: ['skyrim-modding-basics', 'skyrim-modding-magic'],
         projectsDir: path.join(root, 'projects'),
-        workspace: path.join('C:\\Users\\me', '.openclaw', 'workspace')
+        workspace: path.join('C:\\Users\\me', '.openclaw', 'workspace'),
+        agentWorkspace: path.join('C:\\Users\\me', '.openclaw', 'workspace-skyrim')
     };
     type Patch = { mcp: unknown; skills: { load: { extraDirs: string[] } }; agents: { entries: Record<string, unknown> } };
     const patchFor = (current: Parameters<typeof openClawPatch>[0]) => openClawPatch(current, place) as Patch;
 
-    it('adds the server, its skills folder, and an agent for modding with the skills and only the tools it needs', () => {
+    it('adds the server, its skills folder, and an agent for modding with the skills, only the tools it needs, and a workspace of its own', () => {
         const patch = patchFor({ agents: { entries: { main: { workspace: 'D:\\claw' } } }, skills: { entries: { weather: { enabled: true } } } });
         expect(patch.mcp).toEqual({ servers: { skyrim: { command: 'node', args: [place.entry] } } });
         expect(patch.skills).toEqual({ load: { extraDirs: [place.skillsDir] } });
         expect(patch.agents.entries).toEqual({
             [OPENCLAW_AGENT]: {
                 name: 'Skyrim Modding',
+                workspace: place.agentWorkspace,
                 cwd: place.projectsDir,
                 skills: place.skills,
                 thinkingDefault: 'max',
@@ -138,6 +145,37 @@ describe('registering the server with OpenClaw', () => {
         expect(patchFor({ agents: { entries: { a: {}, b: {} } } }).agents.entries).not.toHaveProperty('a');
     });
 });
+
+describe('the modding agent\'s workspace files', () => {
+    const files = openClawWorkspaceFiles('the Mod Organizer instance at G:\\Modding\\SkyrimSE-Test', '2026-10-18');
+    const all = Object.values(files).join('\n');
+
+    it('are the four OpenClaw puts into an agent\'s prompt, each short', () => {
+        expect(Object.keys(files)).toEqual(['AGENTS.md', 'SOUL.md', 'USER.md', 'IDENTITY.md']);
+        for (const text of Object.values(files)) expect(text.length).toBeLessThan(4000);
+    });
+
+    it('name only tools the agent has: the server\'s, under OpenClaw\'s prefix, and those setup allows it', () => {
+        const served = new Set([...createHandlers(undefined as unknown as AppBackend).flatMap(h => h.getTools()).map(t => t.name), 'healthcheck']);
+        const named = [...all.matchAll(/`skyrim__(\w+)`/g)].map(m => m[1]);
+        expect(named.length).toBeGreaterThan(8);
+        for (const name of named) expect(served, name).toContain(name);
+        for (const [, name] of all.matchAll(/`(read|write|edit|ls|apply_patch|skills_read)`/g)) expect(OPENCLAW_AGENT_TOOLS).toContain(name);
+    });
+
+    it('name only skills there are, and the server\'s families of records', () => {
+        const skills = new Set(discoverSkills().filter(s => s.collection === 'domain').map(s => s.name));
+        for (const [name] of all.matchAll(/skyrim-modding-[a-z-]+/g)) expect(skills, name).toContain(name);
+        for (const family of FAMILY_SKILLS) expect(files['AGENTS.md']).toContain(family.skill);
+    });
+
+    it('tell the agent the instance it works on, in OpenClaw\'s directive form, and do without one not configured yet', () => {
+        expect(files['USER.md']).toContain('<!-- observed: 2026-10-18 | status: active -->\n\n- Always work on the instance the Skyrim server is bound to ' +
+            '(the Mod Organizer instance at G:\\Modding\\SkyrimSE-Test)');
+        expect(openClawWorkspaceFiles(undefined, '2026-10-18')['USER.md']).toContain('bound to; never change another instance');
+    });
+});
+
 
 describe('Mod Organizer\'s instances', () => {
     it('offers the global instances that manage Skyrim Special Edition, and no others', () => {
