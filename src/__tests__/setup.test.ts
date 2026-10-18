@@ -163,6 +163,25 @@ describe('the modding agent\'s workspace files', () => {
         for (const [, name] of all.matchAll(/`(read|write|edit|ls|apply_patch|skills_read)`/g)) expect(OPENCLAW_AGENT_TOOLS).toContain(name);
     });
 
+    it('show each call with the arguments its own tool takes', () => {
+        // skills_read takes only a name (OpenClaw 2026.10.4); given readSkill's `skill` and `file`, 26b called
+        // it with those ten times in round 21.
+        const schemas = new Map<string, { properties: Record<string, unknown>; required?: string[] }>([
+            ['skills_read', { properties: { name: {} }, required: ['name'] }],
+            ...createHandlers(undefined as unknown as AppBackend).flatMap(h => h.getTools())
+                .map(t => [`skyrim__${t.name}`, t.inputSchema] as [string, { properties: Record<string, unknown>; required?: string[] }])
+        ]);
+        const examples = [...all.matchAll(/`(\w+)` with `(\{[^`]*\})`/g)];
+        expect(examples.length).toBeGreaterThanOrEqual(3);
+        for (const [, tool, json] of examples) {
+            const schema = schemas.get(tool);
+            expect(schema, tool).toBeDefined();
+            const args = Object.keys(JSON.parse(json));
+            for (const arg of args) expect(Object.keys(schema!.properties), `${tool} ${arg}`).toContain(arg);
+            for (const arg of schema!.required ?? []) expect(args, `${tool} ${arg}`).toContain(arg);
+        }
+    });
+
     it('name only skills there are, and the server\'s families of records', () => {
         const skills = new Set(discoverSkills().filter(s => s.collection === 'domain').map(s => s.name));
         for (const [name] of all.matchAll(/skyrim-modding-[a-z-]+/g)) expect(skills, name).toContain(name);

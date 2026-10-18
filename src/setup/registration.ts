@@ -123,12 +123,12 @@ export function openClawWorkspaceFiles(boundTo: string | undefined, today: strin
             '',
             '## Before you write a mod',
             '',
-            `1. Read the skill \`skyrim-modding-basics\` once per chat: ${tool('readSkill')} with`,
-            '   `{"skill": "skyrim-modding-basics"}`. (`skills_read` works too; its argument is `name`.)',
+            '1. Read the skill `skyrim-modding-basics` once per chat: `skills_read` with `{"name": "skyrim-modding-basics"}`.',
             '2. Then the skill of the records you will write: ' +
             `${FAMILY_SKILLS.map(family => `\`${family.skill}\` (${family.covers})`).join(', ')}.`,
-            '   A skill\'s tables are in its `REFERENCE.md`: add `"file": "REFERENCE.md"`.',
             '   Mods that break after a game update: `skyrim-modding-game-versions`.',
+            '3. A skill\'s tables are in its REFERENCE.md, which `skills_read` does not read: ' +
+            `${tool('readSkill')} with \`{"skill": "skyrim-modding-magic", "file": "REFERENCE.md"}\`.`,
             '',
             '## How a mod is made',
             '',
