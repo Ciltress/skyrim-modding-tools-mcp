@@ -226,6 +226,7 @@ console.log(`eval: ${opt.model} @ num_ctx ${CTX ?? 'Ollama default'}, profile ${
 if (OPENCLAW) {
     console.log(`eval: through ${openClaw.version} (${openClaw.entry}), on the configuration ${openClaw.configFile}` +
         `${openClaw.agentId ? `, agent '${openClaw.agentId}'` : ''}` +
+        `${openClaw.workspaceFiles.length ? ` with ${openClaw.workspaceFiles.map(f => path.basename(f)).join(', ')}` : ''}` +
         (openClaw.copiedFrom ? ` — ${opt.model} with the settings of its entry for ${openClaw.copiedFrom}` : ''));
 }
 console.log('eval: reading the ground truth from the instance (the first lookup builds the index)…');
@@ -475,7 +476,7 @@ const TASKS = [
     // Authoring: new records written by hand into a new project, following vanilla ones, and built.
     {
         id: 'sword',
-        skill: 'items-and-crafting',
+        skill: 'skyrim-modding-items-and-crafting',
         prompt: 'Make a new mod called FlameBlade with a new one-handed sword named "Flame Blade" that has a fire ' +
             'damage enchantment, so it burns what it hits. Build it, but do not deploy it.',
         detailed: 'Make a new mod called FlameBlade with a new one-handed sword named "Flame Blade". Make it like the ' +
@@ -496,7 +497,7 @@ const TASKS = [
     },
     {
         id: 'spell',
-        skill: 'magic',
+        skill: 'skyrim-modding-magic',
         prompt: 'Make a new mod called StormBolt with a new Destruction spell named "Storm Bolt" that deals shock ' +
             'damage to a target. Build it, but do not deploy it.',
         detailed: 'Make a new mod called StormBolt with a new Destruction spell named "Storm Bolt": an Apprentice-level, ' +
@@ -515,7 +516,7 @@ const TASKS = [
     },
     {
         id: 'npc',
-        skill: 'npcs',
+        skill: 'skyrim-modding-npcs',
         prompt: 'Make a new mod called HildaTheNord with one new NPC: a female Nord named "Hilda". Build it, but do ' +
             'not deploy it.',
         detailed: 'Make a new mod called HildaTheNord with one new NPC: a woman of the Nord race named "Hilda", a ' +
@@ -535,7 +536,7 @@ const TASKS = [
     // Reading: a vanilla record's text copied exactly, its quotes and line breaks included.
     {
         id: 'note',
-        skill: 'items-and-crafting',
+        skill: 'skyrim-modding-items-and-crafting',
         prompt: 'Make a new mod called MavenNote with a new note named "Maven\'s Warning" whose text is exactly the ' +
             'text of the note "Note From Maven". Build it, but do not deploy it.',
         detailed: 'Make a new mod called MavenNote with a new note named "Maven\'s Warning". Make it like Maven\'s ' +
@@ -695,6 +696,7 @@ async function runTaskOpenClaw(task, run) {
     const started = Date.now();
     const session = await runOpenClaw({
         entry: openClaw.entry, prompt: task.prompt, model: opt.model, cwd: projectsDir, configFile: openClaw.file,
+        workspaceFiles: openClaw.workspaceFiles,
         proxy: openClaw.proxy, serverToolNames, maxTurns: MAX_TURNS, timeoutMs: TURN_TIMEOUT_MS, thinking: OPENCLAW_THINKING
     });
     return resultOf(task, run, { ...session, turns: session.turnStats, started, historyBytes: null });
@@ -848,6 +850,7 @@ const openClawSummary = OPENCLAW ? (() => {
         entry: openClaw.entry,
         config: openClaw.configFile,
         ...(openClaw.agentId ? { agent: openClaw.agentId } : {}),
+        workspaceFiles: openClaw.workspaceFiles.map(f => path.basename(f)),
         ...(openClaw.copiedFrom ? { modelSettingsFrom: openClaw.copiedFrom } : {}),
         firstPrompt: results.find(r => r.client?.firstPrompt)?.client.firstPrompt ?? null,
         firstPromptTokens: Math.max(0, ...firsts.map(t => t.promptTokens)),

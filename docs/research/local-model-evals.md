@@ -25,9 +25,12 @@ pays for the load; a model that was not loaded yet (a switch) gets `--settle` se
 the model behind a logging proxy in front of Ollama ([`scripts/eval-openclaw.mjs`](../../scripts/eval-openclaw.mjs)):
 the client the user chats through, on their own OpenClaw configuration (`~/.openclaw/openclaw.json`,
 or `--openclaw-config`) — its system prompt and tools, Tool Search, the thinking level and the context
-it asks Ollama for. The eval changes only what a measurement needs: this server alone, on a fresh
-projects folder, without `deployProject`, `installMod` and `downloadNexusFile`; OpenClaw's shell
-(`exec`, `process`) denied; the model under test configured and allowed. Its entry adds a line: the
+it asks Ollama for, and one agent (`--openclaw-agent`, else `skyrim`) with its workspace files
+(AGENTS.md, SOUL.md, USER.md…) in the prompt as a gateway puts them. The eval changes only what a
+measurement needs: this server alone, on a fresh projects folder, without `deployProject`, `installMod`
+and `downloadNexusFile`; OpenClaw's shell (`exec`, `process`) and the tools that reach a paired device
+(`nodes`, `file_fetch`, `file_write`, `dir_list`, `dir_fetch`) denied; the model under test configured
+and allowed. Its entry adds a line: the
 first prompt's tokens and tools, the thinking and num_ctx OpenClaw sent, the time to the first token,
 answers cut off, side requests. Its seconds include each session's start, where the server builds its
 record index again. `+skill` runs are left out there. Until 2026-10-18 the second client was Claude

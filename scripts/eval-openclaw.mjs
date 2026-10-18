@@ -8,7 +8,10 @@
  * else `skyrim`, the one setup writes, else the only one — working in the eval's fresh projects folder;
  * the Ollama provider points at a logging proxy; the only MCP server is this one, without deployProject,
  * installMod and downloadNexusFile (they write into the instance or download); the shell (`exec`,
- * `process`) is denied, since nobody watches the run; the model under test is configured — with the
+ * `process`) and the tools that reach a paired device (`nodes`, the file tools) are denied, since nobody
+ * watches the run; the agent's workspace files (AGENTS.md, SOUL.md, USER.md…) are copied into each run's
+ * folder and put into the prompt, as a gateway does — `agent exec` makes its folder the workspace and
+ * leaves them out unless told; the model under test is configured — with the
  * settings of the configuration's first Ollama model when it has no entry of its own — and allowed; the
  * gateway section is left out. Everything else is the user's — Tool Search, the thinking level, the tool
  * profile, the context — so what is measured is what they get.
@@ -28,8 +31,14 @@ import { StringDecoder } from 'node:string_decoder';
 /** Tools that change the instance or download: left out of OpenClaw's catalog. */
 const NOT_ALLOWED = ['deployProject', 'installMod', 'downloadNexusFile'];
 
-/** OpenClaw's shell: denied, since an eval runs unwatched. */
-const DENIED_TOOLS = ['exec', 'process'];
+/**
+ * Denied, since an eval runs unwatched: OpenClaw's shell, and the tools that reach a paired device — on
+ * the user's machine, the PC itself, through its node.
+ */
+const DENIED_TOOLS = ['exec', 'process', 'nodes', 'dir_fetch', 'dir_list', 'file_fetch', 'file_write'];
+
+/** The files of an agent's workspace OpenClaw puts into its prompt. */
+const WORKSPACE_FILES = ['AGENTS.md', 'SOUL.md', 'USER.md', 'IDENTITY.md', 'TOOLS.md'];
 
 const SERVER = 'skyrim';
 const PREFIX = `${SERVER}__`;
@@ -190,8 +199,18 @@ export function writeSessionConfig({ dir, configFile, proxyUrl, model, root, ser
     if (!agentId && ids.length > 0) {
         throw new Error(`OpenClaw's configuration has the agents ${ids.join(', ')}: name the one to measure with --openclaw-agent`);
     }
+    // The agent's workspace files, as its gateway runs read them: from its own workspace, else the default one.
+    const workspace = agentId && (entries[agentId].workspace ?? (ids.length === 1 ? agents.defaults?.workspace : undefined));
+    const workspaceFiles = workspace
+        ? WORKSPACE_FILES.map(name => path.join(workspace.replace(/^~(?=$|[\\/])/, os.homedir()), name)).filter(file => fs.existsSync(file))
+        : [];
     if (agentId) {
-        agents.entries = { [agentId]: { ...entries[agentId], workspace: projectsDir, cwd: projectsDir } };
+        agents.entries = {
+            [agentId]: {
+                ...entries[agentId], workspace: projectsDir, cwd: projectsDir,
+                ...(workspaceFiles.length && !entries[agentId].contextInjection ? { contextInjection: 'always' } : {})
+            }
+        };
         // What names an agent left out — the heartbeat's, the system agent's, talk's — names the kept one,
         // or OpenClaw refuses the whole configuration.
         const removed = new Set(ids.filter(id => id !== agentId));
@@ -241,7 +260,7 @@ export function writeSessionConfig({ dir, configFile, proxyUrl, model, root, ser
     fs.writeFileSync(file, JSON.stringify(config, null, 2));
     const numCtx = Number(entry.params?.num_ctx) > 0 ? Number(entry.params.num_ctx)
         : Number(entry.contextTokens) > 0 ? Number(entry.contextTokens) : undefined;
-    return { file, numCtx, copiedFrom, agentId };
+    return { file, numCtx, copiedFrom, agentId, workspaceFiles };
 }
 
 /** Ends a process and what it started — the server and its helper — which Windows leaves running. */
@@ -286,8 +305,9 @@ const ANSI = /\x1b\[[0-9;]*m/g;
  * One task through OpenClaw. Returns what eval-ollama.mjs's own loop returns — the calls in its record
  * shape, the final answer and how the session ended — plus the proxy's per-request figures.
  */
-export async function runOpenClaw({ entry, prompt, model, cwd, configFile, proxy, serverToolNames, maxTurns, timeoutMs, thinking }) {
+export async function runOpenClaw({ entry, prompt, model, cwd, configFile, workspaceFiles = [], proxy, serverToolNames, maxTurns, timeoutMs, thinking }) {
     proxy.log.length = 0;
+    for (const file of workspaceFiles) fs.copyFileSync(file, path.join(cwd, path.basename(file)));
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-eval-openclaw-run-'));
     // A state folder of the run's own: OpenClaw's temporary one fails to delete on Windows (a SQLite
     // file still open, EBUSY), and the run's answer is lost with it.
@@ -363,6 +383,12 @@ export async function runOpenClaw({ entry, prompt, model, cwd, configFile, proxy
         cut: !e.done || e.abandoned || !!e.error
     }));
     const first = main[0];
+    // The workspace files OpenClaw put into the prompt: those whose first line the system prompt holds.
+    const system = (first?.body?.messages ?? []).filter(m => m.role === 'system').map(m => m.content ?? '').join('\n');
+    const inPrompt = workspaceFiles.filter(file => {
+        const heading = fs.readFileSync(file, 'utf8').split('\n').find(line => line.trim());
+        return heading && system.includes(heading.trim());
+    }).map(file => path.basename(file));
     return {
         calls,
         answer: envelope?.final || last?.content || '',
@@ -373,6 +399,8 @@ export async function runOpenClaw({ entry, prompt, model, cwd, configFile, proxy
                 tools: first.tools, toolsBytes: first.toolsBytes, systemChars: first.systemChars,
                 toolSearch: first.toolNames.includes('tool_search'),
                 serverToolsListed: first.toolNames.filter(n => n?.startsWith(PREFIX)).length,
+                toolNames: first.toolNames,
+                workspaceFilesInPrompt: inPrompt,
                 think: first.think, numCtx: first.numCtx
             } : null,
             sideRequests: proxy.log.filter(e => e.tools === 0 && e.model).map(e => ({ url: e.url, model: e.model, status: e.status, ms: e.ms })),
