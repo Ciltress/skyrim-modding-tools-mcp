@@ -1,6 +1,6 @@
 import { BaseHandler } from './BaseHandler.js';
 import type { ToolSpec } from './BaseHandler.js';
-import { asRequestError, optionalBoolean, optionalString, optionalStringList, requireString } from './args.js';
+import { asRequestError, optionalBoolean, optionalString, optionalStringList, recordRef, requireString } from './args.js';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { FAMILY_SKILLS } from '../lib/skills.js';
 
@@ -111,7 +111,7 @@ export class ProjectsHandlers extends BaseHandler {
                 },
                 onFailure: 'Failed to add records to the patch',
                 run: args => {
-                    const records = optionalStringList(args, 'records', '["IronSword"]');
+                    const records = optionalStringList(args, 'records', '["IronSword"]')?.map(recordRef);
                     if (!records) {
                         throw new McpError(ErrorCode.InvalidParams,
                             `'records' is required: the FormIDs or editor IDs to override, e.g. ["IronSword"].`);

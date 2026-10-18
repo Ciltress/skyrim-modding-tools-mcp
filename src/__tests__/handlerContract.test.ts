@@ -251,6 +251,19 @@ describe('argument mapping', () => {
             tool: 'addPatch', args: { project: SAMPLE, records: [' IronSword '] }, method: 'addPatch',
             expected: [{ project: SAMPLE, records: ['IronSword'], from: undefined, plugin: undefined }]
         },
+        // A link line copied with the comment readRecord writes after it: refused as no FormID (eval round 19).
+        {
+            tool: 'readRecord', args: { record: '012EB7:Skyrim.esm  # IronSword' }, method: 'readRecord',
+            expected: [{ record: '012EB7:Skyrim.esm', plugin: undefined, allVersions: undefined }]
+        },
+        {
+            tool: 'findRecords', args: { records: ['045C2D:Skyrim.esm  # EnchWeaponFireDamage04'] }, method: 'findRecords',
+            expected: [{ text: undefined, records: ['045C2D:Skyrim.esm'], types: undefined, plugin: undefined, limit: 25 }]
+        },
+        {
+            tool: 'addPatch', args: { project: SAMPLE, records: ['012EB7:Skyrim.esm # IronSword'] }, method: 'addPatch',
+            expected: [{ project: SAMPLE, records: ['012EB7:Skyrim.esm'], from: undefined, plugin: undefined }]
+        },
         { tool: 'deployProject', args: { project: SAMPLE }, method: 'deployProject', expected: [SAMPLE] }
     ];
 

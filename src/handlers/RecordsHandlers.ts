@@ -1,6 +1,6 @@
 import { BaseHandler } from './BaseHandler.js';
 import type { ToolSpec } from './BaseHandler.js';
-import { asRequestError, limitArg, optionalBoolean, optionalString, optionalStringList, requireString } from './args.js';
+import { asRequestError, limitArg, optionalBoolean, optionalString, optionalStringList, recordRef, requireString } from './args.js';
 
 /**
  * Looking records up across the active load order: who defines a record, who overrides it, and what
@@ -65,7 +65,7 @@ export class RecordsHandlers extends BaseHandler {
                 onFailure: 'Failed to search the load order',
                 run: args => asRequestError(this.backend.findRecords({
                     text: optionalString(args, 'text'),
-                    records: optionalStringList(args, 'records', '["012EB7:Skyrim.esm", "IronSword"]'),
+                    records: optionalStringList(args, 'records', '["012EB7:Skyrim.esm", "IronSword"]')?.map(recordRef),
                     types: optionalStringList(args, 'types', '["WEAP"]'),
                     plugin: optionalString(args, 'plugin'),
                     limit: limitArg(args, DEFAULT_LIMIT, MAX_LIMIT)
@@ -111,7 +111,7 @@ export class RecordsHandlers extends BaseHandler {
                 },
                 onFailure: 'Failed to read the record',
                 run: args => asRequestError(this.backend.readRecord({
-                    record: requireString(args, 'record', `Pass a FormID or an editor ID. ${FORM_ID_HINT}`),
+                    record: recordRef(requireString(args, 'record', `Pass a FormID or an editor ID. ${FORM_ID_HINT}`)),
                     plugin: optionalString(args, 'plugin'),
                     allVersions: optionalBoolean(args, 'allVersions')
                 }))

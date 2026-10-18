@@ -94,6 +94,15 @@ public static class RecordLinks
                         (numbered.Groups["plugin"].Success ? numbered.Groups["plugin"].Value : "Skyrim.esm for a record of Skyrim.esm"));
                     return;
                 }
+                // A file where a record goes: told "a link is a FormID … or the editor ID of a Static", e4b wrote
+                // `FirstPersonModel: 1stPersonWeapons\FlameBlade.nif` three times (eval probe 20).
+                if (FilePath.IsMatch(raw))
+                {
+                    problems.Add($"{relative}: {field} is '{raw}', a file — {field} names {RecordFiles.Article(wanted)} record, the one " +
+                        "that holds the file: write the line of the vanilla record you mirror, as readRecord shows it" +
+                        (field == "FirstPersonModel" ? " — an iron sword's is `FirstPersonModel: 1stPersonIronSword`" : ""));
+                    return;
+                }
                 if (ByEditorId.Match(raw) is not { Success: true } written)
                 {
                     problems.Add($"{relative}: {field} is '{raw}' — a link is a FormID like 012EB7:Skyrim.esm, or the editor ID of {RecordFiles.Article(wanted)}");
@@ -187,6 +196,9 @@ public static class RecordLinks
         var reason = Regex.Replace(e.Message, @"^\(Line:[^)]*\)( - \(Line:[^)]*\))?:\s*", "").Trim();
         return $"the YAML breaks at {where}: {reason} Indent a field's own fields by two spaces below it, and give every other line a `Field: value`";
     }
+
+    /// <summary>A file's path: folders apart by a slash, or a file's extension at the end.</summary>
+    private static readonly Regex FilePath = new(@"[\\/]|\.(nif|dds|tga|wav|xwm|fuz|hkx|pex|psc|swf)$", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(5));
 
     /// <summary>
     /// A line written as a field, in a field's own spelling, with a value only a field has: a link, a
@@ -378,8 +390,14 @@ public static class RecordLinks
             var holds = movedUp.Count > 1
                 ? $"; {path} holds only {string.Join(", ", type.GetProperties(BindingFlags.Public | BindingFlags.Instance).Select(p => p.Name))}"
                 : "";
-            problem($"{path} has no field {string.Join(", ", movedUp)} (move {(movedUp.Count == 1 ? "it" : "them")} up, " +
-                $"{(above.Length == 0 ? "to the top level" : $"under {above}")}{holds})");
+            // Told "to the top level", e4b wrote the lines back with their two spaces in front, under Data again,
+            // until it gave up (eval round 19): the lines themselves, and how deep they go.
+            var lines = string.Join(", ", movedUp.Select(key => mapping.Children[new YamlScalarNode(key)] is YamlScalarNode { Value: { Length: > 0 } one }
+                ? $"`{key}: {one}`" : $"`{key}:` with its lines"));
+            problem($"{path} has no field {string.Join(", ", movedUp)} (move {(movedUp.Count == 1 ? "it" : "them")} up: " +
+                (above.Length == 0
+                    ? $"at the margin, with no spaces in front — {lines}"
+                    : $"under {above}, as deep as its other fields — {lines}") + $"{holds})");
         }
     }
 

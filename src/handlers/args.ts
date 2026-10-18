@@ -81,6 +81,13 @@ export function optionalStringList(args: any, name: string, example: string): st
     return items.length ? items : undefined;
 }
 
+/**
+ * A record as an argument names it — a FormID or an editor ID — without the comment readRecord writes
+ * after a link: `045C2D:Skyrim.esm  # EnchWeaponFireDamage04`, copied whole, was refused as no FormID
+ * (eval round 19).
+ */
+export const recordRef = (text: string): string => text.replace(/\s+#.*$/, '').trim();
+
 export function optionalBoolean(args: any, name: string): boolean | undefined {
     const value = args?.[name];
     if (value === undefined || value === null) return undefined;

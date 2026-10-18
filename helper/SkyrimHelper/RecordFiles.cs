@@ -153,7 +153,10 @@ public static class RecordFiles
             "damage is Magnitude, under Data, in each item of Effects"),
         (["EffectData"], ["Damage", "DamageAmount", "Strength"], "Magnitude", "damage is Magnitude"),
         // An item of Effects names its magic effect as BaseEffect; told "has no field Effect", a model kept it (eval probe 10).
-        (["Effect"], ["Effect", "MagicEffect", "EffectID", "MGEF", "Base", "Spell"], "BaseEffect", "it is BaseEffect, naming the MagicEffect"),
+        (["Effect"], ["Effect", "MagicEffect", "EffectID", "MGEF", "Base", "Spell", "EffectType", "Type"], "BaseEffect", "it is BaseEffect, naming the MagicEffect"),
+        // An enchantment's charge belongs to what carries it; told "delete it", e4b wrote it elsewhere in the enchantment (eval round 19).
+        (["ObjectEffect", "Effect", "EffectData"], ["Charge", "Charges", "ChargeAmount", "EnchantmentCharge"], null,
+            "an enchantment's charge is the weapon's or armor's EnchantmentAmount, beside its ObjectEffect line"),
         // Told only "delete it", a model dropped the damage of its sword's enchantment (eval round 17).
         (["Effect"], ["Damage", "DamageAmount", "Strength"], null, "damage is Magnitude, under Data — beside Area and Duration"),
         (["Spell", "ObjectEffect", "Scroll"], ["Delivery"], "TargetType", "it is TargetType: Self, Touch, Aimed, TargetActor or TargetLocation"),
