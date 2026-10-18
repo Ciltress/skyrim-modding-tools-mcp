@@ -1,5 +1,5 @@
 ---
-name: leveled-lists
+name: skyrim-modding-leveled-lists
 description: Leveled item, NPC and spell lists in Skyrim SE - how the game picks from them, and why several mods editing one list conflict. Use when adding items, enemies or spells to the world, when loot, merchant stock or spawns look wrong, or when merging lists from several mods.
 ---
 

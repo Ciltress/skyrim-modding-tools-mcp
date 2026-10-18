@@ -96,7 +96,7 @@ describe('registering the server with OpenClaw', () => {
     const place = {
         entry: path.join(root, 'dist', 'index.js'),
         skillsDir: path.join(root, 'skills', 'Domain'),
-        skills: ['skyrim-modding-basics', 'magic'],
+        skills: ['skyrim-modding-basics', 'skyrim-modding-magic'],
         projectsDir: path.join(root, 'projects'),
         workspace: path.join('C:\\Users\\me', '.openclaw', 'workspace')
     };

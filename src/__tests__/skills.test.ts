@@ -64,24 +64,32 @@ describe('resolveSkill', () => {
     const named = (request: string) => resolveSkill(request)?.name;
 
     it('takes an exact name in any case', () => {
-        expect(named('magic')).toBe('magic');
-        expect(named('Npcs')).toBe('npcs');
+        expect(named('skyrim-modding-magic')).toBe('skyrim-modding-magic');
+        expect(named('Skyrim-Modding-Npcs')).toBe('skyrim-modding-npcs');
+    });
+
+    it('takes a name from before the skyrim-modding- prefix, which models and clients may still send', () => {
+        expect(named('magic')).toBe('skyrim-modding-magic');
+        expect(named('npcs')).toBe('skyrim-modding-npcs');
+        expect(named('items-and-crafting')).toBe('skyrim-modding-items-and-crafting');
+        expect(named('leveled-lists')).toBe('skyrim-modding-leveled-lists');
+        expect(named('game-versions')).toBe('skyrim-modding-game-versions');
     });
 
     it('takes a singular, or words of the name', () => {
-        expect(named('npc')).toBe('npcs');
-        expect(named('items')).toBe('items-and-crafting');
-        expect(named('leveled list')).toBe('leveled-lists');
+        expect(named('npc')).toBe('skyrim-modding-npcs');
+        expect(named('items')).toBe('skyrim-modding-items-and-crafting');
+        expect(named('leveled list')).toBe('skyrim-modding-leveled-lists');
     });
 
     it('takes a word of a description, the one that names it earliest', () => {
-        expect(named('weapon')).toBe('items-and-crafting');
-        expect(named('follower')).toBe('npcs');
-        // leveled-lists names spell lists too, but magic leads with spells.
-        expect(named('spell')).toBe('magic');
-        // skyrim-modding-basics names SKSE too, but game-versions leads with it.
-        expect(named('skse')).toBe('game-versions');
-        expect(named('game version')).toBe('game-versions');
+        expect(named('weapon')).toBe('skyrim-modding-items-and-crafting');
+        expect(named('follower')).toBe('skyrim-modding-npcs');
+        // skyrim-modding-leveled-lists names spell lists too, but magic leads with spells.
+        expect(named('spell')).toBe('skyrim-modding-magic');
+        // skyrim-modding-basics names SKSE too, but skyrim-modding-game-versions leads with it.
+        expect(named('skse')).toBe('skyrim-modding-game-versions');
+        expect(named('game version')).toBe('skyrim-modding-game-versions');
     });
 
     it('answers nothing for a word no skill has', () => {
@@ -137,9 +145,9 @@ describe('readSkill', () => {
 
     it('reads the skill a loose name or a skill sent as a collection means, under its real name', async () => {
         const npc = await run({ skill: 'npc' });
-        expect(npc.skill.name).toBe('npcs');
+        expect(npc.skill.name).toBe('skyrim-modding-npcs');
         expect(npc.content).toMatch(/^---/);
-        expect((await run({ collection: 'items' })).skill.name).toBe('items-and-crafting');
+        expect((await run({ collection: 'items' })).skill.name).toBe('skyrim-modding-items-and-crafting');
     });
 
     it('turns a bad request into an argument error, not a fault', async () => {

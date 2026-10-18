@@ -1,5 +1,5 @@
 ---
-name: items-and-crafting
+name: skyrim-modding-items-and-crafting
 description: Weapons, armor, ammo, potions, ingredients, books, misc items, and crafting and tempering recipes in Skyrim SE. Use when creating or changing an item or recipe, or diagnosing one - invisible armor, a recipe missing at the workbench, an item that perks or merchants ignore.
 ---
 

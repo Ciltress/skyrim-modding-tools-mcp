@@ -155,7 +155,7 @@ B's keyword, *vanilla* damage. Neither mod is broken; together they conflict.
   B's keyword. Patches are how conflicts are resolved; editing A's or B's plugin is undone by their
   next update.
 - **Merged patches** combine list-like records automatically: Wrye Bash's *Bashed Patch*, xEdit's
-  *Merged Patch*, Synthesis patchers. Leveled lists are the classic case (see the `leveled-lists` skill).
+  *Merged Patch*, Synthesis patchers. Leveled lists are the classic case (see the `skyrim-modding-leveled-lists` skill).
 - **Distribution frameworks** avoid the conflict altogether by changing things at runtime from text
   files instead of overriding records: SPID (spells, perks, items, outfits, factions onto NPCs), KID
   (keywords onto items), SkyPatcher (many record fields). Prefer them for broad additions.
@@ -210,7 +210,7 @@ profile, and moves the game's own files to `Data_Core` meanwhile.
   plugin to a game version.
 - GOG and Steam builds of the same version differ for SKSE: they need different SKSE builds.
 - Mods that do not fit the installed version — found with `checkGameVersion`, fixed one by one — are
-  the `game-versions` skill's work.
+  the `skyrim-modding-game-versions` skill's work.
 
 ## Papyrus and saves
 

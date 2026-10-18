@@ -257,7 +257,7 @@ export function judgeGame(input: GameInput): GameVersionCheck {
         },
         problems,
         ...(problems.length > 0 ? {
-            nextStep: `Read the skill game-versions first (readSkill). For each mod named: readNexusMod with its nexusModId, for a ` +
+            nextStep: `Read the skill skyrim-modding-game-versions first (readSkill). For each mod named: readNexusMod with its nexusModId, for a ` +
                 `file built for ${game} or for Address Library after 1.7.99's change; install it with installMod, replace: true and ` +
                 `the mod's name, then checkGameVersion again. Where there is none, ask the user whether to disable the mod, and ` +
                 `disableMod it only on their yes — for "mayNotWork", after trying the game: it often still works.`

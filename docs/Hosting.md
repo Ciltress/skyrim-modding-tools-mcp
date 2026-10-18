@@ -94,7 +94,7 @@ local model none unless told) and only the tools it needs — what it writes is
       skyrim: {
         name: "Skyrim Modding",
         cwd: "C:/Users/you/skyrim-modding-tools-mcp/projects",
-        skills: ["skyrim-modding-basics", "items-and-crafting", "magic", "npcs", "leveled-lists", "game-versions"],
+        skills: ["skyrim-modding-basics", "skyrim-modding-items-and-crafting", "skyrim-modding-magic", "skyrim-modding-npcs", "skyrim-modding-leveled-lists", "skyrim-modding-game-versions"],
         thinkingDefault: "max",
         tools: { allow: ["read", "write", "edit", "apply_patch", "ls", "skills_read", "skyrim__*"] }
       }

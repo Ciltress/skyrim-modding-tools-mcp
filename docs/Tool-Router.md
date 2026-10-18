@@ -84,7 +84,7 @@ Workflows and the error model: [`MCP-Tools.md`](./MCP-Tools.md). The vocabulary:
 | You want to… | Call |
 | --- | --- |
 | Learn how Skyrim modding works — plugins, FormIDs, load order, conflicts | `readSkill` with `{"skill":"skyrim-modding-basics"}` |
-| Learn a kind of record: items, magic, NPCs, leveled lists | `readSkill` with its skill, e.g. `{"skill":"magic","file":"REFERENCE.md"}` |
+| Learn a kind of record: items, magic, NPCs, leveled lists | `readSkill` with its skill, e.g. `{"skill":"skyrim-modding-magic","file":"REFERENCE.md"}` |
 | Know which outside tool fits a job (xEdit, LOOT, NifSkope…) | `readSkill` with `{"skill":"skyrim-modding-basics","file":"TOOLS.md"}` |
 | Find the right tool for a job | `readServerGuide` with `{"guide":"router"}` — this page |
 | See every tool's arguments | `readServerGuide` with `{"guide":"tool-reference"}`, one family by `section` |

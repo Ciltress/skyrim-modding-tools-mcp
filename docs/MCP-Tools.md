@@ -248,7 +248,7 @@ This documentation and the bundled skills are served by the server, two ways, fr
 Both are drill-downs on purpose. `readServerGuide` with no arguments answers an index of guides and
 their section headings, and a section is then fetched by number or title. `readSkill` with no
 arguments lists collections and skill names, `collection` adds descriptions, and `skill` returns the
-SKILL.md. A loose name reads the skill it means, answered under its real name: `npc` for `npcs`,
+SKILL.md. A loose name reads the skill it means, answered under its real name: `npc` or `npcs` for `skyrim-modding-npcs`,
 `weapon` for the skill whose description leads with weapons, and a skill sent as the `collection`
 (`items`). The guide registry is [`src/lib/guides.ts`](../src/lib/guides.ts); skills are discovered
 from [`skills/`](../skills) by [`src/lib/skills.ts`](../src/lib/skills.ts).

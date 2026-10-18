@@ -1,5 +1,5 @@
 ---
-name: npcs
+name: skyrim-modding-npcs
 description: NPCs and what defines them in Skyrim SE - race, class, factions, outfits, AI packages, templates, voice types, FaceGen faces, followers. Use when creating or changing an NPC or follower, or diagnosing one - a dark face, an edit with no effect, a wrong outfit, an NPC ignoring its packages.
 ---
 

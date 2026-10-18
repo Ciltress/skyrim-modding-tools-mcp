@@ -17,11 +17,11 @@ one, at any depth; every directory containing a `SKILL.md` is one skill, and eve
 | Skill | Covers | Supporting files |
 | --- | --- | --- |
 | `skyrim-modding-basics` | Plugins, masters, FormIDs, load order and mod order, overrides and patches, archives, game versions and SKSE, Papyrus and saves, where errors show up, what a project looks like | `REFERENCE.md`, `TOOLS.md` (the community's tools) |
-| `items-and-crafting` | Weapons, armor and addons, ammo, potions, books, recipes and tempering | `REFERENCE.md` |
-| `magic` | Spells, magic effects, enchantments, scrolls, shouts, how perks reach magic | `REFERENCE.md` |
-| `npcs` | NPCs, templates, FaceGen, outfits, factions, AI packages, followers | `REFERENCE.md` |
-| `leveled-lists` | Leveled items, NPCs and spells: how a pick works, the conflict problem | `REFERENCE.md` |
-| `game-versions` | Mods whose SKSE plugins do not fit the game version: checking, a fitting file or disabling, saves | `REFERENCE.md` (game versions, SKSE builds, the rules) |
+| `skyrim-modding-items-and-crafting` | Weapons, armor and addons, ammo, potions, books, recipes and tempering | `REFERENCE.md` |
+| `skyrim-modding-magic` | Spells, magic effects, enchantments, scrolls, shouts, how perks reach magic | `REFERENCE.md` |
+| `skyrim-modding-npcs` | NPCs, templates, FaceGen, outfits, factions, AI packages, followers | `REFERENCE.md` |
+| `skyrim-modding-leveled-lists` | Leveled items, NPCs and spells: how a pick works, the conflict problem | `REFERENCE.md` |
+| `skyrim-modding-game-versions` | Mods whose SKSE plugins do not fit the game version: checking, a fitting file or disabling, saves | `REFERENCE.md` (game versions, SKSE builds, the rules) |
 
 Each `SKILL.md` stays short and points at its `REFERENCE.md`, where the record family's fields,
 gotchas, real project text and typical bugs live. The `SKILL.md` of items, magic and NPCs holds one

@@ -24,7 +24,7 @@ changing it changes all of them.
 | `SCRL` | Scroll — a spell as a one-use item |
 | `SHOU` | Shout: three words, a spell per level |
 | `WOOP` | Word of power |
-| `LVSP` | Leveled spell list — see the `leveled-lists` skill |
+| `LVSP` | Leveled spell list — see the `skyrim-modding-leveled-lists` skill |
 | `PERK` | Perk — modifies magic through entry points (below) |
 
 ## Spells

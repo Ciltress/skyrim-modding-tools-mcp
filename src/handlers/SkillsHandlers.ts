@@ -55,7 +55,7 @@ export class SkillsHandlers extends BaseHandler {
                             skill: {
                                 type: 'string',
                                 description:
-                                    "A skill name from the index, e.g. 'skyrim-modding-basics' or 'magic'. Returns its SKILL.md."
+                                    "A skill name from the index, e.g. 'skyrim-modding-basics' or 'skyrim-modding-magic'. Returns its SKILL.md."
                             },
                             file: {
                                 type: 'string',

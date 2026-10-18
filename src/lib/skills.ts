@@ -40,10 +40,10 @@ export interface Skill {
  * family's skill passed in eval round 12; 26b skipped it in three of nine.
  */
 export const FAMILY_SKILLS = [
-    { skill: 'items-and-crafting', covers: 'weapons, armor, other items, their enchantments and recipes' },
-    { skill: 'magic', covers: 'spells, magic effects and enchantments' },
-    { skill: 'npcs', covers: 'NPCs' },
-    { skill: 'leveled-lists', covers: 'leveled lists' }
+    { skill: 'skyrim-modding-items-and-crafting', covers: 'weapons, armor, other items, their enchantments and recipes' },
+    { skill: 'skyrim-modding-magic', covers: 'spells, magic effects and enchantments' },
+    { skill: 'skyrim-modding-npcs', covers: 'NPCs' },
+    { skill: 'skyrim-modding-leveled-lists', covers: 'leveled lists' }
 ] as const;
 
 export const SKILL_URI_PREFIX = `${RESOURCE_SCHEME}://skills/`;

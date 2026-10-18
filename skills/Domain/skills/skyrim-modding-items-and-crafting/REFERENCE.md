@@ -83,7 +83,7 @@ ARMO  ArmorIronCuirass        slots: 32 Body · type: heavy · rating · keyword
 ## Potions, poisons, food, ingredients
 
 - An `ALCH` is a list of **magic effects** with magnitude and duration — the same effects spells use
-  (see the `magic` skill). Flags mark **food**, **medicine** and **poison**; a poison needs the poison
+  (see the `skyrim-modding-magic` skill). Flags mark **food**, **medicine** and **poison**; a poison needs the poison
   flag and hostile effects.
 - An `INGR` has exactly four effects; the player learns them by eating and brewing. Alchemy brewing
   is not a recipe record — it combines ingredients by shared effects.
@@ -125,7 +125,7 @@ A new item that nothing places is unobtainable. Plan the route:
 
 - **A reference** in a cell — one sword on one table. Unique items.
 - **A container's inventory** — a chest, a merchant's chest.
-- **A leveled list** — loot, merchant stock, NPC gear; see the `leveled-lists` skill. Changing a vanilla
+- **A leveled list** — loot, merchant stock, NPC gear; see the `skyrim-modding-leveled-lists` skill. Changing a vanilla
   list is an override and conflicts with every other mod changing it.
 - **A recipe** — crafted at a station.
 - **SPID or a script** — added to NPCs or the player at runtime, conflict-free.

@@ -1,5 +1,5 @@
 ---
-name: game-versions
+name: skyrim-modding-game-versions
 description: SKSE plugins, Address Library and the game version - finding the mods that do not fit the installed Skyrim SE, and fixing each with a fitting file or, on the user's word, disabling it. Use after a game update, when checkGameVersion or healthcheck reports problems, or when an SKSE mod does nothing in the game.
 ---
 

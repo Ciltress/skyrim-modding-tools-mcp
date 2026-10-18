@@ -1,5 +1,5 @@
 ---
-name: magic
+name: skyrim-modding-magic
 description: Spells, magic effects, enchantments, scrolls, shouts, and the effects potions share with them, in Skyrim SE. Use when creating or changing one, or diagnosing one - an effect that does nothing, a wrong cost, an enchantment missing at the table, a perk that doesn't apply.
 ---
 
@@ -166,4 +166,4 @@ Skyrim.esm's records: write them as they are, with no search.
 | Lightning Rune | `RuneShockFFLocation` | `FireAndForget` | `TargetLocation` | `MAGINVShockSpellArt` | `DestructionApprentice25` | Magnitude 50, Duration 1 |
 
 `InvisibillityFFSelf` is spelled as Skyrim.esm spells it. Weapon and armor enchantments are in the
-`items-and-crafting` skill.
+`skyrim-modding-items-and-crafting` skill.

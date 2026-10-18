@@ -65,7 +65,7 @@ When a project touches a vanilla list, record which list and why, and expect it 
 - **NPC inventory** and **death item**: what she carries and what is added when she dies.
 - **Outfits**: an outfit entry can be a list, for randomised gear.
 - **Spawns**: a placed actor whose base is an `LVLN` — bandit camps, dungeon draugr. The list's
-  entries are often *templates* for NPCs defined elsewhere (see the `npcs` skill).
+  entries are often *templates* for NPCs defined elsewhere (see the `skyrim-modding-npcs` skill).
 - **Spell lists**: an `LVSP` in an NPC's spells gives level-appropriate spells.
 
 ## In a project
