@@ -21,3 +21,10 @@ projects/*/.deploy.json
 
 # What npm run setup downloads: the Papyrus compiler on Linux.
 tools/
+
+# graphify's state on this machine; the graph itself is committed.
+graphify-out/cache/
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/cost.json
+graphify-out/manifest.json
