@@ -147,7 +147,7 @@ export function copiedEscapes(pluginDir: string): CopiedEscape[] {
             // A block scalar's lines (`Value: >-` and the lines below it, deeper) are text, not fields.
             if (block !== undefined && text.trim() && indent <= block) block = undefined;
             const inBlock = block !== undefined;
-            if (/:\s*[|>][-+]?\s*$/.test(text)) block = indent;
+            if (/:\s*[|>][-+]?\s*\\?\s*$/.test(text)) block = indent;
             const escape = lineEscape(text, inBlock);
             return escape ? [{ file, line: i + 1, ...escape, text: text.trim() }] : [];
         });
@@ -185,6 +185,12 @@ function lineEscape(text: string, inBlock: boolean): Pick<CopiedEscape, 'kind' |
     kind ??= kindOf(rest);
     fixed += unescape(rest);
     if (COPIED_LINE_BREAK.test(outside)) return { kind: 'line breaks written as \\n', fixed: textLines(text, inBlock) };
+    // What a `\n` leaves when its line break is written for real: a backslash at the line's end. `Value: >-\` broke a
+    // note's YAML, and a text whose every line ended so kept them in the line given back for its quotes (12b, round 21).
+    if (/\\\s*$/.test(outside)) {
+        kind ??= 'a backslash at the end of the line';
+        fixed = fixed.replace(/\\+\s*$/, '');
+    }
     if (/\\'/.test(outside)) {
         kind ??= 'a backslash before an apostrophe';
         // In single quotes YAML writes an apostrophe twice; anywhere else, as it is.
@@ -224,7 +230,8 @@ function textLines(text: string, inBlock: boolean): string[] {
 export interface CopiedEscape {
     file: string;
     line: number;
-    kind: 'two backslashes' | 'a backslash before a quote' | 'a backslash before an apostrophe' | 'line breaks written as \\n';
+    kind: 'two backslashes' | 'a backslash before a quote' | 'a backslash before an apostrophe' | 'a backslash at the end of the line'
+        | 'line breaks written as \\n';
     /** The line as written. */
     text: string;
     /** As it is to be: one line, the copy's escapes undone — or the lines it becomes, for line breaks. */

@@ -813,6 +813,32 @@ describe('the Skyrim backend', () => {
         expect(message).toMatch(/a line break is a real one, where a JSON answer shows \\n/);
     });
 
+    it('takes a backslash at a line\'s end for what a \\n left, and gives the line without it', async () => {
+        // 12b wrote `Value: >-\`, which broke the YAML, and a text whose every line ended in a backslash; refused
+        // for its quotes, the line it was given back kept the backslash (eval round 21).
+        const { backend, fixture } = makeBackend();
+        await backend.newProject({ project: 'MavenNote' });
+        write(path.join(fixture.projects, 'MavenNote', 'plugin', 'Books', 'MavensWarning.yaml'), [
+            'EditorID: MavensWarning',
+            'BookText:',
+            '  TargetLanguage: English',
+            '  Value: >-\\',
+            '    <font face=\\"$HandwrittenFont\\">Indaryn,\\',
+            '\\',
+            '    Maven\\',
+            '  File: Clutter\\Books\\Note03.nif'
+        ].join('\n') + '\n');
+
+        const message = await backend.buildProject('MavenNote').then(() => '', (e: Error) => e.message);
+
+        expect(message).toContain('line 4 (a backslash at the end of the line): `Value: >-\\` → `Value: >-`');
+        expect(message).toContain('line 5 (a backslash before a quote): `<font face=\\"$HandwrittenFont\\">Indaryn,\\` → `<font face="$HandwrittenFont">Indaryn,`');
+        expect(message).toContain('line 6 (a backslash at the end of the line): `\\` → an empty line');
+        expect(message).toContain('line 7 (a backslash at the end of the line): `Maven\\` → `Maven`');
+        expect(message).not.toContain('line 8');
+        expect(message).toMatch(/a line ends without one — the line break is the break\.$/);
+    });
+
     it('finds each kind of copied escape on its line, and leaves a path\'s \\n and a double-quoted text\'s alone', () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-escapes-'));
         roots.push(dir);

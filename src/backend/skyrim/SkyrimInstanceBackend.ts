@@ -849,13 +849,14 @@ function checkModName(name: string): string {
 function escapesRefused(escaped: readonly CopiedEscape[]): string {
     const clip = (text: string) => text.length > 80 ? `${text.slice(0, 80)}…` : text;
     const each = escaped.map(({ file, line, kind, text, fixed }) => `${file}, line ${line} (${kind}): ` + (fixed.length === 1
-        ? `\`${text}\` → \`${fixed[0]}\``
+        ? `\`${text}\` → ${fixed[0] ? `\`${fixed[0]}\`` : 'an empty line'}`
         : `\`${clip(text)}\` → ${fixed.length} lines: ${fixed.map((next, k) => `${k + 1} ${next.trim() ? `\`${next}\`` : 'empty'}`).join(', ')}`));
     const kinds = new Set(escaped.map(escape => escape.kind));
     return `${each.join('; ')}: copied with the escapes a JSON answer shows.` +
         (escaped.some(escape => escape.fixed.length === 1)
             ? ' Replace each line with the one after its arrow: in the file, a path\'s folders are apart by a single backslash, ' +
-              `a quote has no backslash before it${kinds.has('a backslash before an apostrophe') ? ', and in single quotes an apostrophe is written twice' : ''}.`
+              `a quote has no backslash before it${kinds.has('a backslash before an apostrophe') ? ', and in single quotes an apostrophe is written twice' : ''}` +
+              `${kinds.has('a backslash at the end of the line') ? ', and a line ends without one — the line break is the break' : ''}.`
             : '') +
         (kinds.has('line breaks written as \\n')
             ? ' In the file a line break is a real one, where a JSON answer shows \\n: replace each line with the lines its arrow ' +
