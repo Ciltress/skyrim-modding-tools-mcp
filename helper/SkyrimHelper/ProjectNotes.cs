@@ -15,6 +15,13 @@ public static class ProjectNotes
     private static readonly Regex VoiceLine = new(@"^Voice:[ \t]*([^\s#]+)", RegexOptions.Multiline);
     private static readonly Regex FemaleFlag = new(@"^[ \t]+-[ \t]*Female[ \t]*\r?$|^[ \t]+Flags:[ \t]*\[[^\]\r\n]*\bFemale\b", RegexOptions.Multiline);
     private static readonly Regex TemplateLine = new(@"^Template:[ \t]*\S", RegexOptions.Multiline);
+    private static readonly Regex NameLine = new(@"^Name[ \t]*:", RegexOptions.Multiline);
+
+    /// <summary>The record types the player sees by name — in the inventory, the magic menu, under the crosshair.</summary>
+    private static readonly HashSet<string> Named = new(StringComparer.Ordinal)
+    {
+        "Weapon", "Armor", "Ammunition", "Book", "MiscItem", "Ingestible", "Ingredient", "Scroll", "Key", "SoulGem", "Spell", "Shout", "Npc"
+    };
 
     /// <summary>The notes on the project's own records, each naming its file.</summary>
     public static List<string> Of(string pluginDir, RecordIndex index, ILinkCache cache)
@@ -25,6 +32,12 @@ public static class ProjectNotes
         var notes = new List<string>();
         foreach (var (relative, type, text) in files)
         {
+            // A new spell or NPC with no Name builds, and the game shows it with none: e4b's Storm Bolt and Hilda did,
+            // and each run ended there (round 22's e4b probe). An NPC with a template may take its name from it.
+            if (Named.Contains(type.Name) && !NameLine.IsMatch(text) && !(type == typeof(Npc) && TemplateLine.IsMatch(text)))
+                notes.Add($"{relative}: {RecordFiles.Identity(text).EditorId ?? RecordFiles.Article(type.Name)} has no Name, so the game " +
+                    "shows it with none — in the inventory, the magic menu, under the crosshair. A name is two lines indented below `Name:`, " +
+                    "`TargetLanguage: English` and `Value:` with the name; a record the player never sees can go without");
             if (type == typeof(Npc) && Voice(text, index, cache) is { } voice
                 && !(TemplateLine.IsMatch(text) && text.Contains("Traits", StringComparison.Ordinal)))
             {
