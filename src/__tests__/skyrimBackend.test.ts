@@ -648,6 +648,23 @@ describe('the Skyrim backend', () => {
         expect(built.warnings).toEqual([note]);
     });
 
+    it('names a warned file by the name the build gave it, and the one it had', async () => {
+        // Told of Hilda's missing Female flag under the name the build had just changed, e4b edited that name nine
+        // times, then wrote it anew: a second Hilda (eval probe 23).
+        const { backend, fixture, helperAnswers } = makeBackend();
+        await backend.newProject({ project: 'HildaTheNord' });
+        write(path.join(fixture.projects, 'HildaTheNord', 'plugin', 'Npcs', 'Hilda.yaml'), 'EditorID: Hilda\n');
+        const voice = 'Hilda speaks with FemaleNord, a woman\'s voice, but has no Female among Configuration.Flags';
+        helperAnswers.checkRecords = () => ({ records: 1, leftOut: [], notes: [`Npcs/Hilda.yaml: ${voice}`, 'Books/Other.yaml: a note'] });
+
+        const built = await backend.buildProject('HildaTheNord');
+
+        expect(built.warnings).toEqual([
+            `Npcs/Hilda - 000800_HildaTheNord.esp.yaml (named Npcs/Hilda.yaml until this build numbered it): ${voice}`,
+            'Books/Other.yaml: a note'
+        ]);
+    });
+
     it('answers a build with warnings with a status of its own, the warnings and what to do first', async () => {
         // Behind "status":"success", a warning at the answer's end was passed by: five of e4b's eight misses in
         // eval round 21 end on a build that warned, each an override renamed as if it were a new record.

@@ -271,12 +271,30 @@ public static class RecordFiles
     {
         var hinted = keys.Select(key => (Key: key, Hint: Hint(type, known, key, ValueOf(text, key)))).ToList();
         var named = hinted.Where(f => f.Hint is not null).GroupBy(f => f.Hint!).Select(group => group.Count() == 1
-            ? $"{group.First().Key} ({group.Key})"
-            : $"{string.Join(", ", group.Select(f => f.Key))} ({Regex.Replace(group.Key, @"^(move it|it is)\b", m => m.Groups[1].Value == "move it" ? "move them" : "they are")})");
+            ? $"{group.First().Key} ({group.Key}{Moved(text, group.Key, false)})"
+            : $"{string.Join(", ", group.Select(f => f.Key))} ({Regex.Replace(group.Key, @"^(move it|it is)\b", m => m.Groups[1].Value == "move it" ? "move them" : "they are")}" +
+                $"{Moved(text, group.Key, true)})");
         var bare = hinted.Where(f => f.Hint is null).Select(f => f.Key).ToList();
         var them = bare.Count == 1 ? "it" : "them";
         return string.Join(", ", named.Append(bare.Count == 0 ? "" : $"{string.Join(", ", bare)} (delete {them}: {Article(type.Name)} has {them} nowhere)")
             .Where(s => s.Length > 0));
+    }
+
+    /// <summary>
+    /// The edit a "move it under X" is, X a part of the record, as words after it: told to move an NPC's Health
+    /// and Stamina under PlayerSkills, e4b and 12b indented them where they stood, under the field above them
+    /// (eval round 22, probe 23). Empty for any other hint.
+    /// </summary>
+    private static string Moved(string text, string hint, bool many)
+    {
+        if (Regex.Match(hint, @"^move it under (?<part>\w+)$") is not { Success: true } move) return "";
+        var part = move.Groups["part"].Value;
+        var them = many ? "them" : "it";
+        var at = Regex.Match(text, $@"^{Regex.Escape(part)}:[ \t]*\r?$", RegexOptions.Multiline);
+        return at.Success
+            ? $": delete {them} at the margin and write {them} again below `{part}:` (line {text[..at.Index].Count(c => c == '\n') + 1}), " +
+                "as deep as its other fields"
+            : $": delete {them} at the margin, and write `{part}:` with {them} below, two spaces in";
     }
 
     /// <summary>
@@ -374,6 +392,7 @@ public static class RecordFiles
         if (!Directory.Exists(pluginDir)) return (0, problems, leftOut);
         var own = OwnPlugin(pluginDir);
         var formKeys = new Dictionary<FormKey, List<string>>();
+        var editorIds = new Dictionary<string, List<(string Relative, FormKey? Key)>>(StringComparer.OrdinalIgnoreCase);
         var grouped = new Lazy<List<(string Relative, string Name, string? EditorId)>>(() => FlatRecords(pluginDir)
             .Select(f => (f.Relative, Path.GetFileName(f.File), Identity(File.ReadAllText(f.File)).EditorId)).ToList());
         foreach (var file in Directory.EnumerateFiles(pluginDir, "*.*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
@@ -466,6 +485,8 @@ public static class RecordFiles
                     (formKeys.TryGetValue(formKey, out var holders) ? holders : formKeys[formKey] = []).Add(relative);
             }
             if (type is null || parts.Length != 2) continue;
+            if (Identity(text) is { EditorId: { } recordId } identity)
+                (editorIds.TryGetValue(recordId, out var sharing) ? sharing : editorIds[recordId] = []).Add((relative, identity.FormKey));
             // The reader takes a record's first line for its FormKey — after the kind, where a group has
             // several (eval round 11: EditorID written above it).
             if (line.Success && TopLevelKey.Matches(text).Select(m => m.Groups[1].Value).FirstOrDefault(k => k != "MutagenObjectType") is { } first
@@ -476,6 +497,9 @@ public static class RecordFiles
             // A group of several kinds — Globals: GlobalFloat, GlobalShort… — names the kind in the file.
             var kind = KindIn(type, text);
             var known = FieldsOf(kind ?? type);
+            // A field written twice breaks the reader a check later: told only of the fields the type lacks, e4b moved
+            // those, was then told of DefaultOutfit written twice, and wrote the file anew each time, ten builds (eval probe 23).
+            if (Twice(text, known) is { } twice) problems.Add($"{relative}: {twice}");
             foreach (var key in BlockFields.Matches(text).Select(m => m.Groups[1].Value).Where(known.Contains).Distinct())
                 if (OneValue(kind ?? type, key)) problems.Add($"{relative}: {Blocked(kind ?? type, key, text)}");
             var unknown = TopLevelKey.Matches(text).Select(m => m.Groups[1].Value).Where(key => !known.Contains(key)).Distinct().ToList();
@@ -493,7 +517,43 @@ public static class RecordFiles
         foreach (var (formKey, holders) in formKeys.Where(pair => pair.Value.Count > 1))
             problems.Add($"{string.Join(" and ", holders)} have the same FormKey {Session.FormKeyText(formKey)} — one file per record; " +
                 "a new record has no FormKey line, the build assigns one");
+        // One editor ID, two records: told of a warning in a file the build had just numbered and renamed, e4b wrote
+        // the file again under its old name, and Hilda was built twice, a man and a woman (eval probe 23).
+        foreach (var (editorId, files) in editorIds.Where(pair => pair.Value.Count > 1 && pair.Value.Any(f => f.Key is not { } key || key.ModKey == own)))
+        {
+            var numbered = files.Where(f => f.Key is { } key && key.ModKey == own).ToList();
+            var fresh = files.Where(f => f.Key is null).ToList();
+            problems.Add($"{string.Join(" and ", files.Select(f => f.Relative))} have the same EditorID {editorId} — " +
+                (numbered.Count == 1 && fresh.Count == files.Count - 1
+                    ? $"one record written twice: a build numbered it and named its file {numbered[0].Relative}. Make the changes " +
+                        $"there, and write {string.Join(" and ", fresh.Select(f => f.Relative))} empty — the build leaves an empty record file out"
+                    : "an editor ID names one record: give each new one an EditorID of its own, or write the file of one not needed " +
+                        "empty — the build leaves an empty record file out"));
+        }
         return (records, problems, leftOut);
+    }
+
+    /// <summary>
+    /// A top-level field of the record written twice, which the reader refuses as a duplicate key — said with both
+    /// lines, as the YAML check says one — or null. Only the type's own fields: a line of a text written at the
+    /// margin is the YAML check's to name, as the text it fell out of.
+    /// </summary>
+    private static string? Twice(string text, HashSet<string> known)
+    {
+        var lines = text.Replace("\r\n", "\n").Split('\n');
+        var seen = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (TopLevelKey.Match(lines[i]) is not { Success: true } key || !known.Contains(key.Groups[1].Value)) continue;
+            var name = key.Groups[1].Value;
+            if (seen.TryAdd(name, i)) continue;
+            var (first, second) = (lines[seen[name]].Trim(), lines[i].Trim());
+            return $"{name} is written twice, on lines {seen[name] + 1} and {i + 1}, and a field is written once — " +
+                (first.EndsWith(':') ? $"keep one `{name}:` with the lines below it, and delete the other with its lines"
+                    : first == second ? "delete one of the two lines, they are the same"
+                    : $"keep the one meant, `{first}` or `{second}`, and delete the other");
+        }
+        return null;
     }
 
     /// <summary>

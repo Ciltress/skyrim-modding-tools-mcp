@@ -387,6 +387,12 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         // A record numbered by an earlier build that then failed is named now; it is listed with this build's.
         const numbered = new Set(assignedFormIds.map(record => record.file));
         const earlier = renamed.filter(file => !numbered.has(file.from)).map(({ formId, editorId, from }) => ({ formId, editorId, file: from }));
+        // A warning names its file as the build left it: told of Hilda's missing Female flag under the name this
+        // build had just changed, e4b edited that name nine times, then wrote it anew — a second Hilda (eval probe 23).
+        const named = warnings.map(warning => {
+            const file = renamed.find(({ from }) => warning.startsWith(`${from}: `));
+            return file ? `${file.to} (named ${file.from} until this build numbered it): ${warning.slice(file.from.length + 2)}` : warning;
+        });
 
         return {
             project, plugin, output,
@@ -396,7 +402,7 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             assignedFormIds: [...earlier, ...assignedFormIds].map(record => ({ ...record, file: finalPath(record.file) })),
             resolvedLinks: (built.resolvedLinks ?? []).map(link => ({ ...link, file: finalPath(link.file) })),
             scripts: { compiled },
-            ...(warnings.length > 0 ? { warnings } : {})
+            ...(named.length > 0 ? { warnings: named } : {})
         };
     }
 
