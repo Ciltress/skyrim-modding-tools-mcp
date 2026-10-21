@@ -146,7 +146,9 @@ describe('routing', () => {
 
         expect(Object.keys(payload).slice(0, 2)).toEqual(['status', 'note']);
         expect(payload.note).toMatch(/^sample \(000800:Sample\.esp\) is copied as an override: it changes that record itself, everywhere/);
-        expect(payload.note).toMatch(/write a new file instead, mirroring it without the FormKey line.*and delete the copy/);
+        // A client without a delete tool cannot delete the copy; written empty, the build leaves it out (eval round 26).
+        expect(payload.note).toMatch(/write a new file instead, mirroring it without the FormKey line.*and write the copy empty — the build leaves an empty record file out/);
+        expect(payload.note).not.toMatch(/delete the copy/);
     });
 
     it('names in newProject\'s answer the skill of each record family, every one a skill the server serves', async () => {

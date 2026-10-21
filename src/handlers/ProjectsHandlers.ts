@@ -126,6 +126,7 @@ export class ProjectsHandlers extends BaseHandler {
                         // every Iron Sword in the game became its Flame Blade (eval probe 16). Said after every copied
                         // file's text, it left e4b making its "new" sword or note this way in four of six misses
                         // (eval round 22): first now, naming the records, as a build's warnings went first (round 21).
+                        // The copy written empty, not deleted: OpenClaw gives a model no tool to delete a file (round 26).
                         const copies = [
                             ...result.added.map(record => record.editorId ? `${record.editorId} (${record.formId})` : record.formId),
                             ...result.alreadyInProject.map(record => record.formId)
@@ -136,7 +137,8 @@ export class ProjectsHandlers extends BaseHandler {
                                 `${one ? 'it changes that record' : 'each changes its record'} itself, everywhere the game uses ` +
                                 `${one ? 'it' : 'them'} — a new name renames ${one ? 'it' : 'them'} everywhere. If a new record ` +
                                 'like it was meant, write a new file instead, mirroring it without the FormKey line and with an ' +
-                                'EditorID of its own, where newProject\'s writeRecordsTo says — and delete the copy.',
+                                'EditorID of its own, where newProject\'s writeRecordsTo says — and write the copy empty — the build ' +
+                                'leaves an empty record file out.',
                             ...result
                         };
                     });

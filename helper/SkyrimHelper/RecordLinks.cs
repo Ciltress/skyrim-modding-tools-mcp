@@ -446,6 +446,21 @@ public static class RecordLinks
     }
 
     /// <summary>
+    /// The value of an NPC's AIData the official plugins' named NPCs have most often, by its type: told only the
+    /// names, e4b took the second, Aggressive, for an NPC the task gave no aggression (eval round 26). Counted over
+    /// the 3,186 named NPCs the 80 official plugins define (2026-10-21).
+    /// </summary>
+    private static readonly Dictionary<Type, (string Value, string Of)> Usual = new()
+    {
+        [typeof(Aggression)] = ("Unaggressive", "1,838"),
+        [typeof(Confidence)] = ("Foolhardy", "1,383"),
+        [typeof(Responsibility)] = ("NoCrime", "2,371"),
+        [typeof(Mood)] = ("Neutral", "2,901"),
+        [typeof(Assistance)] = ("HelpsNobody", "1,353")
+    };
+    private const string NamedNpcs = "3,186";
+
+    /// <summary>
     /// What a value of a field of names, a number or a truth is not, as words after it — "it takes a whole
     /// number, such as 15", "it takes one of Unaggressive, Aggressive…" — or null for one the reader takes.
     /// </summary>
@@ -464,7 +479,9 @@ public static class RecordLinks
                     || name.StartsWith("0x", StringComparison.OrdinalIgnoreCase) && long.TryParse(name[2..], NumberStyles.HexNumber, invariant, out _)) continue;
                 return names.FirstOrDefault(n => n.Equals(name, StringComparison.OrdinalIgnoreCase)) is { } spelled
                     ? $"it is spelled {spelled}"
-                    : $"it takes one of {string.Join(", ", names.Take(16))}{(names.Length > 16 ? ", …" : "")}";
+                    : $"it takes one of {string.Join(", ", names.Take(16))}{(names.Length > 16 ? ", …" : "")}" +
+                        (Usual.TryGetValue(type, out var usual)
+                            ? $" (the official plugins' named NPCs have {usual.Value} most often: {usual.Of} of {NamedNpcs})" : "");
             }
             return null;
         }
