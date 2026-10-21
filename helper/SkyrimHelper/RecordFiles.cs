@@ -56,6 +56,9 @@ public static class RecordFiles
         _ => null
     };
 
+    /// <summary>The everyday vanilla record of a type, by editor ID, or null — for messages written without the load order.</summary>
+    internal static string? ExampleName(string type) => Examples.GetValueOrDefault(type);
+
     /// <summary>The editor ID of a vanilla record of the type — the everyday one, else the first the load order has.</summary>
     private static string? ExampleOf(Type type, RecordIndex index) =>
         Examples.TryGetValue(type.Name, out var example) && index.ByEditorId.TryGetValue(example, out var key)
@@ -393,6 +396,76 @@ public static class RecordFiles
                 $"(readRecord {{\"record\": \"{example}\"}}) and change what differs";
         }
         return null;
+    }
+
+    /// <summary>A weapon's or armor's enchantment line that names a record, not Null.</summary>
+    private static readonly Regex ObjectEffectLine = new(@"^ObjectEffect:[ \t]*(?!(?:Null|null|~)[ \t]*(?:#|\r?$))[^\s#]", RegexOptions.Multiline);
+    private static readonly Regex ConstantCast = new(@"^CastType:[ \t]*ConstantEffect\b", RegexOptions.Multiline);
+
+    /// <summary>A weapon or armor of the project that carries no enchantment; Overrides is the load order's record a copy changes.</summary>
+    internal sealed record Carrier(string Relative, string Type, string Name, string? Overrides);
+
+    /// <summary>
+    /// The project's new enchantments no other record names — by editor ID, or by the FormID a build wrote in, an
+    /// override's too — each with the weapons and armors that carry none: the new ones, else the copies of the load
+    /// order's; armors first for an enchantment cast ConstantEffect, weapons first for any other. e4b's Flame Blade
+    /// carried its enchantment on a copy of IronSword (round 23).
+    /// </summary>
+    internal static List<(string Relative, string EditorId, List<Carrier> Carriers)> Unworn(
+        IReadOnlyList<(string Relative, Type Type, string Text)> records, ModKey? own)
+    {
+        bool IsNew(string text) => Identity(text).FormKey is not { } key || key.ModKey == own;
+        var bare = records.Where(r => (r.Type == typeof(Weapon) || r.Type == typeof(Armor)) && !ObjectEffectLine.IsMatch(r.Text)).ToList();
+        var fresh = bare.Where(r => IsNew(r.Text)).ToList();
+        var unworn = new List<(string, string, List<Carrier>)>();
+        foreach (var (relative, type, text) in records)
+        {
+            if (type != typeof(ObjectEffect) || !IsNew(text) || Identity(text) is not { EditorId: { } enchantment } identity) continue;
+            var formId = identity.FormKey is { } numbered ? Session.FormKeyText(numbered) : null;
+            if (records.Any(f => f.Relative != relative && (Regex.IsMatch(f.Text, $@"\b{Regex.Escape(enchantment)}\b")
+                    || formId is not null && f.Text.Contains(formId, StringComparison.OrdinalIgnoreCase)))) continue;
+            var armorFirst = ConstantCast.IsMatch(text);
+            var carriers = (fresh.Count > 0 ? fresh : bare)
+                .OrderBy(r => r.Type == typeof(Armor) == armorFirst ? 0 : 1)
+                .Select(r =>
+                {
+                    var (key, id) = Identity(r.Text);
+                    if (key is not { } copied || copied.ModKey == own) return new Carrier(r.Relative, r.Type.Name, id ?? r.Relative, null);
+                    var name = id ?? Session.FormKeyText(copied);
+                    return new Carrier(r.Relative, r.Type.Name, name, $"{name} of {copied.ModKey.FileName}");
+                })
+                .ToList();
+            unworn.Add((relative, enchantment, carriers));
+        }
+        return unworn;
+    }
+
+    /// <summary>
+    /// A new enchantment no record names while the project has a weapon or armor that carries none — the one meant
+    /// to, most likely — refused with the lines to write there: built with a note saying so, e4b told the user the
+    /// mod was done, twice (eval round 27). With no such weapon or armor it is a note (ProjectNotes): an enchantment
+    /// for another mod.
+    /// </summary>
+    internal static string UnwornProblem(string relative, string enchantment, List<Carrier> carriers)
+    {
+        // None of the official plugins' 3,007 enchanted armors has an EnchantmentAmount; the skill's weapon has 500 (2026-10-21).
+        string Lines(string type) => type == "Weapon" ? $"`ObjectEffect: {enchantment}` and `EnchantmentAmount: 500`" : $"`ObjectEffect: {enchantment}`";
+        var shown = carriers.Take(4).ToList();
+        var copies = shown[0].Overrides is not null;
+        var kinds = shown.Select(c => c.Type).Distinct().ToList();
+        var names = shown.Select(c => c.Name).ToList();
+        var who = shown.Count == 1
+            ? copies ? $"this copy of {shown[0].Overrides} carries" : $"{shown[0].Name} carries"
+            : $"{string.Join(", ", names.Take(names.Count - 1))} and {names[^1]}{(carriers.Count > shown.Count ? " and more" : "")} carry";
+        var into = shown.Count == 1 ? copies ? "it" : shown[0].Name : "the one meant to carry it";
+        var write = kinds.Count == 1 ? $"write {Lines(kinds[0])} in {into}" : $"write in {into} {Lines("Weapon")} for a weapon, {Lines("Armor")} for an armor";
+        var kind = kinds.Count == 1 ? kinds[0].ToLowerInvariant() : "one";
+        return $"{string.Join(", ", shown.Select(c => c.Relative))}: {who} no enchantment, and no record of the project names the new " +
+            $"{enchantment} ({relative}), so the enchantment does nothing — {write}, at the margin" +
+            (!copies ? ""
+                : shown.Count == 1
+                    ? $". The copy changes {shown[0].Name} itself, everywhere in the game: for a new {kind}, also delete its FormKey line and give it an EditorID of its own"
+                    : $". Each copy changes its record itself, everywhere in the game: for a new {kind}, also delete the FormKey line of the one you write it in and give it an EditorID of its own");
     }
 
     /// <summary>A top-level field with no value on its line, and a field indented below it.</summary>

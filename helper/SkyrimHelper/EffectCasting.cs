@@ -105,8 +105,39 @@ public static class EffectCasting
                     : $"find an effect cast {caster.Cast} on {caster.Target} with findRecords (types [\"MGEF\"]) and readRecord"));
             }
         }
+        // A modifier that names no actor value changes nothing: e4b's Storm Bolt effect, its Archetype written over at last,
+        // built as a plain success (eval round 27).
+        foreach (var effect in mod.MagicEffects.Where(m => m.FormKey.ModKey == mod.ModKey))
+        {
+            if (!Modifiers.TryGetValue(effect.Archetype.Type, out var usual) || effect.Archetype.ActorValue != ActorValue.None) continue;
+            var name = effect.EditorID ?? Session.FormKeyText(effect.FormKey);
+            var relative = files.GetValueOrDefault(effect.FormKey);
+            var written = relative is not null && Regex.IsMatch(File.ReadAllText(Path.Combine(pluginDir, relative)), @"^Archetype:", RegexOptions.Multiline);
+            var official = $"the official plugins' {effect.Archetype.Type} effects name Health most often: {usual} — each of their {ModifierCount} " +
+                "modifier and absorb effects names an actor value";
+            problems.Add($"{relative ?? name}: " + (written
+                ? $"{name} is a {effect.Archetype.Type} that names no actor value, so it changes nothing — write the one it changes under " +
+                    $"Archetype, as deep as its other lines: `ActorValue: Health` for damage ({official})"
+                : $"{name} has no Archetype, so it is a ValueModifier that names no actor value, and changes nothing — write `Archetype:` " +
+                    $"at the margin with `MutagenObjectType: MagicEffectArchetype` and the actor value it changes below it, two spaces in: " +
+                    $"`ActorValue: Health` for damage ({official})"));
+        }
         return problems;
     }
+
+    /// <summary>
+    /// The archetypes that change an actor value, and how many of the official plugins' effects of each name Health,
+    /// the one they name most often: every one of their 1,133 names an actor value (2,108 magic effects of the 80
+    /// official plugins audited, 2026-10-21).
+    /// </summary>
+    private static readonly Dictionary<MagicEffectArchetype.TypeEnum, string> Modifiers = new()
+    {
+        [MagicEffectArchetype.TypeEnum.ValueModifier] = "282 of 496",
+        [MagicEffectArchetype.TypeEnum.PeakValueModifier] = "53 of 405",
+        [MagicEffectArchetype.TypeEnum.DualValueModifier] = "131 of 160",
+        [MagicEffectArchetype.TypeEnum.Absorb] = "37 of 72"
+    };
+    private const string ModifierCount = "1,133";
 
     private static Caster Of(ISpellGetter s) => new(s, "Spell", s.Type.ToString(), EffectsCast(s.CastType), s.CastType, s.TargetType, s.Effects, !s.HalfCostPerk.IsNull);
     private static Caster Of(IObjectEffectGetter e) => new(e, "ObjectEffect", e.EnchantType.ToString(), EffectsCast(e.CastType), e.CastType, e.TargetType, e.Effects);

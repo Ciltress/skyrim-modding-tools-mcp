@@ -172,6 +172,11 @@ public static class RecordLinks
                 rewritten = rewritten[..r.Start] + r.Text + rewritten[r.End..];
             rewrites.Add((file, rewritten));
         }
+        // A new enchantment no record names, beside a weapon or armor that carries none (RecordFiles.Unworn).
+        var records = RecordFiles.FlatRecords(pluginDir).Select(f => (f.Relative, f.Type, Text: File.ReadAllText(f.File)))
+            .Where(f => !RecordFiles.Empty(f.Text)).ToList();
+        foreach (var (relative, enchantment, carriers) in RecordFiles.Unworn(records, ownPlugin).Where(u => u.Carriers.Count > 0))
+            problems.Add(RecordFiles.UnwornProblem(relative, enchantment, carriers));
 
         if (problems.Count > 0)
         {
@@ -417,6 +422,10 @@ public static class RecordLinks
             {
                 if (value is YamlMappingNode nested) Walk(nested, propertyType, field, link, problem, type, record);
                 else if (value is YamlSequenceNode) problem($"{field} takes fields of its own, indented below it — not a list");
+                // A part of the record, not a file path or a struct written as one value, as Model's File and a bound's corner are.
+                else if (value is YamlScalarNode { Value: { Length: > 0 } one } && one is not ("~" or "null" or "Null" or "NULL")
+                    && typeof(Loqui.ILoquiObject).IsAssignableFrom(propertyType))
+                    problem(PartAsValue(field, propertyType, one, record));
             }
         }
         if (movedUp.Count > 0)
@@ -536,6 +545,33 @@ public static class RecordLinks
                 : null;
         if (meant is null || meant.FormKey == linked || !takes.IsAssignableFrom(meant.Type)) return null;
         return (linkedId, meant);
+    }
+
+    /// <summary>
+    /// What a part of the record written as one value takes: `Archetype: ShockDamage`, which the reader answered
+    /// with "Expected 'Scalar', got 'MappingEnd'" and a line and column, twice to e4b (eval round 27). A value one of
+    /// the part's fields takes is given as that field's line.
+    /// </summary>
+    private static string PartAsValue(string field, Type type, string one, Type record)
+    {
+        var leaf = field[(field.LastIndexOf('.') + 1)..];
+        var shapes = type.IsAbstract
+            ? type.Assembly.GetTypes().Where(t => !t.IsAbstract && !t.IsInterface && type.IsAssignableFrom(t)).OrderBy(t => t.Name, StringComparer.Ordinal).ToList()
+            : [type];
+        var fit = shapes.SelectMany(shape => shape.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.CanWrite && (Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType).IsEnum)
+                .Select(p => (Shape: shape, Field: p.Name,
+                    Value: Enum.GetNames(Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType).FirstOrDefault(n => n.Equals(one, StringComparison.OrdinalIgnoreCase)))))
+            .FirstOrDefault(f => f.Value is not null);
+        var said = $"{field} is written as one value, {one} — it takes fields of its own, on lines indented below `{leaf}:`";
+        if (fit.Value is not null)
+            return said + $": write `{leaf}:` with " + (type.IsAbstract ? $"`MutagenObjectType: {fit.Shape.Name}` and " : "") +
+                $"`{fit.Field}: {fit.Value}` below it, two spaces in";
+        var example = RecordFiles.ExampleName(record.Name) is { } id ? $"readRecord {{\"record\": \"{id}\"}}" : "readRecord";
+        return said + (type.IsAbstract
+            ? $", the first `MutagenObjectType:` naming its kind — {string.Join(", ", KindsOf(type))} — and the kind's fields below it"
+            : $" — {string.Join(", ", type.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanWrite).Select(p => p.Name))}") +
+            $", as {example} shows them in a vanilla {record.Name}";
     }
 
     /// <summary>The kinds a field of several kinds can be — NpcLevel, PcLevelMult for an NPC's level.</summary>

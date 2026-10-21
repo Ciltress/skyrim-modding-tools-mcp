@@ -37,6 +37,8 @@ public static class ProjectNotes
         var records = RecordFiles.FlatRecords(pluginDir).Select(f => (f.Relative, f.Type, Text: File.ReadAllText(f.File)))
             .Where(f => !RecordFiles.Empty(f.Text)).ToList();
         var newRecords = records.Where(f => RecordFiles.Identity(f.Text).FormKey is not { } key || key.ModKey == own).ToList();
+        // Beside a weapon or armor that carries none, the build refuses such an enchantment (RecordLinks); alone, it may be another mod's.
+        var unworn = RecordFiles.Unworn(records, own).Where(u => u.Carriers.Count == 0).Select(u => u.Relative).ToHashSet(StringComparer.Ordinal);
         var notes = new List<string>();
         foreach (var (relative, type, text) in newRecords)
         {
@@ -59,17 +61,9 @@ public static class ProjectNotes
                     notes.Add($"{relative}: {name} is a woman (Female) who speaks with {voice.EditorID}, a man's voice — " +
                         "the npcs skill names each race's woman's voice");
             }
-            if (type == typeof(ObjectEffect) && RecordFiles.Identity(text) is { EditorId: { } enchantment } identity)
-            {
-                // Named by any other record of the project, an override too — by editor ID, or by the FormID a build wrote in.
-                // e4b's Flame Blade carried its enchantment on a copy of IronSword (round 23).
-                var formId = identity.FormKey is { } key ? Session.FormKeyText(key) : null;
-                var named = records.Any(f => f.Relative != relative
-                    && (Regex.IsMatch(f.Text, $@"\b{Regex.Escape(enchantment)}\b") || formId is not null && f.Text.Contains(formId, StringComparison.OrdinalIgnoreCase)));
-                if (!named)
-                    notes.Add($"{relative}: no record of the project names {enchantment}, so it does nothing — a weapon or armor " +
-                        $"carries it as `ObjectEffect: {enchantment}`");
-            }
+            if (unworn.Contains(relative) && RecordFiles.Identity(text).EditorId is { } enchantment)
+                notes.Add($"{relative}: no record of the project names {enchantment}, so it does nothing — a weapon or armor " +
+                    $"carries it as `ObjectEffect: {enchantment}`");
         }
         // A record copied whole and renamed, its FormKey and EditorID kept, builds as a change to that record, not as
         // a new one beside it: e4b's "new note" was Maven's own, renamed (eval probe 19). A patch renames now and then.
