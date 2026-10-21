@@ -148,6 +148,7 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-21 | gemma4:e4b | `all`, OpenClaw | f9cb81c | 36/39 | 3.46 s | ~7,319 tokens/s | ~179 tokens/s | 100% |
 | 2026-10-21 | gemma4:e4b | `all`, OpenClaw | 410f3f8 | 38/39 | 3.01 s | ~7,264 tokens/s | ~173 tokens/s | 100% |
 | 2026-10-21 | gemma4:e4b | `all`, OpenClaw | e176320 | 37/39 | 3.33 s | ~7,397 tokens/s | ~168 tokens/s | 100% |
+| 2026-10-21 | gemma4:e4b | `all`, OpenClaw | 6134d7d | 38/39 | 2.99 s | ~7,402 tokens/s | ~167 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -249,70 +250,6 @@ model's: four turns lost calling `skills_read` with `skill:` instead of `name:`,
 effect on the enchantment, refused by the build, and the turns ran out. (The seconds do not compare: the
 GPU ran the second half at ~184 tokens/s of prompt against ~891.)
 
-## Round 24 — the enchantment note, gemma4:e4b alone (2026-10-21)
-
-**Changed before it** — one of round 23's four pointers:
-
-- The enchantment note looks through every record of the project, overrides too (4a0f460): an
-  enchantment that only an addPatch copy of IronSword carries gets no note. Round 23's sword #1 had been
-  told that no record names FlameBladeEnch, which its overriding sword did.
-
-The round ran on the user's own OpenClaw configuration; its e4b entries are those of round 23's copy,
-which differed only in 12b's context.
-
-gemma4:e4b, `all`, OpenClaw (prompt ~7,264 tokens/s, generation ~173 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 11456 | 42.3 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 12515 | 40.5 |
-| filter | 3/3 | 2.3 | 1.3 | 0 | 0 | 11611 | 39.2 |
-| patch | 3/3 | 6.7 | 5.7 | 1 | 0 | 18160 | 46.3 |
-| build | 3/3 | 6.3 | 5.3 | 0 | 0 | 17906 | 46.8 |
-| sword | 3/3 | 11.7 | 11.7 | 4 | 0 | 23961 | 66.9 |
-| sword+detailed | 3/3 | 12.7 | 12 | 3 | 1 | 24024 | 85.1 |
-| spell | 3/3 | 6 | 5.3 | 0 | 0 | 16860 | 44.3 |
-| spell+detailed | 2/3 | 8 | 7 | 3 | 0 | 18189 | 66.2 |
-| npc | 3/3 | 8.3 | 7.7 | 2 | 0 | 16385 | 52.2 |
-| npc+detailed | 3/3 | 10 | 9 | 5 | 0 | 20917 | 62.1 |
-| note | 3/3 | 8.3 | 7.3 | 2 | 0 | 18683 | 59 |
-| note+detailed | 3/3 | 9.7 | 8.7 | 4 | 0 | 15965 | 62.3 |
-
-Through OpenClaw 2026.10.4 (383c124): first prompt 9,795 tokens (26 tools, 16 of them this server's),
-think high, num_ctx 131072, no answer cap; no answer cut off, no turn ended at the length limit, no side
-requests; first token after 1.7 s, the median of the first turns.
-
-**Seen.**
-
-- **e4b 38 of 39** (round 23: 36), swords 6 of 6 (4 of 6), NPCs and notes 6 of 6 each, spells 5 of 6.
-  Its turns took 3.01 s (3.46).
-- **The enchantment note never came, so the round did not test the fix.** All six swords wrote their
-  enchantment as a new file and named it from a new sword. One authoring run used addPatch (sword+detailed
-  #1, a copy of IronSword): the build refused its FormKey line as IronSword's, e4b took it out, and the
-  copy built as a new sword. No build warned at all — no rename, no missing Name.
-- **The refusals were fixed where they came**, each by the next build or the one after:
-  - another record's FormKey copied into a new one, 9 times in 8 runs — the vanilla note's in three of
-    the notes, IronSword's, AkaviriKatana's in sword #1's enchantment, a corpse's in npc #2;
-  - FormKey `000000` or empty, 3 times; an NPC's level at the margin, 4 times; copied escapes, twice.
-- **spell+detailed #2, the miss:**
-  - It wrote a magic effect of its own, with `Data:` holding `DamageType: Shock` and `Magnitude: 40`, and a
-    `Type:` text. The refusal said "a MagicEffect has no field Data (move it in each item of Conditions)" —
-    round 23's wrong pointer, which no change has touched yet.
-  - e4b read ShockDamageFFAimed, then wrote a second magic effect, StormShockImpactData, with the same
-    fields at the margin, which no record names. Next it rewrote the first as a copy of ShockDamageFFAimed,
-    which passed the checks. The second was refused for Type, DamageType and Magnitude, the answer ending
-    "no other record names StormShockImpactData: if it is not needed, write its file empty — the build
-    leaves an empty record file out" (the record keeps answers cut short; a replay of the run's writes
-    gave this text in full).
-  - Its last turn (2,189 tokens) planned the first file's edit again, already made, and made no call.
-    OpenClaw ended the run on the failed build, as in round 23's sword+detailed #3.
-
-**What it points at next:** a magic effect's `Data` that holds Magnitude, Area or Duration answered the way
-`Magnitude` is — they go in the spell's Effects item — not "in each item of Conditions"; and the way to drop
-a new record no other record names, given first rather than after the fields, since e4b went back to the
-file it had already fixed. Round 23's other two pointers — a spell's `MagicSkill`, and addPatch's rename —
-did not come up.
-
 ## Round 25 — round 24's fixes and three sharper answers, gemma4:e4b alone (2026-10-21)
 
 **Changed before it** — what round 24 pointed at, and round 23's other two pointers:
@@ -395,3 +332,62 @@ file written under the name the build took away is answered as the record it num
 said to what the user asked for — a new one asked for is a new record, not this copy; and the copied-escapes
 refusal given with the record files' other problems, in one answer. The turns that plan and make no call are
 OpenClaw's to carry on.
+
+## Round 26 — round 25's four fixes, gemma4:e4b alone (2026-10-21)
+
+**Changed before it** — what round 25 pointed at (01465e3):
+
+- A record file of only comments and blank lines holds no record, as an empty one does: it is left out of
+  the build, and the build's notes pass it by.
+- A new record with no EditorID keeps its file's name when the build numbers it.
+- The rename warning's way out opens with what was asked for: "If a new one was asked for, this copy is not
+  it: delete this file's FormKey line and give it an EditorID of its own".
+- Copied escapes are refused in one answer with what the record checks refuse ("… Also: 3 record file(s)
+  cannot be built as written: …"), still before anything is numbered or built.
+
+gemma4:e4b, `all`, OpenClaw (prompt ~7,402 tokens/s, generation ~167 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 11454 | 42.1 |
+| read | 3/3 | 4 | 3 | 1 | 0 | 12807 | 39.5 |
+| filter | 3/3 | 2.3 | 1.3 | 0 | 0 | 10434 | 36.3 |
+| patch | 3/3 | 7 | 6 | 0 | 3 | 20854 | 51.1 |
+| build | 3/3 | 7 | 6 | 0 | 0 | 18152 | 45.9 |
+| sword | 2/3 | 10.3 | 9.3 | 1 | 0 | 23507 | 63.7 |
+| sword+detailed | 3/3 | 13.3 | 12.7 | 4 | 2 | 25001 | 78.1 |
+| spell | 3/3 | 6 | 5 | 0 | 0 | 16465 | 46.3 |
+| spell+detailed | 3/3 | 6.3 | 5.3 | 0 | 0 | 16402 | 48.6 |
+| npc | 3/3 | 8 | 7 | 1 | 0 | 18351 | 55.9 |
+| npc+detailed | 3/3 | 14 | 13.7 | 7 | 7 | 34128 | 86.8 |
+| note | 3/3 | 7.3 | 6.3 | 2 | 0 | 13674 | 52.2 |
+| note+detailed | 3/3 | 9 | 8 | 3 | 1 | 18510 | 57.8 |
+
+Through OpenClaw 2026.10.4 (383c124): first prompt 9,794 tokens (26 tools, 16 of them this server's),
+think high, num_ctx 131072, no answer cap; no answer cut off, no turn ended at the length limit, one side
+request; first token after 1.7 s, the median of the first turns.
+
+**Seen.**
+
+- **e4b 38 of 39** (round 25: 37), swords 5 of 6 (4 of 6), spells, NPCs and notes 6 of 6 each. Its turns
+  took 2.99 s (3.33). Two authoring runs used addPatch (round 25: three).
+- **The one miss made no call the server could answer.** sword #2 copied IronSword with addPatch, renamed
+  it Flame Blade and wrote an enchantment of its own. Its last turn planned the edit that gives the copy the
+  enchantment ("I will use `edit` for this") and made no call; the answer of that turn told the user that
+  "the project is currently **built** and ready for deployment". No build ran. A run of each of the last
+  four rounds ended on a turn that planned and did not call; this one is the first that answered as if done.
+- **None of round 25's four fixes came into play:** no file was emptied, no new record lacked an EditorID,
+  no copy was renamed past a build, and no escapes were copied.
+- **The refusals were fixed where they came**, each by the next build or the one after:
+  - another record's FormKey copied, 5 times in 5 runs (the vanilla note's in four of the notes); FormKey
+    `000000` or empty, twice; an NPC's level at the margin or as items of Flags, 4 times in 3 runs.
+  - `AIData.Aggression` written `Average`, in all three npc+detailed runs: answered "it takes one of
+    Unaggressive, Aggressive, VeryAggressive, Frenzied", e4b took Aggressive each time — where the game's
+    people are mostly Unaggressive, and the task asked for none.
+  - npc+detailed #3 built Hilda without a Name; told so under both the file's names, it tried the old name
+    three times, then edited the new one and passed.
+
+**What it points at next:** the server has nothing left in this round's misses: the turns that plan and make
+no call — four rounds running, now one that answered as if built — are the model's and OpenClaw's. Smaller:
+an enum refusal could name the value most records have (Unaggressive, for a person), and addPatch's note
+still says "delete the copy", which a client without a delete tool cannot: its file written empty does it.
