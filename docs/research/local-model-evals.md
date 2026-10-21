@@ -145,6 +145,7 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-20 | gemma4:e4b | `all`, OpenClaw | 49006cd | 33/39 | 3.47 s | ~7,259 tokens/s | ~162 tokens/s | 100% |
 | 2026-10-20 | gemma4:12b | `all`, OpenClaw | 49006cd | 37/39 | 7.05 s | ~3,274 tokens/s | ~109 tokens/s | 100% |
 | 2026-10-20 | gemma4:26b | `all`, OpenClaw | 49006cd (the GPU busy with something else for most of it: s/turn does not compare) | 39/39 | 25.94 s | ~1,124 tokens/s | ~49 tokens/s | 77% |
+| 2026-10-21 | gemma4:e4b | `all`, OpenClaw | f9cb81c | 36/39 | 3.46 s | ~7,319 tokens/s | ~179 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -245,123 +246,6 @@ README and a `metadata.json` by hand, and answered that the mod was built. The m
 model's: four turns lost calling `skills_read` with `skill:` instead of `name:`, then a potion's damage
 effect on the enchantment, refused by the build, and the turns ran out. (The seconds do not compare: the
 GPU ran the second half at ~184 tokens/s of prompt against ~891.)
-
-## Round 21 — through OpenClaw, and gemma4:12b (2026-10-18)
-
-**Changed before it** — the client and the agent more than the server:
-
-- **OpenClaw is the client** (`--client openclaw`, OpenClaw 2026.10.4), not the eval's own loop: the user's
-  configuration, with Tool Search off, thinking `max` (sent as `think: "high"`) and context 131,072, and one
-  agent per model — `skyrim`, `skyrim-e4b`, `skyrim-12b` — with setup's tools and the user's web and memory
-  tools: 26 tools in the first prompt, 16 of them this server's, ~9,400 tokens. The agents' workspace files
-  (AGENTS.md, SOUL.md, USER.md, IDENTITY.md) were in every prompt. AGENTS.md carries what the server's
-  `instructions` say, which OpenClaw drops, and two lines more: read a build's warnings, and readSkill
-  takes `skill`. No `+skill` runs: through OpenClaw the harness cannot put a skill read in as the model's.
-- The skills are named `skyrim-modding-*` (3261e32).
-- Each text refusal says what stays as it is (b192d20, after round 20's note #3): a text at the margin is
-  answered with the first field after it, which stays there; a field indented into a text, with the
-  text's lines keeping their spaces.
-- gemma4:12b (Q4_K_M) is measured for the first time.
-
-The rows do not compare with round 20's directly. On the same 39 tasks, round 20's own loop gave e4b 34
-and 26b 39.
-
-gemma4:e4b, `all`, OpenClaw (prompt ~7,459 tokens/s, generation ~171 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 11007 | 43.6 |
-| read | 3/3 | 3.3 | 2.3 | 0 | 0 | 12281 | 44.7 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 9774 | 39.5 |
-| patch | 3/3 | 6 | 5 | 0 | 0 | 19328 | 45 |
-| build | 3/3 | 7.3 | 6.3 | 0 | 0 | 20652 | 47.7 |
-| sword | 1/3 | 17 | 16.3 | 7 | 9 | 33982 | 117.3 |
-| sword+detailed | 0/3 | 15 | 14.3 | 3 | 6 | 30781 | 95.1 |
-| spell | 3/3 | 6 | 5.3 | 0 | 0 | 16697 | 45.9 |
-| spell+detailed | 3/3 | 6 | 5 | 0 | 0 | 16478 | 48.8 |
-| npc | 2/3 | 13.7 | 13 | 5 | 11 | 36429 | 87 |
-| npc+detailed | 3/3 | 9.7 | 8.7 | 4 | 1 | 19007 | 61.4 |
-| note | 3/3 | 6.3 | 5.3 | 1 | 0 | 13232 | 53.8 |
-| note+detailed | 1/3 | 9 | 8 | 2 | 0 | 19968 | 58.1 |
-
-gemma4:12b, `all`, OpenClaw (prompt ~3,624 tokens/s, generation ~116 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 11073 | 43.1 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 12141 | 37.4 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 11204 | 39.1 |
-| patch | 3/3 | 5.7 | 4.7 | 0 | 0 | 19454 | 45.1 |
-| build | 3/3 | 6.7 | 5.7 | 0 | 0 | 15089 | 41.9 |
-| sword | 2/3 | 12 | 11 | 2 | 1 | 21228 | 76.8 |
-| sword+detailed | 2/3 | 11.3 | 10.3 | 3 | 1 | 24280 | 382.7 |
-| spell | 3/3 | 9.3 | 8.3 | 1 | 0 | 18513 | 51.7 |
-| spell+detailed | 3/3 | 9 | 8 | 1 | 0 | 18535 | 53.1 |
-| npc | 3/3 | 11.7 | 10.7 | 2 | 1 | 21621 | 75.6 |
-| npc+detailed | 3/3 | 8.3 | 7.3 | 1 | 0 | 18484 | 55 |
-| note | 1/3 | 15.3 | 14.7 | 5 | 0 | 24699 | 431.6 |
-| note+detailed | 2/3 | 11.7 | 10.7 | 3 | 0 | 19370 | 88.5 |
-
-gemma4:26b, `all`, OpenClaw (prompt ~1,111 tokens/s, generation ~49 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 10965 | 58.3 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 12069 | 43.2 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 11177 | 39.5 |
-| patch | 3/3 | 6.7 | 5.7 | 0 | 1 | 19899 | 67.9 |
-| build | 3/3 | 8 | 7 | 2 | 0 | 20059 | 61.5 |
-| sword | 3/3 | 14.7 | 13.7 | 0 | 3 | 26696 | 211.3 |
-| sword+detailed | 3/3 | 9.7 | 8.7 | 0 | 0 | 23525 | 148.1 |
-| spell | 3/3 | 7.3 | 6.3 | 0 | 1 | 17850 | 87.9 |
-| spell+detailed | 3/3 | 9 | 8 | 0 | 2 | 17964 | 133.7 |
-| npc | 3/3 | 9.3 | 8.3 | 1 | 0 | 17973 | 100.8 |
-| npc+detailed | 3/3 | 8.3 | 7.3 | 1 | 0 | 18242 | 97 |
-| note | 3/3 | 9.3 | 8.3 | 2 | 1 | 22888 | 99.4 |
-| note+detailed | 3/3 | 9 | 8 | 0 | 2 | 17834 | 137.3 |
-
-Through OpenClaw 2026.10.4 (383c124), each model: first prompt ~9,400 tokens (26 tools, 16 of them this
-server's), think high, num_ctx 131072, no answer cut off; first token after 1.6 s (e4b), 3.8 s (12b) and
-9.7 s (26b), the median of the first turns. 12b made three side requests, OpenClaw's own, 13–20 s each.
-
-**Seen.**
-
-- **26b 39 of 39.** Its 16 failed calls cost no run. Ten were `skills_read` sent readSkill's `skill` and
-  `file`: OpenClaw's skills_read takes only `name` and reads only SKILL.md, and AGENTS.md showed readSkill's
-  arguments beside a mention of skills_read's. Three more calls put `file` beside `name` and "succeeded"
-  with SKILL.md — the tables they asked for were never read. All 30 reads of `skyrim-modding-basics`, in
-  29 runs, were right. Two calls asked for `SteelSword:Skyrim.esm`, an editor ID written the way a FormID is,
-  and were refused with `012EB7:Skyrim.esm` — the Iron Sword's — as the example.
-- **e4b 31 of 39**, swords 1 of 6 (round 20 on the same tasks: 5 of 6):
-  - **Seven of its eight misses made the "new" record with addPatch** — a copy of the Iron Sword, Maven's
-    note, Adelaisa — and renamed it. Five changed only the name and built as a change to the vanilla
-    record: round 19's warning said so, at the end of an answer that opened with `"status":"success"`, and
-    each run ended there — though AGENTS.md said to read a build's warnings. Two changed the editor ID too,
-    were refused for the copied FormKey, and lost the run removing it.
-  - **Told to remove the FormKey line, e4b wrote the line below it over it** (sword #2, sword+detailed
-    #1): `VersionControl` twice, answered with the reader's "Duplicate key" and the general advice to
-    indent a field's own fields. It went on looking for the FormKey line it had removed; one run ended on
-    2,370 tokens of thinking about "root-level duplication" that closed "I will perform a full edit
-    replacement", and no call, which OpenClaw answers with the last tool error.
-  - npc #1 sent the same edit six times to OpenClaw's edit tool, which refuses an `oldText` found twice.
-- **12b 34 of 39**, notes 3 of 6:
-  - **Three misses are notes with a backslash at the end of a line**, what a `\n` leaves when its break is
-    written for real. `Value: >-\` broke the YAML and was answered with the general indentation advice
-    (note #1 then wrote the same file ten times, never building); in note+detailed #2 every text line
-    ended so, and the line the escapes refusal gave back for its quotes kept the backslash.
-  - **Two turns ran 15 minutes each**, ~111,000 tokens until the context was full (sword+detailed #2,
-    note #2): the model looping, which OpenClaw does not cut short. Both runs then answered that the mod
-    was built. Without them 12b's turns took 3.75 s, about e4b's; with them, 9.49 s.
-  - sword #3, refused for doubled backslashes with the line to write, ended on an empty turn.
-- **Turns are slower through OpenClaw** — e4b 3.51 s (round 20: 1.91 s), 26b 8.96 s (7.88 s): find's
-  largest prompt is 10,965 tokens against 6,548 in round 20 (26b), and no chat's first turn is served from
-  Ollama's prompt cache.
-
-**What it points at next** — each changed before round 22: AGENTS.md shows each skill reader with its own
-arguments; an editor ID written with its plugin names that record; a build with warnings answers
-`built_with_warnings`, the warnings first, and AGENTS.md says a new record is a new file, addPatch only a
-change to an existing one; a field written twice is answered with both its lines; a backslash at a line's
-end is refused as a copied escape, and given back without it.
 
 ## Round 22 — round 21's fixes, through OpenClaw again (2026-10-20)
 
@@ -483,3 +367,87 @@ since e4b deleted what it was told to move; and addPatch, which e4b still takes 
 its answer can say that the copy changes that record wherever it is, and how a new one is written. 12b's
 looping turns are for OpenClaw to cut short, with an answer cap (`num_predict`) in the configuration —
 the user's decision.
+
+## Round 23 — round 22's fixes, gemma4:e4b alone (2026-10-21)
+
+**Changed before it** — what round 22 pointed at, and two fixes after an e4b probe (not recorded: 36/39):
+
+- A link whose comment names another record than its FormID is refused with both: "DefaultOutfit is
+  105543:Skyrim.esm, which is WEWarriorTankOutfit, but the comment after it names ArmorIronAllOutfit …
+  Write the one meant by its editor ID" (b6db01d).
+- A refusal to move lines up to where they go says to write them again there — delete them from the block
+  and write them again at the margin, below its last line — or, when they are its last lines, to take the
+  two spaces out in front of them (b6db01d).
+- addPatch's answer opens with what it copied: "IronSword (012EB7:Skyrim.esm) is copied as an override: it
+  changes that record itself, everywhere the game uses it … If a new record like it was meant, write a new
+  file instead" (00fc260).
+- The probe's fixes (2949683): a warning on a file the build renamed names it by its new name, with the
+  old one; two files with one editor ID, one of them new, are refused; a top-level field written twice is
+  named in the same refusal as the fields the type lacks; and "move them under PlayerSkills" says to delete
+  them at the margin and write them again below `PlayerSkills:`, with its line.
+- From this round a round measures gemma4:e4b alone (f9cb81c), and the eval records OpenClaw's answer cap
+  and the turns that ended at it (d4fc031). The user's configuration caps 12b's answers at 16,384 tokens
+  (`num_predict`); e4b's are not capped.
+
+gemma4:e4b, `all`, OpenClaw (prompt ~7,319 tokens/s, generation ~179 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 11492 | 42.9 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 12674 | 40 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 11621 | 39 |
+| patch | 3/3 | 6 | 5 | 1 | 1 | 20976 | 48.4 |
+| build | 3/3 | 7.7 | 6.7 | 0 | 0 | 21423 | 47.7 |
+| sword | 2/3 | 15.7 | 15 | 7 | 1 | 25085 | 89 |
+| sword+detailed | 2/3 | 12.7 | 11.7 | 4 | 0 | 26777 | 78.8 |
+| spell | 3/3 | 6 | 5 | 0 | 0 | 16730 | 45.8 |
+| spell+detailed | 2/3 | 14 | 13.3 | 5 | 1 | 23740 | 93 |
+| npc | 3/3 | 8.3 | 7.3 | 2 | 0 | 18882 | 52.3 |
+| npc+detailed | 3/3 | 14.7 | 13.7 | 6 | 4 | 35218 | 107.1 |
+| note | 3/3 | 8.3 | 7.3 | 2 | 0 | 18947 | 57.9 |
+| note+detailed | 3/3 | 8 | 7 | 3 | 0 | 13941 | 54.7 |
+
+Through OpenClaw 2026.10.4 (383c124): first prompt 9,788 tokens (26 tools, 16 of them this server's),
+think high, num_ctx 131072, no answer cap; no answer cut off, no turn ended at the length limit, no side
+requests; first token after 1.7 s, the median of the first turns.
+
+**Seen.**
+
+- **e4b 36 of 39** (round 22: 33), swords 4 of 6 (2 of 6), NPCs and notes 6 of 6 each, spells 5 of 6. One
+  authoring run made its record with addPatch (round 22: four).
+- **The new answers did their part where they came:**
+  - npc+detailed #1 linked its outfit to WEWarriorTankOutfit, with a comment naming ArmorIronAllOutfit.
+    Refused with both, it wrote the iron outfit's FormID and built.
+  - npc+detailed #2 built Hilda with no Name, and the warning named her file by both names. e4b edited
+    the old name once, found no such file, read the new one and gave her a name — two calls, where the
+    probe's run spent nine and then wrote a second Hilda.
+  - "Delete them at the margin and write them again below …" came in three NPC runs, which all passed:
+    two fixed it at the next build, npc+detailed #1 at the second. It came in sword+detailed #3 too,
+    below.
+  - sword #2, told to remove a copied FormKey line, again wrote the line below it over it. It was refused
+    for `VersionControl` written twice, then for `EditorID` written twice, then wrote the file anew and
+    built.
+- **sword #1 read past addPatch's note.** It copied IronSword, whose answer opened "IronSword
+  (012EB7:Skyrim.esm) is copied as an override: it changes that record itself, everywhere the game uses
+  it", renamed it Flame Blade and gave it a new enchantment. The build warned that Iron Sword is renamed
+  wherever it is, and e4b told the user that "the sword record was successfully overridden and renamed".
+  Its other warning was false: "no record of the project names FlameBladeEnch" — the overriding sword did,
+  but the note looks only through the project's new records.
+- **sword+detailed #3 planned both fixes and made no call.** Refused for `Value` at the margin and for one
+  FormKey written in both its new files, it thought both edits through ("Let's execute the edits.") in a
+  turn of 2,471 tokens that left no text and no call. OpenClaw ended the run on the failed build, as it
+  ended round 22's 12b npc #2.
+- **spell+detailed #1: two refusals pointed away from the fix.**
+  - Its magic effect had the spell's `Data: Magnitude: 40` at the margin, answered "a MagicEffect has no
+    field Data (move it in each item of Conditions)". The magnitude belongs in the spell's Effects item,
+    where e4b had written it as well.
+  - Its spell had `MagicSkill: Destruction`, answered "a spell's school is the MagicSkill of the magic
+    effects its Effects name". e4b took MagicSkill out of the effect and kept it in the spell.
+  - Twice it called `readRecord`, the name the refusals give, which OpenClaw knows as
+    `skyrim__readRecord`. The turns ran out at its fifth build.
+
+**What it points at next:** the enchantment note looks through every record of the project, overrides
+too; a field of a magic effect that belongs to the spell's Effects item — `Data`, `Magnitude` — is
+answered with where it goes, and a spell's `MagicSkill` with "delete it here, the effect keeps it"; and
+addPatch's rename, now made past its note and the build's warning both, may need a sharper warning: that
+every Iron Sword in the game — the player's, the merchants', the bandits' — becomes the Flame Blade.
