@@ -8,9 +8,13 @@ they were taken on, what changed before it, and what the transcripts showed.
 
 ```bash
 npm run build                          # the eval drives the built server: dist/ must be current
-npm run eval:ollama -- --model gemma4:e4b --with-skills --detailed   # probes, until its transcripts show nothing to fix
-npm run eval:ollama -- --model gemma4:26b --with-skills --detailed   # then both models: the round recorded here
+npm run eval:ollama -- --client openclaw --model gemma4:e4b --openclaw-agent skyrim-e4b --detailed   # the round recorded here
 ```
+
+From round 23 a round measures gemma4:e4b alone: what the smallest model gets done, the larger ones get
+done too — in round 22, 26b passed 39 of 39 and 12b 37 where e4b passed 33 — and an e4b round takes 40
+minutes where all three took four hours. Until round 22, e4b probes went unrecorded, and the round was
+every model's.
 
 [`scripts/eval-ollama.mjs`](../../scripts/eval-ollama.mjs) runs the tasks below through the built
 server against the instance in `.env`, with its own agent loop on Ollama's `/api/chat`, then measures
