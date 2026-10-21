@@ -230,11 +230,13 @@ describe('project files', () => {
         write(path.join(dir, 'Weapons', 'b.yaml'), 'FormKey: 000807:MyMod.esp\n');
 
         expect(nameRecordFiles(dir, 'MyMod.esp')).toEqual([
-            { from: 'Spells/a.yaml', to: 'Spells/NewA - 000806_MyMod.esp.yaml', formId: '000806:MyMod.esp', editorId: 'NewA' },
-            { from: 'Weapons/b.yaml', to: 'Weapons/000807_MyMod.esp.yaml', formId: '000807:MyMod.esp', editorId: null }
+            { from: 'Spells/a.yaml', to: 'Spells/NewA - 000806_MyMod.esp.yaml', formId: '000806:MyMod.esp', editorId: 'NewA' }
         ]);
         expect(fs.readFileSync(path.join(dir, 'Spells', 'NewA - 000806_MyMod.esp.yaml'), 'utf8')).toBe('FormKey: 000806:MyMod.esp\nEditorID: NewA\n');
         expect(fs.existsSync(path.join(dir, 'Spells', 'a.yaml'))).toBe(false);
+        // A record with no EditorID keeps the name it was written under: numbered 000800_StormBolt.esp.yaml, e4b wrote
+        // its fix under the old name, and the next build made it a second spell (eval round 25).
+        expect(fs.existsSync(path.join(dir, 'Weapons', 'b.yaml'))).toBe(true);
         // An override keeps the name it was given; a second call renames nothing.
         expect(fs.existsSync(path.join(dir, 'Weapons', 'my copy.yaml'))).toBe(true);
         expect(nameRecordFiles(dir, 'MyMod.esp')).toEqual([]);
@@ -772,7 +774,7 @@ describe('the Skyrim backend', () => {
         expect(fs.readFileSync(fenced, 'utf8')).not.toMatch(/FormKey/);
     });
 
-    it('refuses a record file with the escapes of a JSON answer copied in, naming each file and line, before any is checked', async () => {
+    it('refuses a record file with the escapes of a JSON answer copied in, naming each file and line, before any is built', async () => {
         // Copied out of a JSON string as it reads, a model path kept its doubled backslashes; the build took it,
         // and the mod would ship a path the game cannot find (e4b, eval rounds 12–15).
         const { backend, fixture, calls } = makeBackend();
@@ -786,7 +788,23 @@ describe('the Skyrim backend', () => {
         await expect(backend.buildProject('FlameBlade')).rejects.toThrow(new RegExp(
             `${escape(note)}, line 2 \\(a backslash before a quote\\).*; ${escape(sword)}, line 3 \\(two backslashes\\).*` +
             'single backslash.*quote has no backslash'));
-        expect(calls.some(c => c.method === 'checkRecords' || c.method === 'build')).toBe(false);
+        expect(calls.some(c => c.method === 'build')).toBe(false);
+        expect(fs.readFileSync(sword, 'utf8')).not.toMatch(/FormKey/);
+    });
+
+    it('refuses copied escapes together with what the record checks refuse, in one answer', async () => {
+        // Refused alone, the escapes cost a build: e4b fixed the path, built, and only then heard of the FormKey
+        // line it had copied into the same file (eval round 25, sword+detailed #3).
+        const { backend, fixture, calls } = makeBackend();
+        await backend.newProject({ project: 'FlameBlade' });
+        const sword = path.join(fixture.projects, 'FlameBlade', 'plugin', 'Weapons', 'FlameBlade.yaml');
+        write(sword, 'EditorID: FlameBlade\ndamage: 12\nModel:\n  File: Weapons\\\\Iron\\\\LongSword.nif\n');
+
+        const message = await backend.buildProject('FlameBlade').then(() => '', (e: Error) => e.message);
+        expect(message).toMatch(new RegExp(`${escape(sword)}, line 4 \\(two backslashes\\).*single backslash.*` +
+            'Also: 1 record file\\(s\\) cannot be built as written: .*a Weapon has no field damage'));
+        expect(calls.some(c => c.method === 'build')).toBe(false);
+        expect(fs.readFileSync(sword, 'utf8')).not.toMatch(/FormKey/);
     });
 
     it('quotes each refused line and gives it as it is to be written', async () => {

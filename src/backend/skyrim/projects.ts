@@ -373,7 +373,9 @@ export function keepRecordTexts(pluginDir: string): () => void {
  * Renames the files of the project's own records the way Spriggit names them — `<editor ID> -
  * <FormID>_<plugin>.yaml` — so that a pull finds them where it would write them. Called once a build
  * has succeeded: renamed by a build that then failed, a file went on being fixed under its old name,
- * which made a second record (eval round 11). Overrides and the files heading cells keep their names.
+ * which made a second record (eval round 11). Overrides and the files heading cells keep their names, and so
+ * does a record with no EditorID: numbered `000800_StormBolt.esp.yaml`, e4b wrote its fix under the old name,
+ * and the next build made it a second spell (eval round 25). A pull writes Spriggit's name in its place.
  */
 export function nameRecordFiles(pluginDir: string, plugin: string, skip: ReadonlySet<string> = new Set()):
     { from: string; to: string; formId: string; editorId: string | null }[] {
@@ -385,7 +387,8 @@ export function nameRecordFiles(pluginDir: string, plugin: string, skip: Readonl
         const id = ownKey.exec(text)?.[1].toUpperCase();
         if (!id) continue;
         const editorId = editorIdOf(text);
-        const target = path.join(path.dirname(file), `${editorId ? `${safeFileName(editorId)} - ` : ''}${id}_${plugin}.yaml`);
+        if (!editorId) continue;
+        const target = path.join(path.dirname(file), `${safeFileName(editorId)} - ${id}_${plugin}.yaml`);
         if (target === file || fs.existsSync(target)) continue;
         fs.renameSync(file, target);
         renamed.push({ from: relativeTo(pluginDir, file), to: relativeTo(pluginDir, target), formId: `${id}:${plugin}`, editorId });

@@ -120,8 +120,9 @@ Spells/…   LeveledItems/…   Npcs/…
 - **A new record's FormID comes from `buildProject`.** Write the file without a `FormKey` line, under
   any name. The build gives it the next free number after the highest the project uses — from
   `000800`, files in path order — writes `FormKey: 000801:MyMod.esp` at its top, and once the build
-  has succeeded renames the file `<editor ID> - 000801_MyMod.esp.yaml`; a build that fails leaves
-  every file under its name. The build's `assignedFormIds` lists them, with their new paths.
+  has succeeded renames the file `<editor ID> - 000801_MyMod.esp.yaml` (a record with no EditorID
+  keeps its file's name); a build that fails leaves every file under its name. The build's
+  `assignedFormIds` lists them, with their new paths.
 - **A link may be written as an editor ID** — `ObjectEffect: MyEnchantment`, an effect's
   `BaseEffect: EnchFireDamageFFContact`, a keyword list's `- WeapTypeSword`. The build looks it up
   among the project's records first, then the load order's, writes that record's FormID into the

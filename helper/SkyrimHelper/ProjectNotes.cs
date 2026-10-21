@@ -33,7 +33,9 @@ public static class ProjectNotes
     public static List<string> Of(string pluginDir, RecordIndex index, ILinkCache cache)
     {
         var own = RecordFiles.OwnPlugin(pluginDir);
-        var records = RecordFiles.FlatRecords(pluginDir).Select(f => (f.Relative, f.Type, Text: File.ReadAllText(f.File))).ToList();
+        // A file written empty, or with only comments, holds no record to note: it is left out of the build.
+        var records = RecordFiles.FlatRecords(pluginDir).Select(f => (f.Relative, f.Type, Text: File.ReadAllText(f.File)))
+            .Where(f => !RecordFiles.Empty(f.Text)).ToList();
         var newRecords = records.Where(f => RecordFiles.Identity(f.Text).FormKey is not { } key || key.ModKey == own).ToList();
         var notes = new List<string>();
         foreach (var (relative, type, text) in newRecords)
@@ -78,6 +80,8 @@ public static class ProjectNotes
             if (NameIn(text) is not { } now || now == was) continue;
             // What it does in the game, and the one edit that makes the copy a new record: told the game shows that
             // record renamed wherever it is, e4b told the user its sword was "successfully overridden and renamed" (round 23).
+            // Told what it does, e4b reasoned that the copy still gave the user a sword called Flame Blade (round 25):
+            // a new one asked for is not this copy, said so.
             var becomes = type.Name switch
             {
                 var thing when Things.Contains(thing) =>
@@ -87,8 +91,8 @@ public static class ProjectNotes
                 _ => $"the game shows that record as '{now}' wherever it is"
             };
             notes.Add($"{relative}: overrides {entry.EditorId} of {key.ModKey.FileName} and renames it from '{was}' to '{now}': {becomes}, " +
-                $"with all this file changes. If a new record beside it was meant, delete this file's FormKey line and give it an EditorID " +
-                $"of its own: it builds as a new record, and {was} stays as it is");
+                $"with all this file changes. If a new one was asked for, this copy is not it: delete this file's FormKey line and give " +
+                $"it an EditorID of its own — it builds as a new record, and {was} stays as it is");
         }
         return notes;
     }

@@ -301,9 +301,14 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
                 'lines and keep what is between them.');
         }
         // Escapes copied out of a JSON answer as they read built without a word, into a path the game cannot
-        // find (eval rounds 12–15): refused, like the fence, so the model rewrites the line.
+        // find (eval rounds 12–15): refused, like the fence, so the model rewrites the line — together with what
+        // the record checks refuse, which cost a build of their own when they came after (eval round 25).
         const escaped = copiedEscapes(paths.plugin);
-        if (escaped.length > 0) throw new ProjectError(escapesRefused(escaped));
+        if (escaped.length > 0) {
+            const refused = await this.engine.helper.call('checkRecords', { projectPluginDir: paths.plugin })
+                .then(() => '', (error: unknown) => error instanceof HelperError && error.code === 'badRecord' ? ` Also: ${error.message}` : '');
+            throw new ProjectError(escapesRefused(escaped) + refused);
+        }
         // With records to build, files elsewhere are named but stop nothing: a refusal only deleting a
         // file could satisfy trapped a model whose file tools could not delete (eval round 10).
         const warnings: string[] = [];

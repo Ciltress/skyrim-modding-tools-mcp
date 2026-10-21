@@ -106,6 +106,13 @@ public static class RecordFiles
         return ModKey.TryFromFileName(line.Groups[1].Value, out var key) ? key : (ModKey?)null;
     }
 
+    /// <summary>
+    /// Whether a record file holds no record: nothing, or only blank lines and comments. "Emptied" with a comment,
+    /// a magic effect built as a record of no fields and no EditorID (eval round 25).
+    /// </summary>
+    public static bool Empty(string text) =>
+        text.Split('\n').All(line => line.Trim().Length == 0 || line.TrimStart().StartsWith('#'));
+
     /// <summary>A record's type as a reader says it — a Weapon, an ObjectEffect.</summary>
     public static string Article(string typeName) => $"{("AEIOU".Contains(typeName[0]) ? "an" : "a")} {typeName}";
 
@@ -459,7 +466,7 @@ public static class RecordFiles
             }
             // An empty record file holds no record, and is left out: the way to drop a record without deleting
             // its file — a broken one no longer needed trapped a model whose file tools could not delete (probe 16).
-            if (string.IsNullOrWhiteSpace(File.ReadAllText(file)))
+            if (Empty(File.ReadAllText(file)))
             {
                 leftOut.Add((relative, ""));
                 continue;

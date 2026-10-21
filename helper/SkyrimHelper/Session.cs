@@ -516,12 +516,12 @@ public sealed class Session : IDisposable
     private static string WithoutEmptyFiles(string dir)
     {
         var files = Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).ToList();
-        if (!files.Any(f => f.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase) && new FileInfo(f).Length < 64 && string.IsNullOrWhiteSpace(File.ReadAllText(f))))
-            return dir;
+        var empty = files.Where(f => f.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase) && RecordFiles.Empty(File.ReadAllText(f))).ToHashSet();
+        if (empty.Count == 0) return dir;
         var copy = Path.Combine(Path.GetTempPath(), $"skyrim-helper-build-{Guid.NewGuid():N}");
         foreach (var file in files)
         {
-            if (file.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase) && new FileInfo(file).Length < 64 && string.IsNullOrWhiteSpace(File.ReadAllText(file))) continue;
+            if (empty.Contains(file)) continue;
             var target = Path.Combine(copy, Path.GetRelativePath(dir, file));
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             File.Copy(file, target);
