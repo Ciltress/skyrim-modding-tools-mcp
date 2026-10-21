@@ -142,13 +142,16 @@ export function fencedRecordFiles(pluginDir: string): { file: string; lines: num
 export function copiedEscapes(pluginDir: string): CopiedEscape[] {
     return recordFiles(pluginDir).flatMap(file => {
         let block: number | undefined;
+        const quest = path.relative(pluginDir, file).split(path.sep)[0] === 'Quests';
         return fs.readFileSync(file, 'utf8').split(/\r?\n/).flatMap((text, i) => {
             const indent = text.length - text.trimStart().length;
             // A block scalar's lines (`Value: >-` and the lines below it, deeper) are text, not fields.
             if (block !== undefined && text.trim() && indent <= block) block = undefined;
             const inBlock = block !== undefined;
             if (/:\s*[|>][-+]?\s*\\?\s*$/.test(text)) block = indent;
-            const escape = lineEscape(text, inBlock);
+            // The Creation Kit's quest folders end in a backslash — `Filter: Bounty Quests\` in 1,992 of the official
+            // plugins' 2,522 quests, and no other text of theirs: refused, addPatch's own copy of BQ01 did not build.
+            const escape = lineEscape(text, inBlock, quest && /^Filter:/.test(text));
             return escape ? [{ file, line: i + 1, ...escape, text: text.trim() }] : [];
         });
     });
@@ -160,8 +163,11 @@ export function copiedEscapes(pluginDir: string): CopiedEscape[] {
  */
 const COPIED_LINE_BREAK = /\\+(?:r\\+)?n(?=\\|\s|$)/;
 
-/** One line's copied escapes and what it is to be, or undefined; `inBlock` when it is a block scalar's text. */
-function lineEscape(text: string, inBlock: boolean): Pick<CopiedEscape, 'kind' | 'fixed'> | undefined {
+/**
+ * One line's copied escapes and what it is to be, or undefined; `inBlock` when it is a block scalar's text,
+ * `endsInBackslash` when the field's own value ends in one.
+ */
+function lineEscape(text: string, inBlock: boolean, endsInBackslash = false): Pick<CopiedEscape, 'kind' | 'fixed'> | undefined {
     const kindOf = (part: string) =>
         /\\\\/.test(part) ? 'two backslashes' as const : /\\"/.test(part) ? 'a backslash before a quote' as const : undefined;
     let kind: CopiedEscape['kind'] | undefined;
@@ -187,7 +193,7 @@ function lineEscape(text: string, inBlock: boolean): Pick<CopiedEscape, 'kind' |
     if (COPIED_LINE_BREAK.test(outside)) return { kind: 'line breaks written as \\n', fixed: textLines(text, inBlock) };
     // What a `\n` leaves when its line break is written for real: a backslash at the line's end. `Value: >-\` broke a
     // note's YAML, and a text whose every line ended so kept them in the line given back for its quotes (12b, round 21).
-    if (/\\\s*$/.test(outside)) {
+    if (!endsInBackslash && /\\\s*$/.test(outside)) {
         kind ??= 'a backslash at the end of the line';
         fixed = fixed.replace(/\\+\s*$/, '');
     }

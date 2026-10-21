@@ -892,6 +892,22 @@ describe('the Skyrim backend', () => {
         ]);
     });
 
+    it('leaves the backslash a quest\'s Filter ends in, and still finds one copied twice there', () => {
+        // The Creation Kit's quest folders end so — `Filter: Bounty Quests\` in 1,992 of the official plugins' 2,522
+        // quests, no other text of theirs — and the build refused addPatch's own copy of BQ01.
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-escapes-'));
+        roots.push(dir);
+        write(path.join(dir, 'Quests', 'BQ01 - 095125_Skyrim.esm.yaml'),
+            ['FormKey: 095125:Skyrim.esm', 'EditorID: BQ01', 'Filter: Bounty Quests\\', 'Note: Bounty\\'].join('\n') + '\n');
+        write(path.join(dir, 'Quests', 'WE01.yaml'), ['EditorID: WE01', 'Filter: Wilderness Encounters\\\\'].join('\n') + '\n');
+        write(path.join(dir, 'Books', 'Note.yaml'), ['EditorID: Note', 'Filter: Notes\\'].join('\n') + '\n');
+        expect(copiedEscapes(dir).map(({ file, line, kind, fixed }) => ({ file: path.basename(file), line, kind, fixed }))).toEqual([
+            { file: 'Note.yaml', line: 2, kind: 'a backslash at the end of the line', fixed: ['Filter: Notes'] },
+            { file: 'BQ01 - 095125_Skyrim.esm.yaml', line: 4, kind: 'a backslash at the end of the line', fixed: ['Note: Bounty'] },
+            { file: 'WE01.yaml', line: 2, kind: 'two backslashes', fixed: ['Filter: Wilderness Encounters\\'] }
+        ]);
+    });
+
     it('builds a path with single backslashes, and one escaped inside double quotes', async () => {
         const { backend, fixture } = makeBackend();
         await backend.newProject({ project: 'FlameBlade' });
