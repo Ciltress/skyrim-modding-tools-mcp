@@ -79,6 +79,19 @@ public static class RecordLinks
                 {
                     // None and Null are the reader's no record: DefaultOutfit: None was refused as missing (eval probe 8).
                     if (linked.IsNull) return;
+                    // A FormID written from memory under the comment of the record meant: e4b's Hilda had
+                    // `Race: 02C65A:Skyrim.esm  # NordRace`, RedguardRaceChild's, and built a plain success (eval round 22).
+                    if (CommentedOther(text, value, linked, takes, own, index) is { } other)
+                    {
+                        var leaf = field[(field.LastIndexOf('.') + 1)..];
+                        string Line(string id) => leaf.EndsWith(']') ? $"- {id}" : $"{leaf}: {id}";
+                        problems.Add($"{relative}: {field} is {raw}, {(other.Linked is { } was ? $"which is {was}" : "which no record has")}, but the " +
+                            $"comment after it names {other.Meant.EditorId}" +
+                            (other.Meant.FormKey is { } meant ? $" ({Session.FormKeyText(meant)})" : ", a new record of this project") +
+                            $" — the build reads the FormID and skips the comment. Write the one meant by its editor ID: `{Line(other.Meant.EditorId)}`" +
+                            (other.Linked is { } linkedId ? $" or `{Line(linkedId)}`" : ""));
+                        return;
+                    }
                     // A FormID written from memory names another record, or none: Race: 011F7B:Skyrim.esm
                     // (eval round 11's probes). The project's own are numbered by the build, and checked after it.
                     if (linked.ModKey != ownPlugin && Mismatch(linked, takes, index) is { } mismatch)
@@ -415,10 +428,19 @@ public static class RecordLinks
             // until it gave up (eval round 19): the lines themselves, and how deep they go.
             var lines = string.Join(", ", movedUp.Select(key => mapping.Children[new YamlScalarNode(key)] is YamlScalarNode { Value: { Length: > 0 } one }
                 ? $"`{key}: {one}`" : $"`{key}:` with its lines"));
-            problem($"{path} has no field {string.Join(", ", movedUp)} (move {(movedUp.Count == 1 ? "it" : "them")} up: " +
-                (above.Length == 0
-                    ? $"at the margin, with no spaces in front — {lines}"
-                    : $"under {above}, as deep as its other fields — {lines}") + $"{holds})");
+            // Told to move them up, e4b deleted both lines and built a sword its enchantment never reached (eval
+            // round 22): that they stay, said in so many words, and the move as the edit it is.
+            var single = movedUp.Count == 1;
+            var keys = mapping.Children.Keys.OfType<YamlScalarNode>().Select(key => key.Value).ToList();
+            var last = keys.Skip(keys.Count - movedUp.Count).ToHashSet();
+            var there = above.Length == 0 ? "at the margin, with no spaces in front" : $"under {above}, as deep as its other fields";
+            problem($"{path} has no field {string.Join(", ", movedUp)} (move {(single ? "it" : "them")} up, keeping " +
+                $"{(single ? "the line" : movedUp.Count == 2 ? "both" : "all of them")}: " +
+                (last.SetEquals(movedUp)
+                    ? $"{(single ? "it is" : "they are")} {path}'s last, so take the two spaces out in front of {(single ? "it" : "them")} " +
+                        $"and {(single ? "it is" : "they are")} {(above.Length == 0 ? "at the margin" : $"under {above}")}"
+                    : $"delete {(single ? "it" : "them")} from {path} and write {(single ? "it" : "them")} again {there}, below {path}'s last line") +
+                $" — {lines}{holds})");
         }
     }
 
@@ -470,6 +492,32 @@ public static class RecordLinks
         // plugin, and every Creation Club plugin points at it. References and navmeshes the index leaves out.
         if (formKey.ModKey == Session.SkyrimMaster && formKey.ID < 0x800 || RecordIndex.SkippedTypes.Any(takes.IsAssignableFrom)) return null;
         return "which no record of the load order has";
+    }
+
+    /// <summary>A comment after a value that names one record — `# NordRace`, as readRecord writes one — not words.</summary>
+    private static readonly Regex CommentName = new(@"^[ \t]+#[ \t]*(?<id>[A-Za-z0-9_]+)[ \t]*\r?$", RegexOptions.None, TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// The record the comment after a link names, when it is another than the one the link's FormID names —
+    /// with that one's editor ID, null for no record — or null when the comment names that one, no record, or
+    /// one of a type the field does not take: such a comment is a word, and says nothing of the link.
+    /// </summary>
+    private static (string? Linked, Target Meant)? CommentedOther(string text, YamlScalarNode value, FormKey linked, Type takes,
+        Dictionary<string, Target> own, RecordIndex index)
+    {
+        var end = (int)value.End.Index;
+        var lineEnd = text.IndexOf('\n', end);
+        if (CommentName.Match(text[end..(lineEnd < 0 ? text.Length : lineEnd)]) is not { Success: true } comment) return null;
+        var named = comment.Groups["id"].Value;
+        var linkedId = index.ByFormKey.TryGetValue(linked, out var entry) ? entry.EditorId
+            : own.Values.FirstOrDefault(t => t.FormKey == linked)?.EditorId;
+        if (named.Equals(linkedId, StringComparison.OrdinalIgnoreCase)) return null;
+        var meant = own.TryGetValue(named, out var mine) ? mine
+            : index.ByEditorId.TryGetValue(named, out var key) && index.ByFormKey.TryGetValue(key, out var found)
+                ? new Target(key, found.EditorId ?? named, found.GetterType)
+                : null;
+        if (meant is null || meant.FormKey == linked || !takes.IsAssignableFrom(meant.Type)) return null;
+        return (linkedId, meant);
     }
 
     /// <summary>The kinds a field of several kinds can be — NpcLevel, PcLevelMult for an NPC's level.</summary>
