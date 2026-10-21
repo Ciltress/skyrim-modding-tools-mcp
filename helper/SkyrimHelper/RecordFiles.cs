@@ -159,7 +159,9 @@ public static class RecordFiles
         (["Effect"], ["Damage", "DamageAmount", "Strength"], null, "damage is Magnitude, under Data — beside Area and Duration"),
         (["Spell", "ObjectEffect", "Scroll"], ["Delivery"], "TargetType", "it is TargetType: Self, Touch, Aimed, TargetActor or TargetLocation"),
         (["Spell"], ["Cost", "MagickaCost"], "BaseCost", "it is BaseCost"),
-        (["Spell"], ["School", "MagicSkill", "Skill"], null, "a spell's school is the MagicSkill of the magic effects its Effects name"),
+        // Told only where a school is, e4b took MagicSkill out of its magic effect and kept it in the spell (eval round 23).
+        (["Spell"], ["School", "MagicSkill", "Skill"], null,
+            "delete it here, and keep the magic effect's: a spell's school is the MagicSkill of the magic effects its Effects name"),
         (["Weapon"], ["Type", "WeaponType"], null, "a weapon's type is AnimationType, under Data — OneHandSword, TwoHandAxe, Bow…"),
         (["Npc"], ["Gender", "Sex", "Female"], null, "a female NPC has Female among the Flags under Configuration"),
         (["Npc", "NpcConfiguration", "PcLevelMult", "NpcLevel"], ["Level", "LevelMult", "CalcMinLevel", "CalcMaxLevel"], null, NpcLevel)
@@ -169,13 +171,29 @@ public static class RecordFiles
     private const string EffectStrength = "a magic effect has no strength of its own: Magnitude, Area and Duration go under Data, " +
         "in the Effects item of the spell or ObjectEffect that names it as BaseEffect";
 
+    /// <summary>A field's name as YAML writes it, at a line's start or in flow style — not the 012EB7 of a FormID.</summary>
+    private static readonly Regex KeyIn = new(@"(?<![\w.])([A-Za-z_]\w*)[ \t]*:(?=[ \t]|$)", RegexOptions.Multiline);
+
     /// <summary>
-    /// A magic effect's Data that holds a strength — Magnitude, Area, Duration — answered where they go. Found by
-    /// name, a Data was a condition's: "move it in each item of Conditions" sent e4b away (eval round 24).
+    /// A magic effect's Data, answered by what it holds. Found by name, a Data was a condition's: "move it in each
+    /// item of Conditions" sent e4b away (eval round 24). A strength — Magnitude, Area, Duration — goes in the
+    /// Effects item of the spell; the magic effect's own fields, which xEdit shows under DATA (Flags, BaseCost…),
+    /// at the margin, with the edit that puts them there.
     /// </summary>
-    private static string? StrengthHint(Type type, string key, string text) =>
-        type.Name == "MagicEffect" && key == "Data" && Regex.IsMatch(BlockOf(text, key), @"\b(?:Magnitude|Area|Duration)[ \t]*:")
-            ? EffectStrength : null;
+    private static string? DataHint(Type type, string key, string text)
+    {
+        if (type.Name != "MagicEffect" || key != "Data" || BlockOf(text, key) is not { Length: > 0 } block) return null;
+        var keys = KeyIn.Matches(Regex.Replace(block[(key.Length + 1)..], @"[ \t]#.*$", "", RegexOptions.Multiline))
+            .Select(m => m.Groups[1].Value).Distinct().ToList();
+        var strength = keys.Any(k => k is "Magnitude" or "Area" or "Duration");
+        var own = keys.Where(k => k != "MutagenObjectType" && FieldsOf(type).Contains(k)).ToList();
+        if (own.Count == 0) return strength ? EffectStrength : null;
+        var theirs = $"{string.Join(", ", own)} {(own.Count == 1 ? "is" : "are")} the magic effect's own, at the margin";
+        if (strength) return $"{EffectStrength}; {theirs}";
+        var flow = Regex.Replace(block.Split('\n')[0][(key.Length + 1)..], "#.*$", "").Trim().Length > 0;
+        return theirs + (flow ? ": write each there on a line of its own, and delete the `Data:` line"
+            : ": delete the `Data:` line and take two spaces out in front of each line below it");
+    }
 
     /// <summary>A top-level field's lines — its own, and those indented or listed below it; empty where the file has none.</summary>
     private static string BlockOf(string text, string key)
@@ -288,7 +306,7 @@ public static class RecordFiles
     /// </summary>
     private static string Unknown(Type type, HashSet<string> known, IEnumerable<string> keys, string text)
     {
-        var hinted = keys.Select(key => (Key: key, Hint: StrengthHint(type, key, text) ?? Hint(type, known, key, ValueOf(text, key)))).ToList();
+        var hinted = keys.Select(key => (Key: key, Hint: DataHint(type, key, text) ?? Hint(type, known, key, ValueOf(text, key)))).ToList();
         var named = hinted.Where(f => f.Hint is not null).GroupBy(f => f.Hint!).Select(group => group.Count() == 1
             ? $"{group.First().Key} ({group.Key}{Moved(text, group.Key, false)})"
             : $"{string.Join(", ", group.Select(f => f.Key))} ({Regex.Replace(group.Key, @"^(move it|it is)\b", m => m.Groups[1].Value == "move it" ? "move them" : "they are")}" +

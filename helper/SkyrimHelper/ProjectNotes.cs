@@ -23,6 +23,12 @@ public static class ProjectNotes
         "Weapon", "Armor", "Ammunition", "Book", "MiscItem", "Ingestible", "Ingredient", "Scroll", "Key", "SoulGem", "Spell", "Shout", "Npc"
     };
 
+    /// <summary>The named types the game has many of one of — carried, sold, found — where a spell or an NPC is one.</summary>
+    private static readonly HashSet<string> Things = new(StringComparer.Ordinal)
+    {
+        "Weapon", "Armor", "Ammunition", "Book", "MiscItem", "Ingestible", "Ingredient", "Scroll", "Key", "SoulGem"
+    };
+
     /// <summary>The notes on the project's own records, each naming its file.</summary>
     public static List<string> Of(string pluginDir, RecordIndex index, ILinkCache cache)
     {
@@ -65,13 +71,24 @@ public static class ProjectNotes
         }
         // A record copied whole and renamed, its FormKey and EditorID kept, builds as a change to that record, not as
         // a new one beside it: e4b's "new note" was Maven's own, renamed (eval probe 19). A patch renames now and then.
-        foreach (var (relative, _, text) in records)
+        foreach (var (relative, type, text) in records)
         {
             if (RecordFiles.Identity(text).FormKey is not { } key || key.ModKey == own) continue;
             if (!index.ByFormKey.TryGetValue(key, out var entry) || entry.Name is not { Length: > 0 } was) continue;
             if (NameIn(text) is not { } now || now == was) continue;
-            notes.Add($"{relative}: overrides {entry.EditorId} of {key.ModKey.FileName} and renames it from '{was}' to '{now}', so the game " +
-                $"shows that record as '{now}' wherever it is. A new record of its own has no FormKey line, and an EditorID of its own");
+            // What it does in the game, and the one edit that makes the copy a new record: told the game shows that
+            // record renamed wherever it is, e4b told the user its sword was "successfully overridden and renamed" (round 23).
+            var becomes = type.Name switch
+            {
+                var thing when Things.Contains(thing) =>
+                    $"every {was} in the game — the player's, the merchants', the ones NPCs carry and leveled lists hand out — becomes '{now}'",
+                "Spell" or "Shout" => $"{was} becomes '{now}' for every caster, the player and NPCs alike",
+                "Npc" => $"{was} becomes '{now}' wherever the game places them",
+                _ => $"the game shows that record as '{now}' wherever it is"
+            };
+            notes.Add($"{relative}: overrides {entry.EditorId} of {key.ModKey.FileName} and renames it from '{was}' to '{now}': {becomes}, " +
+                $"with all this file changes. If a new record beside it was meant, delete this file's FormKey line and give it an EditorID " +
+                $"of its own: it builds as a new record, and {was} stays as it is");
         }
         return notes;
     }
