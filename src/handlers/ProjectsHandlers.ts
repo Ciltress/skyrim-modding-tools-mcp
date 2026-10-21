@@ -121,14 +121,25 @@ export class ProjectsHandlers extends BaseHandler {
                         records,
                         from: optionalString(args, 'from'),
                         plugin: optionalString(args, 'plugin')
-                    })).then(result => ({
-                        ...result,
+                    })).then(result => {
                         // Asked for a new sword "like the Iron Sword", a model patched the Iron Sword and renamed it:
-                        // every Iron Sword in the game became its Flame Blade (eval probe 16).
-                        note: 'Each copy is an override: it changes that record itself, everywhere the game uses it. A new ' +
-                            'record like it is a new file instead, mirroring it without the FormKey line — where ' +
-                            'newProject\'s writeRecordsTo says.'
-                    }));
+                        // every Iron Sword in the game became its Flame Blade (eval probe 16). Said after every copied
+                        // file's text, it left e4b making its "new" sword or note this way in four of six misses
+                        // (eval round 22): first now, naming the records, as a build's warnings went first (round 21).
+                        const copies = [
+                            ...result.added.map(record => record.editorId ? `${record.editorId} (${record.formId})` : record.formId),
+                            ...result.alreadyInProject.map(record => record.formId)
+                        ];
+                        const one = copies.length === 1;
+                        return {
+                            note: `${copies.join(', ')} ${one ? 'is' : 'are'} copied as ${one ? 'an override' : 'overrides'}: ` +
+                                `${one ? 'it changes that record' : 'each changes its record'} itself, everywhere the game uses ` +
+                                `${one ? 'it' : 'them'} — a new name renames ${one ? 'it' : 'them'} everywhere. If a new record ` +
+                                'like it was meant, write a new file instead, mirroring it without the FormKey line and with an ' +
+                                'EditorID of its own, where newProject\'s writeRecordsTo says — and delete the copy.',
+                            ...result
+                        };
+                    });
                 }
             },
             {

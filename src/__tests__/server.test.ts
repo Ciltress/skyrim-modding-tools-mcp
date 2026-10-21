@@ -138,12 +138,15 @@ describe('routing', () => {
         expect(payloadOf(await call(client, 'noSuchToolAnywhere')).error).toMatch(/Unknown tool: noSuchToolAnywhere/);
     });
 
-    it('says in addPatch\'s answer that a copy changes the record itself, and how a new record like it is made', async () => {
-        // Asked for a new sword "like the Iron Sword", a model patched the Iron Sword and renamed it (eval probe 16).
+    it('says first in addPatch\'s answer which records are copied as overrides, and how a new record like one is made', async () => {
+        // Asked for a new sword "like the Iron Sword", a model patched the Iron Sword and renamed it (eval probe 16);
+        // said after the copied files' text, e4b still did in four of six misses (eval round 22).
         const { client } = await connect();
         const payload = payloadOf(await call(client, 'addPatch', { project: 'FlameBlade', records: ['sample'] }));
 
-        expect(payload.note).toMatch(/override: it changes that record itself.*new file instead/);
+        expect(Object.keys(payload).slice(0, 2)).toEqual(['status', 'note']);
+        expect(payload.note).toMatch(/^sample \(000800:Sample\.esp\) is copied as an override: it changes that record itself, everywhere/);
+        expect(payload.note).toMatch(/write a new file instead, mirroring it without the FormKey line.*and delete the copy/);
     });
 
     it('names in newProject\'s answer the skill of each record family, every one a skill the server serves', async () => {
