@@ -402,8 +402,11 @@ public static class RecordFiles
     private static readonly Regex ObjectEffectLine = new(@"^ObjectEffect:[ \t]*(?!(?:Null|null|~)[ \t]*(?:#|\r?$))[^\s#]", RegexOptions.Multiline);
     private static readonly Regex ConstantCast = new(@"^CastType:[ \t]*ConstantEffect\b", RegexOptions.Multiline);
 
-    /// <summary>A weapon or armor of the project that carries no enchantment; Overrides is the load order's record a copy changes.</summary>
-    internal sealed record Carrier(string Relative, string Type, string Name, string? Overrides);
+    /// <summary>
+    /// A weapon or armor of the project that carries no enchantment; EditorId is its file's, Overrides the load order's
+    /// record a copy changes.
+    /// </summary>
+    internal sealed record Carrier(string Relative, string Type, string Name, string? EditorId, string? Overrides);
 
     /// <summary>
     /// The project's new enchantments no other record names — by editor ID, or by the FormID a build wrote in, an
@@ -430,9 +433,9 @@ public static class RecordFiles
                 .Select(r =>
                 {
                     var (key, id) = Identity(r.Text);
-                    if (key is not { } copied || copied.ModKey == own) return new Carrier(r.Relative, r.Type.Name, id ?? r.Relative, null);
+                    if (key is not { } copied || copied.ModKey == own) return new Carrier(r.Relative, r.Type.Name, id ?? r.Relative, id, null);
                     var name = id ?? Session.FormKeyText(copied);
-                    return new Carrier(r.Relative, r.Type.Name, name, $"{name} of {copied.ModKey.FileName}");
+                    return new Carrier(r.Relative, r.Type.Name, name, id, $"{name} of {copied.ModKey.FileName}");
                 })
                 .ToList();
             unworn.Add((relative, enchantment, carriers));
@@ -460,8 +463,13 @@ public static class RecordFiles
         var into = shown.Count == 1 ? copies ? "it" : shown[0].Name : "the one meant to carry it";
         var write = kinds.Count == 1 ? $"write {Lines(kinds[0])} in {into}" : $"write in {into} {Lines("Weapon")} for a weapon, {Lines("Armor")} for an armor";
         var kind = kinds.Count == 1 ? kinds[0].ToLowerInvariant() : "one";
+        // Where: told only "at the margin", e4b wrote them in place of Data's last line, `Stagger: 0.75`, inside Data and
+        // over the line (eval round 28). The EditorID line is at the margin and one of a kind, and the lines build there.
+        var where = shown.Count == 1
+            ? shown[0].EditorId is { } id ? $"on the lines right below `EditorID: {id}`, at the margin" : "at the margin"
+            : "on the lines right below its `EditorID:` line, at the margin";
         return $"{string.Join(", ", shown.Select(c => c.Relative))}: {who} no enchantment, and no record of the project names the new " +
-            $"{enchantment} ({relative}), so the enchantment does nothing — {write}, at the margin" +
+            $"{enchantment} ({relative}), so the enchantment does nothing — {write}, {where}" +
             (!copies ? ""
                 : shown.Count == 1
                     ? $". The copy changes {shown[0].Name} itself, everywhere in the game: for a new {kind}, also delete its FormKey line and give it an EditorID of its own"
@@ -636,10 +644,14 @@ public static class RecordFiles
                 "a new record has no FormKey line, the build assigns one");
         // One editor ID, two records: told of a warning in a file the build had just numbered and renamed, e4b wrote
         // the file again under its old name, and Hilda was built twice, a man and a woman (eval probe 23).
+        // A numbered file written whole again lost the FormKey line the build gave it, but keeps the name the build gave it:
+        // told to empty the other, e4b rewrote the numbered one without the line, and was then told only to pick (eval round 28).
+        bool Numbered((string Relative, FormKey? Key) file) => file.Key is { } key ? key.ModKey == own
+            : own is { } plugin && Regex.IsMatch(Path.GetFileName(file.Relative), $@" - [0-9A-Fa-f]{{6}}_{Regex.Escape(plugin.FileName)}\.yaml$", RegexOptions.IgnoreCase);
         foreach (var (editorId, files) in editorIds.Where(pair => pair.Value.Count > 1 && pair.Value.Any(f => f.Key is not { } key || key.ModKey == own)))
         {
-            var numbered = files.Where(f => f.Key is { } key && key.ModKey == own).ToList();
-            var fresh = files.Where(f => f.Key is null).ToList();
+            var numbered = files.Where(Numbered).ToList();
+            var fresh = files.Where(f => f.Key is null && !Numbered(f)).ToList();
             problems.Add($"{string.Join(" and ", files.Select(f => f.Relative))} have the same EditorID {editorId} — " +
                 (numbered.Count == 1 && fresh.Count == files.Count - 1
                     ? $"one record written twice: a build numbered it and named its file {numbered[0].Relative}. Make the changes " +
