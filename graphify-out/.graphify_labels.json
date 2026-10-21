@@ -19,7 +19,6 @@
   "32": "Tool-Count and Eval ADRs",
   "33": "Engines and Local Environment",
   "37": "Profiles, Budget and Evals Docs",
-  "38": "Engines and Tooling Research",
   "39": "Modding Tool Landscape",
   "40": "NPC Skill",
   "45": "AppServer Core",
@@ -39,13 +38,11 @@
   "74": "Handler Contract Tests",
   "76": "Project Documentation Index",
   "78": "Helper Project Dependencies",
-  "79": "Eval Server Calls",
   "80": "Eval YAML Checks",
   "81": "MCP Server Manifest",
   "85": "Authoring Workflow Tools",
   "87": "SKSE Plugin PE Reader",
   "88": "Eval Task Runner",
   "90": "Game Downgrade and SKSE",
-  "92": "OpenClaw Proxy",
   "93": "Host and Origin Allow-Lists"
 }
