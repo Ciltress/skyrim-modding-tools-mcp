@@ -147,6 +147,7 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-20 | gemma4:26b | `all`, OpenClaw | 49006cd (the GPU busy with something else for most of it: s/turn does not compare) | 39/39 | 25.94 s | ~1,124 tokens/s | ~49 tokens/s | 77% |
 | 2026-10-21 | gemma4:e4b | `all`, OpenClaw | f9cb81c | 36/39 | 3.46 s | ~7,319 tokens/s | ~179 tokens/s | 100% |
 | 2026-10-21 | gemma4:e4b | `all`, OpenClaw | 410f3f8 | 38/39 | 3.01 s | ~7,264 tokens/s | ~173 tokens/s | 100% |
+| 2026-10-21 | gemma4:e4b | `all`, OpenClaw | e176320 | 37/39 | 3.33 s | ~7,397 tokens/s | ~168 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -248,90 +249,6 @@ model's: four turns lost calling `skills_read` with `skill:` instead of `name:`,
 effect on the enchantment, refused by the build, and the turns ran out. (The seconds do not compare: the
 GPU ran the second half at ~184 tokens/s of prompt against ~891.)
 
-## Round 23 — round 22's fixes, gemma4:e4b alone (2026-10-21)
-
-**Changed before it** — what round 22 pointed at, and two fixes after an e4b probe (not recorded: 36/39):
-
-- A link whose comment names another record than its FormID is refused with both: "DefaultOutfit is
-  105543:Skyrim.esm, which is WEWarriorTankOutfit, but the comment after it names ArmorIronAllOutfit …
-  Write the one meant by its editor ID" (b6db01d).
-- A refusal to move lines up to where they go says to write them again there — delete them from the block
-  and write them again at the margin, below its last line — or, when they are its last lines, to take the
-  two spaces out in front of them (b6db01d).
-- addPatch's answer opens with what it copied: "IronSword (012EB7:Skyrim.esm) is copied as an override: it
-  changes that record itself, everywhere the game uses it … If a new record like it was meant, write a new
-  file instead" (00fc260).
-- The probe's fixes (2949683): a warning on a file the build renamed names it by its new name, with the
-  old one; two files with one editor ID, one of them new, are refused; a top-level field written twice is
-  named in the same refusal as the fields the type lacks; and "move them under PlayerSkills" says to delete
-  them at the margin and write them again below `PlayerSkills:`, with its line.
-- From this round a round measures gemma4:e4b alone (f9cb81c), and the eval records OpenClaw's answer cap
-  and the turns that ended at it (d4fc031). The user's configuration caps 12b's answers at 16,384 tokens
-  (`num_predict`); e4b's are not capped.
-
-gemma4:e4b, `all`, OpenClaw (prompt ~7,319 tokens/s, generation ~179 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 11492 | 42.9 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 12674 | 40 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 11621 | 39 |
-| patch | 3/3 | 6 | 5 | 1 | 1 | 20976 | 48.4 |
-| build | 3/3 | 7.7 | 6.7 | 0 | 0 | 21423 | 47.7 |
-| sword | 2/3 | 15.7 | 15 | 7 | 1 | 25085 | 89 |
-| sword+detailed | 2/3 | 12.7 | 11.7 | 4 | 0 | 26777 | 78.8 |
-| spell | 3/3 | 6 | 5 | 0 | 0 | 16730 | 45.8 |
-| spell+detailed | 2/3 | 14 | 13.3 | 5 | 1 | 23740 | 93 |
-| npc | 3/3 | 8.3 | 7.3 | 2 | 0 | 18882 | 52.3 |
-| npc+detailed | 3/3 | 14.7 | 13.7 | 6 | 4 | 35218 | 107.1 |
-| note | 3/3 | 8.3 | 7.3 | 2 | 0 | 18947 | 57.9 |
-| note+detailed | 3/3 | 8 | 7 | 3 | 0 | 13941 | 54.7 |
-
-Through OpenClaw 2026.10.4 (383c124): first prompt 9,788 tokens (26 tools, 16 of them this server's),
-think high, num_ctx 131072, no answer cap; no answer cut off, no turn ended at the length limit, no side
-requests; first token after 1.7 s, the median of the first turns.
-
-**Seen.**
-
-- **e4b 36 of 39** (round 22: 33), swords 4 of 6 (2 of 6), NPCs and notes 6 of 6 each, spells 5 of 6. One
-  authoring run made its record with addPatch (round 22: four).
-- **The new answers did their part where they came:**
-  - npc+detailed #1 linked its outfit to WEWarriorTankOutfit, with a comment naming ArmorIronAllOutfit.
-    Refused with both, it wrote the iron outfit's FormID and built.
-  - npc+detailed #2 built Hilda with no Name, and the warning named her file by both names. e4b edited
-    the old name once, found no such file, read the new one and gave her a name — two calls, where the
-    probe's run spent nine and then wrote a second Hilda.
-  - "Delete them at the margin and write them again below …" came in three NPC runs, which all passed:
-    two fixed it at the next build, npc+detailed #1 at the second. It came in sword+detailed #3 too,
-    below.
-  - sword #2, told to remove a copied FormKey line, again wrote the line below it over it. It was refused
-    for `VersionControl` written twice, then for `EditorID` written twice, then wrote the file anew and
-    built.
-- **sword #1 read past addPatch's note.** It copied IronSword, whose answer opened "IronSword
-  (012EB7:Skyrim.esm) is copied as an override: it changes that record itself, everywhere the game uses
-  it", renamed it Flame Blade and gave it a new enchantment. The build warned that Iron Sword is renamed
-  wherever it is, and e4b told the user that "the sword record was successfully overridden and renamed".
-  Its other warning was false: "no record of the project names FlameBladeEnch" — the overriding sword did,
-  but the note looks only through the project's new records.
-- **sword+detailed #3 planned both fixes and made no call.** Refused for `Value` at the margin and for one
-  FormKey written in both its new files, it thought both edits through ("Let's execute the edits.") in a
-  turn of 2,471 tokens that left no text and no call. OpenClaw ended the run on the failed build, as it
-  ended round 22's 12b npc #2.
-- **spell+detailed #1: two refusals pointed away from the fix.**
-  - Its magic effect had the spell's `Data: Magnitude: 40` at the margin, answered "a MagicEffect has no
-    field Data (move it in each item of Conditions)". The magnitude belongs in the spell's Effects item,
-    where e4b had written it as well.
-  - Its spell had `MagicSkill: Destruction`, answered "a spell's school is the MagicSkill of the magic
-    effects its Effects name". e4b took MagicSkill out of the effect and kept it in the spell.
-  - Twice it called `readRecord`, the name the refusals give, which OpenClaw knows as
-    `skyrim__readRecord`. The turns ran out at its fifth build.
-
-**What it points at next:** the enchantment note looks through every record of the project, overrides
-too; a field of a magic effect that belongs to the spell's Effects item — `Data`, `Magnitude` — is
-answered with where it goes, and a spell's `MagicSkill` with "delete it here, the effect keeps it"; and
-addPatch's rename, now made past its note and the build's warning both, may need a sharper warning: that
-every Iron Sword in the game — the player's, the merchants', the bandits' — becomes the Flame Blade.
-
 ## Round 24 — the enchantment note, gemma4:e4b alone (2026-10-21)
 
 **Changed before it** — one of round 23's four pointers:
@@ -395,3 +312,86 @@ requests; first token after 1.7 s, the median of the first turns.
 a new record no other record names, given first rather than after the fields, since e4b went back to the
 file it had already fixed. Round 23's other two pointers — a spell's `MagicSkill`, and addPatch's rename —
 did not come up.
+
+## Round 25 — round 24's fixes and three sharper answers, gemma4:e4b alone (2026-10-21)
+
+**Changed before it** — what round 24 pointed at, and round 23's other two pointers:
+
+- A magic effect's `Data` that holds Magnitude, Area or Duration is answered the way its `Magnitude` is:
+  "a magic effect has no strength of its own: Magnitude, Area and Duration go under Data, in the Effects
+  item of the spell or ObjectEffect that names it as BaseEffect" (ded40fb). One that holds the effect's
+  own fields, as xEdit shows them under DATA, names them as the magic effect's own, at the margin: "delete
+  the `Data:` line and take two spaces out in front of each line below it" (bfc1a9d).
+- The way to drop a new record no other record names comes first, after the file's name: "no other record
+  names X: if it is not needed, write its file empty — the build leaves an empty record file out. If it is
+  needed: …" (ded40fb).
+- A spell's `MagicSkill`: "delete it here, and keep the magic effect's" (bfc1a9d).
+- An override renamed says what it does in the game — "every Iron Sword in the game — the player's, the
+  merchants', the ones NPCs carry and leveled lists hand out — becomes 'Flame Blade', with all this file
+  changes"; a spell's, for every caster; an NPC's, wherever the game places them — and the edit that makes
+  the copy a new record: "delete this file's FormKey line and give it an EditorID of its own" (bfc1a9d).
+
+gemma4:e4b, `all`, OpenClaw (prompt ~7,397 tokens/s, generation ~168 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 11466 | 41.7 |
+| read | 3/3 | 3.3 | 2.3 | 0 | 0 | 12699 | 40.9 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 10209 | 39.3 |
+| patch | 3/3 | 6 | 5 | 0 | 0 | 19574 | 46.5 |
+| build | 3/3 | 6.7 | 5.7 | 0 | 0 | 19530 | 47.2 |
+| sword | 2/3 | 10.3 | 9.7 | 1 | 1 | 23598 | 70 |
+| sword+detailed | 2/3 | 12.7 | 12 | 4 | 3 | 25531 | 87.9 |
+| spell | 3/3 | 7 | 6 | 0 | 0 | 17100 | 51.2 |
+| spell+detailed | 3/3 | 8.7 | 7.7 | 3 | 0 | 17889 | 64.7 |
+| npc | 3/3 | 8.7 | 7.7 | 1 | 3 | 16739 | 56 |
+| npc+detailed | 3/3 | 11.7 | 11 | 5 | 4 | 17778 | 69.3 |
+| note | 3/3 | 6.7 | 5.7 | 1 | 0 | 13834 | 56 |
+| note+detailed | 3/3 | 10 | 9 | 3 | 0 | 19651 | 75 |
+
+Through OpenClaw 2026.10.4 (383c124): first prompt 9,798 tokens (26 tools, 16 of them this server's),
+think high, num_ctx 131072, no answer cap; no answer cut off, no turn ended at the length limit, no side
+requests; first token after 1.7 s, the median of the first turns.
+
+**Seen.**
+
+- **e4b 37 of 39** (round 24: 38), spells 6 of 6 (5 of 6), swords 4 of 6 (6 of 6), NPCs and notes 6 of 6
+  each. Its turns took 3.33 s (3.01). Three authoring runs made their record with addPatch (round 24: one).
+- **The new answers where they came:**
+  - spell+detailed #2 wrote a magic effect of its own with `Data: Magnitude: 40, DamageType: Shock`. Given
+    the strength answer, it first replaced the block with a second Name, then wrote the file again as it
+    was; after the second, it named the vanilla ShockDamageFFAimed in its spell. The next build opened with
+    the way to drop the file, and e4b took it at once.
+  - note+detailed #2 copied the vanilla note with addPatch and renamed it. Given the rename warning, it took
+    the way out — the FormKey line deleted, an EditorID of its own — and built a new note.
+  - **sword #3, a miss, read the rename warning and kept the override.** It thought "If they wanted the
+    original Iron Sword to remain, and add a separate new sword, I should have used `newProject`", then
+    that the override "fulfills the requirement of having a 'Flame Blade' sword", and told the user that
+    "all instances of the vanilla Iron Sword in the game will now be called 'Flame Blade'".
+  - The answers for a magic effect's own Data fields and a spell's MagicSkill did not come; nor did the
+    enchantment note.
+- **The no-Name note came for the first time**, in four builds. npc #2 and npc+detailed #2 gave Hilda her
+  name and passed.
+- **Two runs passed with a record the plugin should not have:**
+  - spell+detailed #2 "emptied" its magic effect by writing `# Empty MagicEffect file (Placeholder)` into
+    it. A file of only a comment is not empty to the build: it built a magic effect with no EditorID and no
+    fields (000800), as a plain `success`.
+  - spell #1 wrote its spell with no EditorID and no Name. The build numbered the file
+    `Spells/000800_StormBolt.esp.yaml` and warned of the Name, naming the file by both names; e4b wrote the
+    spell again, with its name, as `Spells/StormBolt.yaml`. The next build made that a second spell
+    (000801), and the first stayed nameless; e4b answered with the warning still there. (Both are seen in a
+    replay of the runs' writes; the record keeps answers cut short.)
+- **sword+detailed #3, the other miss, made no call at its end.** It copied IronSword's FormKey line into
+  both its new files and wrote the model path with doubled backslashes. The copied-escapes refusal came
+  alone, then the FormKey one for both files. Its last turn planned both edits ("I need to remove the
+  `FormKey` lines from both") and made no call; OpenClaw ended the run on the failed build. One run of each
+  of the last three rounds ended this way.
+- The other refusals were fixed where they came: another record's FormKey copied, 4 times in 4 runs (one of
+  them sword+detailed #3); a FormKey of no record, once; an NPC's level at the margin, twice.
+
+**What it points at next:** a record file of only comments and blank lines is empty, as a file with nothing
+in it is; a new record without an EditorID either keeps its file's name when the build numbers it, or a
+file written under the name the build took away is answered as the record it numbered; the rename warning
+said to what the user asked for — a new one asked for is a new record, not this copy; and the copied-escapes
+refusal given with the record files' other problems, in one answer. The turns that plan and make no call are
+OpenClaw's to carry on.
