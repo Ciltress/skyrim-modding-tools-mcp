@@ -27,10 +27,10 @@ public static class ProjectNotes
     public static List<string> Of(string pluginDir, RecordIndex index, ILinkCache cache)
     {
         var own = RecordFiles.OwnPlugin(pluginDir);
-        var files = RecordFiles.FlatRecords(pluginDir).Select(f => (f.Relative, f.Type, Text: File.ReadAllText(f.File)))
-            .Where(f => RecordFiles.Identity(f.Text).FormKey is not { } key || key.ModKey == own).ToList();
+        var records = RecordFiles.FlatRecords(pluginDir).Select(f => (f.Relative, f.Type, Text: File.ReadAllText(f.File))).ToList();
+        var newRecords = records.Where(f => RecordFiles.Identity(f.Text).FormKey is not { } key || key.ModKey == own).ToList();
         var notes = new List<string>();
-        foreach (var (relative, type, text) in files)
+        foreach (var (relative, type, text) in newRecords)
         {
             // A new spell or NPC with no Name builds, and the game shows it with none: e4b's Storm Bolt and Hilda did,
             // and each run ended there (round 22's e4b probe). An NPC with a template may take its name from it.
@@ -53,9 +53,10 @@ public static class ProjectNotes
             }
             if (type == typeof(ObjectEffect) && RecordFiles.Identity(text) is { EditorId: { } enchantment } identity)
             {
-                // Named by any other record of the project — by editor ID, or by the FormID a build wrote in.
+                // Named by any other record of the project, an override too — by editor ID, or by the FormID a build wrote in.
+                // e4b's Flame Blade carried its enchantment on a copy of IronSword (round 23).
                 var formId = identity.FormKey is { } key ? Session.FormKeyText(key) : null;
-                var named = files.Any(f => f.Relative != relative
+                var named = records.Any(f => f.Relative != relative
                     && (Regex.IsMatch(f.Text, $@"\b{Regex.Escape(enchantment)}\b") || formId is not null && f.Text.Contains(formId, StringComparison.OrdinalIgnoreCase)));
                 if (!named)
                     notes.Add($"{relative}: no record of the project names {enchantment}, so it does nothing — a weapon or armor " +
@@ -64,7 +65,7 @@ public static class ProjectNotes
         }
         // A record copied whole and renamed, its FormKey and EditorID kept, builds as a change to that record, not as
         // a new one beside it: e4b's "new note" was Maven's own, renamed (eval probe 19). A patch renames now and then.
-        foreach (var (relative, _, text) in RecordFiles.FlatRecords(pluginDir).Select(f => (f.Relative, f.Type, Text: File.ReadAllText(f.File))))
+        foreach (var (relative, _, text) in records)
         {
             if (RecordFiles.Identity(text).FormKey is not { } key || key.ModKey == own) continue;
             if (!index.ByFormKey.TryGetValue(key, out var entry) || entry.Name is not { Length: > 0 } was) continue;
