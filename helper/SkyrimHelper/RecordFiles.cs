@@ -144,9 +144,7 @@ public static class RecordFiles
     [
         (["Weapon", "Armor"], ["Enchantment", "Enchantments", "Enchant", "Effect", "Effects", "MagicEffect", "BaseEffect"], "ObjectEffect",
             "an enchantment is ObjectEffect, naming an ObjectEffect record"),
-        (["MagicEffect"], ["Magnitude", "Damage", "DamageAmount", "Area", "Duration"], null,
-            "a magic effect has no strength of its own: Magnitude, Area and Duration go under Data, in the Effects item " +
-            "of the spell or ObjectEffect that names it as BaseEffect"),
+        (["MagicEffect"], ["Magnitude", "Damage", "DamageAmount", "Area", "Duration"], null, EffectStrength),
         (["MagicEffect"], ["DamageType", "Element", "Resist"], null,
             "fire, frost and shock damage is ResistValue — ResistFire, ResistFrost, ResistShock — with Archetype's ActorValue Health"),
         (["Spell", "ObjectEffect", "Scroll", "Ingestible", "Ingredient"], ["Damage", "DamageAmount", "Strength"], null,
@@ -166,6 +164,27 @@ public static class RecordFiles
         (["Npc"], ["Gender", "Sex", "Female"], null, "a female NPC has Female among the Flags under Configuration"),
         (["Npc", "NpcConfiguration", "PcLevelMult", "NpcLevel"], ["Level", "LevelMult", "CalcMinLevel", "CalcMaxLevel"], null, NpcLevel)
     ];
+
+    /// <summary>Where the strength of a magic effect is written: in what names it, not in the effect.</summary>
+    private const string EffectStrength = "a magic effect has no strength of its own: Magnitude, Area and Duration go under Data, " +
+        "in the Effects item of the spell or ObjectEffect that names it as BaseEffect";
+
+    /// <summary>
+    /// A magic effect's Data that holds a strength — Magnitude, Area, Duration — answered where they go. Found by
+    /// name, a Data was a condition's: "move it in each item of Conditions" sent e4b away (eval round 24).
+    /// </summary>
+    private static string? StrengthHint(Type type, string key, string text) =>
+        type.Name == "MagicEffect" && key == "Data" && Regex.IsMatch(BlockOf(text, key), @"\b(?:Magnitude|Area|Duration)[ \t]*:")
+            ? EffectStrength : null;
+
+    /// <summary>A top-level field's lines — its own, and those indented or listed below it; empty where the file has none.</summary>
+    private static string BlockOf(string text, string key)
+    {
+        var lines = text.Replace("\r\n", "\n").Split('\n');
+        var at = Array.FindIndex(lines, line => line.StartsWith(key + ":", StringComparison.Ordinal));
+        return at < 0 ? "" : string.Join('\n', lines.Skip(at).Take(1)
+            .Concat(lines.Skip(at + 1).TakeWhile(line => line.Length == 0 || line[0] is ' ' or '\t' or '-')));
+    }
 
     /// <summary>
     /// An NPC's level, whole, in the flow style the build reads. Told to move one of its fields at a time,
@@ -269,7 +288,7 @@ public static class RecordFiles
     /// </summary>
     private static string Unknown(Type type, HashSet<string> known, IEnumerable<string> keys, string text)
     {
-        var hinted = keys.Select(key => (Key: key, Hint: Hint(type, known, key, ValueOf(text, key)))).ToList();
+        var hinted = keys.Select(key => (Key: key, Hint: StrengthHint(type, key, text) ?? Hint(type, known, key, ValueOf(text, key)))).ToList();
         var named = hinted.Where(f => f.Hint is not null).GroupBy(f => f.Hint!).Select(group => group.Count() == 1
             ? $"{group.First().Key} ({group.Key}{Moved(text, group.Key, false)})"
             : $"{string.Join(", ", group.Select(f => f.Key))} ({Regex.Replace(group.Key, @"^(move it|it is)\b", m => m.Groups[1].Value == "move it" ? "move them" : "they are")}" +
@@ -510,8 +529,8 @@ public static class RecordFiles
             var read = index is not null && ExampleOf(kind ?? type, index) is { } example
                 ? $" — read {skill}a vanilla one, readRecord {{\"record\": \"{example}\"}}, and write yours with its field names and nesting"
                 : "";
-            problems.Add($"{relative}: {Article(type.Name)} has no field {Unknown(kind ?? type, known, unknown, text)}{read}" +
-                Droppable(kind ?? type, relative, text, texts.Value));
+            problems.Add($"{relative}: {Droppable(kind ?? type, relative, text, texts.Value)}" +
+                $"{Article(type.Name)} has no field {Unknown(kind ?? type, known, unknown, text)}{read}");
         }
         // Two files of one record: the reader names the FormKey but neither file (eval round 11: 000000 in each new record).
         foreach (var (formKey, holders) in formKeys.Where(pair => pair.Value.Count > 1))
@@ -578,8 +597,10 @@ public static class RecordFiles
 
     /// <summary>
     /// For a new record of the project that no other record names, how to drop it without deleting its
-    /// file — written empty, it is left out; else nothing. A model wrote a magic effect of its own, then
-    /// named a vanilla one in its spell, and the broken file it no longer needed failed every build (probe 16).
+    /// file — written empty, it is left out — as words before what is wrong with it; else nothing. A model
+    /// wrote a magic effect of its own, then named a vanilla one in its spell, and the broken file it no
+    /// longer needed failed every build (probe 16). Said after the fields, e4b went back to the file it had
+    /// fixed instead (eval round 24).
     /// </summary>
     internal static string Droppable(Type type, string relative, string text, IEnumerable<(string Relative, string Text)> others)
     {
@@ -589,7 +610,7 @@ public static class RecordFiles
         var rest = others.Where(o => o.Relative != relative).ToList();
         return rest.Count > 0 && Identity(text) is { FormKey: null, EditorId: { } id }
             && !rest.Any(o => Regex.IsMatch(o.Text, $@"\b{Regex.Escape(id)}\b"))
-            ? $"; no other record names {id}: if it is not needed, write its file empty — the build leaves an empty record file out"
+            ? $"no other record names {id}: if it is not needed, write its file empty — the build leaves an empty record file out. If it is needed: "
             : "";
     }
 
