@@ -853,7 +853,9 @@ const allTurns = results.flatMap(r => r.turnStats);
 const laterTurns = allTurns.slice(1);
 /**
  * OpenClaw's side of a run: what its first prompt carried — its tools, whether this server's were
- * among them or behind Tool Search, the thinking and context it asked for — and answers that did not end.
+ * among them or behind Tool Search, the thinking, context and answer cap it asked for — answers that did not
+ * end, and turns Ollama ended at the cap or the context's end: 12b looped ~111,000 tokens until the context
+ * was full, twice in round 21 and once in round 22.
  */
 const openClawSummary = OPENCLAW ? (() => {
     const firsts = results.map(r => r.turnStats[0]).filter(Boolean);
@@ -869,6 +871,7 @@ const openClawSummary = OPENCLAW ? (() => {
         firstPromptTokens: Math.max(0, ...firsts.map(t => t.promptTokens)),
         medianFirstTokenSeconds: firstTokens.length ? firstTokens[Math.floor(firstTokens.length / 2)] : null,
         cutAnswers: results.reduce((sum, r) => sum + (r.client?.cutAnswers ?? 0), 0),
+        lengthStops: results.reduce((sum, r) => sum + r.turnStats.filter(t => t.doneReason === 'length').length, 0),
         sideRequests: results.reduce((sum, r) => sum + (r.client?.sideRequests.length ?? 0), 0)
     };
 })() : undefined;
@@ -934,8 +937,10 @@ const entry = [
     '',
     ...(openClawSummary ? [
         `Through ${openClawSummary.version}: first prompt ${openClawSummary.firstPromptTokens} tokens (${openClawTools}), ` +
-        `think ${report.think}, num_ctx ${report.numCtx}, first token after ${openClawSummary.medianFirstTokenSeconds ?? '?'} s ` +
-        `(median of the first turns), ${openClawSummary.cutAnswers} answers cut off, ${openClawSummary.sideRequests} side requests.`,
+        `think ${report.think}, num_ctx ${report.numCtx}, num_predict ${openClawFirst?.numPredict ?? 'none'}, ` +
+        `first token after ${openClawSummary.medianFirstTokenSeconds ?? '?'} s (median of the first turns), ` +
+        `${openClawSummary.cutAnswers} answers cut off, ${openClawSummary.lengthStops} turns ended at the length limit, ` +
+        `${openClawSummary.sideRequests} side requests.`,
         ''
     ] : []),
     '| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |',

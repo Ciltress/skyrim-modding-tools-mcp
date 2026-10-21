@@ -31,8 +31,9 @@ measurement needs: this server alone, on a fresh projects folder, without `deplo
 and `downloadNexusFile`; OpenClaw's shell (`exec`, `process`) and the tools that reach a paired device
 (`nodes`, `file_fetch`, `file_write`, `dir_list`, `dir_fetch`) denied; the model under test configured
 and allowed. Its entry adds a line: the
-first prompt's tokens and tools, the thinking and num_ctx OpenClaw sent, the time to the first token,
-answers cut off, side requests. Its seconds include each session's start, where the server builds its
+first prompt's tokens and tools, the thinking, num_ctx and num_predict (the answer cap, from the model's
+`params.num_predict`) OpenClaw sent, the time to the first token, answers cut off, turns Ollama ended at
+the length limit — the cap, or the context's end — and side requests. Its seconds include each session's start, where the server builds its
 record index again. `+skill` runs are left out there. Until 2026-10-18 the second client was Claude
 Code (`--client claude-code`; `scripts/eval-claude-code.mjs` is in git history).
 
