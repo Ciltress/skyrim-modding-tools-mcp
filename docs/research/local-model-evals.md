@@ -150,6 +150,7 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-21 | gemma4:e4b | `all`, OpenClaw | e176320 | 37/39 | 3.33 s | ~7,397 tokens/s | ~168 tokens/s | 100% |
 | 2026-10-21 | gemma4:e4b | `all`, OpenClaw | 6134d7d | 38/39 | 2.99 s | ~7,402 tokens/s | ~167 tokens/s | 100% |
 | 2026-10-21 | gemma4:e4b | `all`, OpenClaw | afd183d | 35/39 | 3.43 s | ~7,161 tokens/s | ~182 tokens/s | 100% |
+| 2026-10-21 | gemma4:e4b | `all`, OpenClaw | fbd98b0 | 34/39 | 3.5 s | ~7,410 tokens/s | ~173 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -270,65 +271,6 @@ model's: four turns lost calling `skills_read` with `skill:` instead of `name:`,
 effect on the enchantment, refused by the build, and the turns ran out. (The seconds do not compare: the
 GPU ran the second half at ~184 tokens/s of prompt against ~891.)
 
-## Round 26 — round 25's four fixes, gemma4:e4b alone (2026-10-21)
-
-**Changed before it** — what round 25 pointed at (01465e3):
-
-- A record file of only comments and blank lines holds no record, as an empty one does: it is left out of
-  the build, and the build's notes pass it by.
-- A new record with no EditorID keeps its file's name when the build numbers it.
-- The rename warning's way out opens with what was asked for: "If a new one was asked for, this copy is not
-  it: delete this file's FormKey line and give it an EditorID of its own".
-- Copied escapes are refused in one answer with what the record checks refuse ("… Also: 3 record file(s)
-  cannot be built as written: …"), still before anything is numbered or built.
-
-gemma4:e4b, `all`, OpenClaw (prompt ~7,402 tokens/s, generation ~167 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 11454 | 42.1 |
-| read | 3/3 | 4 | 3 | 1 | 0 | 12807 | 39.5 |
-| filter | 3/3 | 2.3 | 1.3 | 0 | 0 | 10434 | 36.3 |
-| patch | 3/3 | 7 | 6 | 0 | 3 | 20854 | 51.1 |
-| build | 3/3 | 7 | 6 | 0 | 0 | 18152 | 45.9 |
-| sword | 2/3 | 10.3 | 9.3 | 1 | 0 | 23507 | 63.7 |
-| sword+detailed | 3/3 | 13.3 | 12.7 | 4 | 2 | 25001 | 78.1 |
-| spell | 3/3 | 6 | 5 | 0 | 0 | 16465 | 46.3 |
-| spell+detailed | 3/3 | 6.3 | 5.3 | 0 | 0 | 16402 | 48.6 |
-| npc | 3/3 | 8 | 7 | 1 | 0 | 18351 | 55.9 |
-| npc+detailed | 3/3 | 14 | 13.7 | 7 | 7 | 34128 | 86.8 |
-| note | 3/3 | 7.3 | 6.3 | 2 | 0 | 13674 | 52.2 |
-| note+detailed | 3/3 | 9 | 8 | 3 | 1 | 18510 | 57.8 |
-
-Through OpenClaw 2026.10.4 (383c124): first prompt 9,794 tokens (26 tools, 16 of them this server's),
-think high, num_ctx 131072, no answer cap; no answer cut off, no turn ended at the length limit, one side
-request; first token after 1.7 s, the median of the first turns.
-
-**Seen.**
-
-- **e4b 38 of 39** (round 25: 37), swords 5 of 6 (4 of 6), spells, NPCs and notes 6 of 6 each. Its turns
-  took 2.99 s (3.33). Two authoring runs used addPatch (round 25: three).
-- **The one miss made no call the server could answer.** sword #2 copied IronSword with addPatch, renamed
-  it Flame Blade and wrote an enchantment of its own. Its last turn planned the edit that gives the copy the
-  enchantment ("I will use `edit` for this") and made no call; the answer of that turn told the user that
-  "the project is currently **built** and ready for deployment". No build ran. A run of each of the last
-  four rounds ended on a turn that planned and did not call; this one is the first that answered as if done.
-- **None of round 25's four fixes came into play:** no file was emptied, no new record lacked an EditorID,
-  no copy was renamed past a build, and no escapes were copied.
-- **The refusals were fixed where they came**, each by the next build or the one after:
-  - another record's FormKey copied, 5 times in 5 runs (the vanilla note's in four of the notes); FormKey
-    `000000` or empty, twice; an NPC's level at the margin or as items of Flags, 4 times in 3 runs.
-  - `AIData.Aggression` written `Average`, in all three npc+detailed runs: answered "it takes one of
-    Unaggressive, Aggressive, VeryAggressive, Frenzied", e4b took Aggressive each time — where the game's
-    people are mostly Unaggressive, and the task asked for none.
-  - npc+detailed #3 built Hilda without a Name; told so under both the file's names, it tried the old name
-    three times, then edited the new one and passed.
-
-**What it points at next:** the server has nothing left in this round's misses: the turns that plan and make
-no call — four rounds running, now one that answered as if built — are the model's and OpenClaw's. Smaller:
-an enum refusal could name the value most records have (Unaggressive, for a person), and addPatch's note
-still says "delete the copy", which a client without a delete tool cannot: its file written empty does it.
-
 ## Round 27 — round 26's two answers, gemma4:e4b alone (2026-10-21)
 
 **Changed before it** — what round 26 pointed at (3786814):
@@ -392,3 +334,69 @@ request; first token after 1.7 s, the median of the first turns.
 enchantment, with the two lines to write into it — or refusing the build then, since e4b passes the note on;
 a part written as one value (`Archetype: ShockDamage`) answered as such, not with the reader's line and
 column; and a modifier magic effect that names no actor value refused, as no official one is written so.
+
+## Round 28 — round 27's three fixes, gemma4:e4b alone (2026-10-21)
+
+**Changed before it** — what round 27 pointed at (88b7ca9), and a fix found on the way (56a8a1b):
+
+- A new enchantment that no record names is refused when the project has a weapon or armor that carries
+  none — the user's choice — naming that record and the lines to write in it: `ObjectEffect:` and
+  `EnchantmentAmount: 500` in a weapon, `ObjectEffect:` alone in an armor (none of the official plugins'
+  3,007 enchanted armors has an EnchantmentAmount). With no such weapon or armor it stays the warning.
+- A part of a record written as one value (`Archetype: ShockDamage`) is refused as that, naming
+  `MutagenObjectType` and its kinds; where the value is one of the part's fields, that field's line is given.
+- A new ValueModifier, PeakValueModifier, DualValueModifier or Absorb effect that names no actor value — or
+  has no Archetype, which reads as a ValueModifier — is refused with the lines to write.
+- A quest's `Filter:` may end in a backslash, as 1,992 of the official plugins' 2,522 quests do: the
+  copied-escapes check refused addPatch's own copy of BQ01, and two of five serialized Creation Club plugins.
+
+gemma4:e4b, `all`, OpenClaw (prompt ~7,410 tokens/s, generation ~173 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2.3 | 1.3 | 0 | 0 | 11580 | 84.5 |
+| read | 3/3 | 3 | 2 | 1 | 0 | 11128 | 38.1 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 10166 | 37.1 |
+| patch | 3/3 | 5.7 | 5 | 0 | 0 | 18660 | 43.7 |
+| build | 3/3 | 7.7 | 7 | 0 | 0 | 20010 | 46 |
+| sword | 2/3 | 12.3 | 11.3 | 3 | 0 | 27226 | 71.5 |
+| sword+detailed | 1/3 | 14.7 | 14 | 5 | 6 | 28042 | 86.9 |
+| spell | 2/3 | 6.7 | 5.7 | 0 | 1 | 17403 | 51.7 |
+| spell+detailed | 3/3 | 6.3 | 5.3 | 0 | 0 | 16671 | 47.6 |
+| npc | 2/3 | 16.7 | 15.7 | 9 | 1 | 30485 | 114.9 |
+| npc+detailed | 3/3 | 12.7 | 11.7 | 7 | 3 | 17606 | 78.5 |
+| note | 3/3 | 6.3 | 5.3 | 1 | 0 | 14481 | 54.4 |
+| note+detailed | 3/3 | 6.3 | 5.3 | 1 | 0 | 13841 | 52.2 |
+
+Through OpenClaw 2026.10.4 (383c124): first prompt 9,795 tokens (26 tools, 16 of them this server's),
+think high, num_ctx 131072, no answer cap; no answer cut off, no turn ended at the length limit, no side
+request; first token after 1.7 s, the median of the first turns.
+
+**Seen.**
+
+- **e4b 34 of 39** (round 27: 35), swords 3 of 6 (4 of 6), spells and NPCs 5 of 6 each, notes 6 of 6. Its
+  turns took 3.5 s (3.43). Rounds 24–28 passed 38, 37, 38, 35 and 34.
+- **The enchantment refusal came once, and was followed.** sword+detailed #3 had renamed an addPatch copy of
+  IronSword and written an enchantment of its own. Told "FlameBlade carries no enchantment … write
+  `ObjectEffect: FlameBladeBurn` and `EnchantmentAmount: 500` in FlameBlade, at the margin", it wrote both
+  lines, with an edit that replaced `Stagger: 0.75`, Data's last line: ObjectEffect landed inside Data and
+  Stagger was gone. Told to move it up, its two edits named the Stagger line it had deleted, and it told the
+  user the mod was built. The part-as-value and actor-value refusals did not come up, and no answer was the
+  reader's line and column.
+- **npc #2 wrote the numbered file whole, without the FormKey line the build had given it.** Told "one record
+  written twice … Make the changes there, and write Npcs/HildaTheNordNPC.yaml empty", it wrote the numbered
+  file; with a FormKey in neither file, the refusal fell back to "give each new one an EditorID of its own,
+  or write the file of one not needed empty", four times, and the old file was never emptied. The only such
+  refusal in rounds 24–28.
+- **spell #1 wrote a spell with neither EditorID nor Name.** Told it had no Name, its edit named
+  `MenuDisplayObject: MAGINVShockSpellArt`, which the build had written as `09FA64:Skyrim.esm`; it built
+  again unchanged and stopped. An edit on a line a build had rewritten came four times in rounds 27–28 and
+  the thinking-medium run; this is the first that ended a run.
+- **Two runs ended on a turn that planned and made no call** (sword #2, sword+detailed #2). OpenClaw answered
+  each with the last tool's failure as `error_payload` ("⚠️ Skyrim Buildproject failed"), as once in each of
+  rounds 24 and 25.
+
+**What it points at next:** the enchantment refusal naming the line to write below — the record's `EditorID:`
+line, which is at the margin and one of a kind (`ObjectEffect` and `EnchantmentAmount` written right below it
+build into the plugin: checked, 2026-10-21); and the one-record-twice refusal knowing the numbered file by its
+name when its FormKey line was written over.
