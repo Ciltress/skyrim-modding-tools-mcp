@@ -151,6 +151,7 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-21 | gemma4:e4b | `all`, OpenClaw | 6134d7d | 38/39 | 2.99 s | ~7,402 tokens/s | ~167 tokens/s | 100% |
 | 2026-10-21 | gemma4:e4b | `all`, OpenClaw | afd183d | 35/39 | 3.43 s | ~7,161 tokens/s | ~182 tokens/s | 100% |
 | 2026-10-21 | gemma4:e4b | `all`, OpenClaw | fbd98b0 | 34/39 | 3.5 s | ~7,410 tokens/s | ~173 tokens/s | 100% |
+| 2026-10-21 | gemma4:e4b | `all`, OpenClaw | 3d33746 | 37/39 | 3.32 s | ~7,407 tokens/s | ~182 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -271,70 +272,6 @@ model's: four turns lost calling `skills_read` with `skill:` instead of `name:`,
 effect on the enchantment, refused by the build, and the turns ran out. (The seconds do not compare: the
 GPU ran the second half at ~184 tokens/s of prompt against ~891.)
 
-## Round 27 — round 26's two answers, gemma4:e4b alone (2026-10-21)
-
-**Changed before it** — what round 26 pointed at (3786814):
-
-- The refusal of an NPC's AIData value names the one the official plugins' named NPCs have most often:
-  "it takes one of Unaggressive, Aggressive, VeryAggressive, Frenzied (the official plugins' named NPCs have
-  Unaggressive most often: 1,838 of 3,186)" — Confidence, Responsibility, Mood and Assistance the same way.
-- addPatch's note says "write the copy empty — the build leaves an empty record file out" where it said
-  "delete the copy": OpenClaw gives a model no tool to delete a file. No delete tool was added: in rounds
-  22–26 (195 runs) no model tried to delete one.
-
-gemma4:e4b, `all`, OpenClaw (prompt ~7,161 tokens/s, generation ~182 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 11441 | 39.9 |
-| read | 3/3 | 3 | 2 | 0 | 0 | 12637 | 38.8 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 10149 | 36.8 |
-| patch | 3/3 | 6.3 | 5.3 | 0 | 1 | 19266 | 44.2 |
-| build | 3/3 | 7.3 | 6.7 | 0 | 0 | 19994 | 44.8 |
-| sword | 2/3 | 15.7 | 14.7 | 6 | 3 | 26469 | 85.8 |
-| sword+detailed | 2/3 | 12.7 | 13 | 4 | 2 | 25835 | 85.4 |
-| spell | 2/3 | 13.3 | 12.3 | 6 | 2 | 20998 | 81.2 |
-| spell+detailed | 3/3 | 7.7 | 6.7 | 1 | 1 | 18107 | 51.4 |
-| npc | 2/3 | 12.3 | 11.3 | 6 | 1 | 22130 | 94.2 |
-| npc+detailed | 3/3 | 7 | 6.3 | 2 | 0 | 15721 | 51.3 |
-| note | 3/3 | 6.3 | 5.7 | 1 | 0 | 13555 | 55.5 |
-| note+detailed | 3/3 | 8 | 7 | 2 | 0 | 18426 | 57.6 |
-
-Through OpenClaw 2026.10.4 (383c124): first prompt 9,795 tokens (26 tools, 16 of them this server's),
-think high, num_ctx 131072, no answer cap; no answer cut off, no turn ended at the length limit, one side
-request; first token after 1.7 s, the median of the first turns.
-
-**Seen.**
-
-- **e4b 35 of 39** (round 26: 38), on a build that differs from round 26's in the two answers above: swords
-  4 of 6, spells and NPCs 5 of 6 each, notes 6 of 6. Its turns took 3.43 s (2.99). Rounds 23–27 passed 36,
-  38, 37, 38 and 35: a round of 39 runs moves by about three passes on its own.
-- **The new answers did their part:** told the usual Aggression, npc #1 and npc+detailed #2 wrote
-  Unaggressive (round 26: all three took Aggressive, the second listed); told "delete it here, and keep the
-  magic effect's", spell+detailed #3 took MagicSkill out of its spell and passed.
-- **Two swords passed a true warning on.** Both built with "no record of the project names FlameDamage, so it
-  does nothing — a weapon or armor carries it as `ObjectEffect: FlameDamage`", and told the user the mod was
-  built. sword+detailed #3 had never given its new sword the line; sword #3, on an addPatch copy of IronSword,
-  had its edit adding it refused twice by the edit tool, then made only the rename — the build warned of that
-  too.
-- **spell #1 built a magic effect that changes nothing.** It wrote one of its own and spent seven builds on
-  it: Type and Data refused; `Archetype: ShockDamage`, written as one value, answered twice with the
-  reader's "Expected 'Scalar', got 'MappingEnd' (at Line: 7, Col: 1…)"; Archetype.Type ShockDamage refused,
-  DualValueModifier taken; then the casting refusal. It built, as a plain `success`, with no ActorValue, no
-  ResistValue and no MagicSkill: a spell of no school whose effect damages nothing. Each of the official
-  plugins' 1,133 ValueModifier, PeakValueModifier, DualValueModifier and Absorb effects names an actor value
-  (2,108 magic effects audited, 2026-10-21); half have no MagicSkill.
-- **npc #2 stopped on a turn without a call.** It copied BretonFemalePreset01, a face preset, with its
-  FormKey and was refused; wrote it again without the FormKey; and its last turn, 7,442 tokens, made no call
-  and told the user the mod was built. No build followed its last write.
-- The other refusals were fixed where they came: another record's FormKey copied, 6 times in 6 runs; a
-  FormKey of no record, twice; an NPC's level at the margin, twice.
-
-**What it points at next:** the enchantment note naming the project's weapon or armor that carries no
-enchantment, with the two lines to write into it — or refusing the build then, since e4b passes the note on;
-a part written as one value (`Archetype: ShockDamage`) answered as such, not with the reader's line and
-column; and a modifier magic effect that names no actor value refused, as no official one is written so.
-
 ## Round 28 — round 27's three fixes, gemma4:e4b alone (2026-10-21)
 
 **Changed before it** — what round 27 pointed at (88b7ca9), and a fix found on the way (56a8a1b):
@@ -400,3 +337,53 @@ request; first token after 1.7 s, the median of the first turns.
 line, which is at the margin and one of a kind (`ObjectEffect` and `EnchantmentAmount` written right below it
 build into the plugin: checked, 2026-10-21); and the one-record-twice refusal knowing the numbered file by its
 name when its FormKey line was written over.
+
+## Round 29 — round 28's two answers, gemma4:e4b alone (2026-10-21)
+
+**Changed before it** — what round 28 pointed at (b751186):
+
+- The enchantment refusal says where the two lines go: "on the lines right below `EditorID: FlameBlade`, at
+  the margin" — a line at the margin and one of a kind, where they build.
+- The one-record-twice refusal knows the file a build numbered by the name the build gave it,
+  `<EditorID> - <FormID>_<plugin>.yaml`, when that file was written again without its FormKey line, and goes
+  on naming the file to write empty.
+
+gemma4:e4b, `all`, OpenClaw (prompt ~7,407 tokens/s, generation ~182 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 11486 | 40.8 |
+| read | 3/3 | 3 | 2 | 0 | 0 | 12491 | 38.3 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 10190 | 36.6 |
+| patch | 3/3 | 6.3 | 5.3 | 0 | 0 | 18719 | 43.6 |
+| build | 3/3 | 6 | 5 | 0 | 0 | 17987 | 42.7 |
+| sword | 3/3 | 11 | 10 | 3 | 0 | 23103 | 62.2 |
+| sword+detailed | 2/3 | 16.7 | 16.3 | 3 | 14 | 29842 | 111.8 |
+| spell | 3/3 | 6 | 5 | 0 | 0 | 16278 | 43 |
+| spell+detailed | 3/3 | 5.3 | 5 | 0 | 0 | 16538 | 46.4 |
+| npc | 2/3 | 7.7 | 6.7 | 1 | 0 | 21045 | 60 |
+| npc+detailed | 3/3 | 10.7 | 9.7 | 2 | 2 | 26513 | 69.8 |
+| note | 3/3 | 7.3 | 6.3 | 2 | 0 | 14281 | 56.4 |
+| note+detailed | 3/3 | 8.7 | 7.7 | 2 | 0 | 19678 | 58.9 |
+
+Through OpenClaw 2026.10.4 (383c124): first prompt 9,794 tokens (26 tools, 16 of them this server's),
+think high, num_ctx 131072, no answer cap; no answer cut off, no turn ended at the length limit, one side
+request; first token after 1.7 s, the median of the first turns.
+
+**Seen.**
+
+- **e4b 37 of 39** (round 28: 34), swords 5 of 6 (3 of 6), spells 6 of 6, NPCs 5 of 6, notes 6 of 6. Its
+  turns took 3.32 s (3.5). Rounds 25–29 passed 37, 38, 35, 34 and 37.
+- **Neither new answer came into play, nor any of round 27's three:** no new enchantment went unnamed, no
+  record was written twice, no part was written as one value, no magic effect lacked its actor value.
+- **sword+detailed #2 spent its turns on edits that did not match.** Refused once — IronSword's FormKey
+  copied, and a top-level `Value` that is BasicStats' — it made 16 edits and the edit tool refused 14: each of
+  the first six held one whose old text had its line break written as `\n`, and failed whole; most of the
+  rest named lines it had already changed. It ran out of turns after its one build.
+- **npc #3 stopped on a turn that planned and made no call.** Refused for Adelaisa's FormKey, copied, and five
+  of PlayerSkills' fields at the margin, it removed the FormKey line, read the npcs skill, and its last turn
+  planned to write the file anew; no write and no second build followed.
+
+**What it points at next:** nothing on the server's side in this round's misses — one is the edit tool's and
+the model's, the other a turn that made no call. The answers of rounds 27 and 28 came up once in two rounds;
+whether they help shows only over more rounds.
