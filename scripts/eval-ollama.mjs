@@ -4,11 +4,15 @@
  * BUILT server against the configured instance, with a model served by Ollama.
  *
  *   npm run build
- *   node scripts/eval-ollama.mjs [--model gemma4:26b] [--profile all] [--runs 3] [--tasks find,read]
+ *   node scripts/eval-ollama.mjs [--model gemma4:26b] [--profile all] [--runs 3] [--authoring-runs 5] [--tasks find,read]
  *                                [--ctx 131072] [--max-turns 25] [--think true|false] [--out <file>]
  *                                [--with-skills] [--detailed] [--ollama http://localhost:11434]
  *                                [--client ollama|openclaw] [--openclaw <openclaw.mjs>]
  *                                [--openclaw-config <openclaw.json>] [--openclaw-agent skyrim] [--settle 60]
+ *
+ * --authoring-runs sets the runs of the tasks that write records (sword, spell, npc, note, and their
+ * `+detailed` and `+skill` runs), --runs those of the others; it defaults to --runs. Every miss of rounds
+ * 24–31 was an authoring task's, and with three runs each a round's noise was about ±3 of 39.
  *
  * Before the first task the model is loaded with a short "hi", so no task's time includes the load;
  * when it was not loaded yet (a switch from another model), --settle seconds pass before the tasks.
@@ -62,6 +66,7 @@ const { values: opt } = parseArgs({
         model: { type: 'string', default: 'gemma4:26b' },
         profile: { type: 'string', default: 'all' },
         runs: { type: 'string', default: '3' },
+        'authoring-runs': { type: 'string' },
         tasks: { type: 'string' },
         ctx: { type: 'string', default: '131072' },
         'max-turns': { type: 'string', default: '25' },
@@ -95,6 +100,9 @@ function ollamaUrl(raw) {
 }
 
 const RUNS = Number(opt.runs);
+/** The runs of a task that writes records — one with a family skill. */
+const AUTHORING_RUNS = Number(opt['authoring-runs'] ?? opt.runs);
+const runsOf = task => task.skill ? AUTHORING_RUNS : RUNS;
 const NUM_CTX = Number(opt.ctx);
 const MAX_TURNS = Number(opt['max-turns']);
 const SETTLE_SECONDS = Number(opt.settle);
@@ -222,7 +230,8 @@ async function weapon(editorId) {
     return { formId: read.formId, editorId, damage: stat(yaml, 'Damage'), weight: stat(yaml, 'Weight') };
 }
 
-console.log(`eval: ${opt.model} @ num_ctx ${CTX ?? 'Ollama default'}, profile ${opt.profile}, ${RUNS} run(s) per task`);
+console.log(`eval: ${opt.model} @ num_ctx ${CTX ?? 'Ollama default'}, profile ${opt.profile}, ${RUNS} run(s) per task` +
+    (AUTHORING_RUNS === RUNS ? '' : `, ${AUTHORING_RUNS} per authoring task`));
 if (OPENCLAW) {
     console.log(`eval: through ${openClaw.version} (${openClaw.entry}), on the configuration ${openClaw.configFile}` +
         `${openClaw.agentId ? `, agent '${openClaw.agentId}'` : ''}` +
@@ -773,7 +782,7 @@ const warmup = await warmUp().catch(error => fail(`the warm-up failed: ${error.m
 
 try {
     for (const task of tasks) {
-        for (let run = 1; run <= RUNS; run++) {
+        for (let run = 1; run <= runsOf(task); run++) {
             let result;
             try {
                 result = OPENCLAW ? await runTaskOpenClaw(task, run) : await runTask(task, run);
@@ -886,6 +895,7 @@ const report = {
     numCtx: OPENCLAW ? (openClawFirst?.numCtx ?? 'Ollama default') : NUM_CTX,
     think: OPENCLAW ? String(openClawFirst?.think ?? "OpenClaw's default") : THINK ?? 'model default',
     runs: RUNS,
+    authoringRuns: AUTHORING_RUNS,
     when: new Date().toISOString(),
     build: measuredBuild(),
     secondsPerTurn: laterTurns.length

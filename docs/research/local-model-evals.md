@@ -90,7 +90,8 @@ Ollama's prompt cache and answer in a few dozen tokens, so figures taken from th
 
 **The machine**, unless a round says otherwise: Windows 11, RTX 5080 16 GB, 32 GB RAM; Ollama 0.40.4
 with `OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0`; num_ctx 131072; the model's own defaults
-otherwise (gemma4: thinking on, temperature 1); three runs per task, seeds 1001–1003. The instance is
+otherwise (gemma4: thinking on, temperature 1); three runs per task, seeds 1001–1003 — since round 32 one run each
+of the five reading and patching tasks and five of each authoring task (`--runs 1 --authoring-runs 5`). The instance is
 the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods.
 
 ## All rounds
