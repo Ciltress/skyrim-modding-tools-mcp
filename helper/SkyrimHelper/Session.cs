@@ -329,7 +329,10 @@ public sealed class Session : IDisposable
                 var target = Path.Combine(projectDir, path);
                 if (File.Exists(target)) continue; // e.g. the parent cell's header, already brought in
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                await File.WriteAllTextAsync(target, text);
+                // As readRecord shows it: a line copied from there into an edit, its link's editor ID beside it, matched
+                // nothing in a copy that held the FormID bare — seven times the same edit (eval round 30). A pull, whose
+                // text has none, leaves a file that differs only in them as it is.
+                await File.WriteAllTextAsync(target, Annotated(text));
                 files.Add(path);
             }
             added.Add(new JsonObject

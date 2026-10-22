@@ -106,7 +106,9 @@ Spells/…   LeveledItems/…   Npcs/…
 
 - **Every reference is a FormID** written `012EB7:Skyrim.esm` — `Keywords: [01E718:Skyrim.esm]`, never
   `WeapMaterialIron`. Look a FormID up before reasoning about what it is, and look an editor ID up
-  before writing one.
+  before writing one. `readRecord` and `addPatch`'s copies give each link's editor ID beside it as a
+  comment, `ObjectEffect: 069CE7:Skyrim.esm  # BoundSwordEnchantment`; the build refuses one that
+  names another record than its FormID.
 - **An override file carries the complete record**, as the rule of one demands. Start it from the
   current winning version of the record, then change only the fields you mean to change.
 - **Leave bookkeeping as found**: `VersionControl`, `Version2`, `FormVersion`, `Unknown…`, `Unused…`,
@@ -119,10 +121,8 @@ Spells/…   LeveledItems/…   Npcs/…
   same type in this format and mirror it.
 - **A new record's FormID comes from `buildProject`.** Write the file without a `FormKey` line, under
   any name. The build gives it the next free number after the highest the project uses — from
-  `000800`, files in path order — writes `FormKey: 000801:MyMod.esp` at its top, and once the build
-  has succeeded renames the file `<editor ID> - 000801_MyMod.esp.yaml` (a record with no EditorID
-  keeps its file's name); a build that fails leaves every file under its name. The build's
-  `assignedFormIds` lists them, with their new paths.
+  `000800`, files in path order — and writes `FormKey: 000801:MyMod.esp` at its top. The file keeps
+  its name. The build's `assignedFormIds` lists them, each with its file's path.
 - **A link may be written as an editor ID** — `ObjectEffect: MyEnchantment`, an effect's
   `BaseEffect: EnchFireDamageFFContact`, a keyword list's `- WeapTypeSword`. The build looks it up
   among the project's records first, then the load order's, writes that record's FormID into the

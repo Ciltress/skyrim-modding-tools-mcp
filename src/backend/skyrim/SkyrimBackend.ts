@@ -219,7 +219,7 @@ export interface BuildResult {
     records: number;
     masters: string[];
     headerVersion: number;
-    /** New records that got their FormID in this build, each with the full path of its renamed file. */
+    /** New records that got their FormID in this build, each with the full path of its file. */
     assignedFormIds: { formId: string; editorId: string | null; file: string }[];
     /**
      * Links written by editor ID that the build replaced in their files with the FormID they name —

@@ -7,7 +7,7 @@ import {
 } from '../backend/skyrim/mo2';
 import { InstallError, type FomodConfig } from '../backend/skyrim/installer';
 import { activatePlugins, enableMod } from '../backend/skyrim/mo2Profile';
-import { ProjectError, assignFormIds, copiedEscapes, nameRecordFiles, projectPaths, readProjectHeader, syncYaml } from '../backend/skyrim/projects';
+import { ProjectError, assignFormIds, copiedEscapes, projectPaths, readProjectHeader, syncYaml } from '../backend/skyrim/projects';
 import { SkyrimEngine } from '../backend/skyrim/engine';
 import { SkyrimInstanceBackend } from '../backend/skyrim/SkyrimInstanceBackend';
 import { Mo2Manager } from '../backend/skyrim/mo2Manager';
@@ -220,31 +220,9 @@ describe('project files', () => {
         expect(assignFormIds(dir, 'MyMod.esp', true)).toEqual([]);
     });
 
-    it('names the files of the project\'s own records like Spriggit, and no other', () => {
-        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-names-'));
-        roots.push(dir);
-        write(path.join(dir, 'RecordData.yaml'), 'ModKey: MyMod.esp\n');
-        write(path.join(dir, 'Weapons', 'Old - 000805_MyMod.esp.yaml'), 'FormKey: 000805:MyMod.esp\nEditorID: Old\n');
-        write(path.join(dir, 'Weapons', 'my copy.yaml'), 'FormKey: 012EB7:Skyrim.esm\nEditorID: IronSword\n');
-        write(path.join(dir, 'Spells', 'a.yaml'), 'FormKey: 000806:MyMod.esp\nEditorID: NewA\n');
-        write(path.join(dir, 'Weapons', 'b.yaml'), 'FormKey: 000807:MyMod.esp\n');
-
-        expect(nameRecordFiles(dir, 'MyMod.esp')).toEqual([
-            { from: 'Spells/a.yaml', to: 'Spells/NewA - 000806_MyMod.esp.yaml', formId: '000806:MyMod.esp', editorId: 'NewA' }
-        ]);
-        expect(fs.readFileSync(path.join(dir, 'Spells', 'NewA - 000806_MyMod.esp.yaml'), 'utf8')).toBe('FormKey: 000806:MyMod.esp\nEditorID: NewA\n');
-        expect(fs.existsSync(path.join(dir, 'Spells', 'a.yaml'))).toBe(false);
-        // A record with no EditorID keeps the name it was written under: numbered 000800_StormBolt.esp.yaml, e4b wrote
-        // its fix under the old name, and the next build made it a second spell (eval round 25).
-        expect(fs.existsSync(path.join(dir, 'Weapons', 'b.yaml'))).toBe(true);
-        // An override keeps the name it was given; a second call renames nothing.
-        expect(fs.existsSync(path.join(dir, 'Weapons', 'my copy.yaml'))).toBe(true);
-        expect(nameRecordFiles(dir, 'MyMod.esp')).toEqual([]);
-    });
-
     it('takes the files that head a block of cells or a worldspace\'s folder for no new record', () => {
         // As Spriggit writes a plugin with cells: blocks and sub-blocks have a GroupRecordData.yaml, a cell
-        // a folder with its RecordData.yaml. Numbered and renamed, they broke the next build of the project.
+        // a folder with its RecordData.yaml. Numbered, they broke the next build of the project.
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-cells-'));
         roots.push(dir);
         write(path.join(dir, 'RecordData.yaml'), 'ModKey: MyMod.esp\n');
@@ -261,7 +239,6 @@ describe('project files', () => {
         // The cell's FormID is in use all the same.
         expect(assignFormIds(dir, 'MyMod.esp', true)).toEqual([
             { formId: '000801:MyMod.esp', editorId: 'NewSword', file: 'Weapons/new.yaml' }]);
-        expect(nameRecordFiles(dir, 'MyMod.esp').map(renamed => renamed.to)).toEqual(['Weapons/NewSword - 000801_MyMod.esp.yaml']);
         for (const header of headers) expect(fs.readFileSync(header, 'utf8')).toBe('GroupType: InteriorCellBlock\n');
     });
 
@@ -291,8 +268,6 @@ describe('project files', () => {
 
         expect(assignFormIds(dir, 'MyMod.esp', true)).toEqual([
             { formId: '000806:MyMod.esp', editorId: 'FlameBladeBurn', file: 'ObjectEffects/new.yaml' }]);
-        expect(nameRecordFiles(dir, 'MyMod.esp').map(renamed => renamed.to).sort()).toEqual([
-            'ObjectEffects/FlameBladeBurn - 000806_MyMod.esp.yaml', 'Weapons/FlameBlade - 000805_MyMod.esp.yaml']);
     });
 
     it('stops a light plugin at its last FormID and says how to grow it', () => {
@@ -321,6 +296,24 @@ describe('project files', () => {
         expect(fs.statSync(path.join(target, 'Weapons', 'same.yaml')).mtimeMs).toBe(before);
         // The folder the last record left is gone too.
         expect(fs.existsSync(path.join(target, 'Npcs'))).toBe(false);
+    });
+
+    it('keeps a file whose links carry the editor IDs readRecord shows, as long as nothing else differs', () => {
+        // addPatch writes readRecord's comments into its copies — sword #2 of eval round 30 copied
+        // `ObjectEffect: 069CE7:Skyrim.esm  # BoundSwordEnchantment` into an edit seven times, the copy holding the
+        // FormID bare — and a pull, whose text has none, leaves an unchanged copy as it is.
+        const source = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-sync-'));
+        const target = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-sync-'));
+        roots.push(source, target);
+        const bare = 'FormKey: 058F5F:Skyrim.esm\nObjectEffect: 069CE7:Skyrim.esm\nKeywords:\n- 01E711:Skyrim.esm\n';
+        const annotated = 'FormKey: 058F5F:Skyrim.esm\nObjectEffect: 069CE7:Skyrim.esm  # BoundSwordEnchantment\nKeywords:\n- 01E711:Skyrim.esm  # WeapTypeSword\n';
+        write(path.join(source, 'Weapons', 'same.yaml'), bare);
+        write(path.join(target, 'Weapons', 'same.yaml'), annotated);
+        write(path.join(source, 'Weapons', 'changed.yaml'), bare.replace('069CE7', '0C1A8F'));
+        write(path.join(target, 'Weapons', 'changed.yaml'), annotated);
+
+        expect(syncYaml(source, target)).toEqual({ added: [], changed: ['Weapons/changed.yaml'], removed: [] });
+        expect(fs.readFileSync(path.join(target, 'Weapons', 'same.yaml'), 'utf8')).toBe(annotated);
     });
 });
 
@@ -650,21 +643,23 @@ describe('the Skyrim backend', () => {
         expect(built.warnings).toEqual([note]);
     });
 
-    it('names a warned file by the name the build gave it, and the one it had', async () => {
-        // Told of Hilda's missing Female flag under the name the build had just changed, e4b edited that name nine
-        // times, then wrote it anew: a second Hilda (eval probe 23).
+    it('leaves a new record\'s file under the name its author gave it, so a warning names the file the model knows', async () => {
+        // Renamed by the build that warned, Hilda's file went on being edited under its old name: nine times in eval
+        // probe 23, then written anew — a second Hilda; five times in round 30, then the same, the warning named the
+        // new name and the old one all the while.
         const { backend, fixture, helperAnswers } = makeBackend();
         await backend.newProject({ project: 'HildaTheNord' });
-        write(path.join(fixture.projects, 'HildaTheNord', 'plugin', 'Npcs', 'Hilda.yaml'), 'EditorID: Hilda\n');
-        const voice = 'Hilda speaks with FemaleNord, a woman\'s voice, but has no Female among Configuration.Flags';
-        helperAnswers.checkRecords = () => ({ records: 1, leftOut: [], notes: [`Npcs/Hilda.yaml: ${voice}`, 'Books/Other.yaml: a note'] });
+        const hilda = path.join(fixture.projects, 'HildaTheNord', 'plugin', 'Npcs', 'Hilda.yaml');
+        write(hilda, 'EditorID: Hilda\n');
+        const voice = 'Npcs/Hilda.yaml: Hilda speaks with FemaleNord, a woman\'s voice, but has no Female among Configuration.Flags';
+        helperAnswers.checkRecords = () => ({ records: 1, leftOut: [], notes: [voice] });
 
         const built = await backend.buildProject('HildaTheNord');
 
-        expect(built.warnings).toEqual([
-            `Npcs/Hilda - 000800_HildaTheNord.esp.yaml (named Npcs/Hilda.yaml until this build numbered it): ${voice}`,
-            'Books/Other.yaml: a note'
-        ]);
+        expect(built.warnings).toEqual([voice]);
+        expect(built.assignedFormIds).toEqual([{ formId: '000800:HildaTheNord.esp', editorId: 'Hilda', file: hilda }]);
+        expect(fs.readdirSync(path.dirname(hilda))).toEqual(['Hilda.yaml']);
+        expect(fs.readFileSync(hilda, 'utf8')).toBe('FormKey: 000800:HildaTheNord.esp\nEditorID: Hilda\n');
     });
 
     it('answers a build with warnings with a status of its own, the warnings and what to do first', async () => {
@@ -701,7 +696,7 @@ describe('the Skyrim backend', () => {
         await expect(backend.deployProject('StormBolt')).rejects.toThrow(/not been built yet/);
     });
 
-    it('leaves every file under its name when a build fails after numbering it, and names it in the next that succeeds', async () => {
+    it('leaves every file under its name when a build fails after numbering it, and when the next succeeds', async () => {
         // Renamed by a build the reader then refused, a record went on being fixed under its old name:
         // a second file, a second record, and the first one still broken (eval round 11).
         const { backend, fixture, helperAnswers } = makeBackend();
@@ -717,10 +712,8 @@ describe('the Skyrim backend', () => {
 
         delete helperAnswers.build;
         age(root);
-        const built = await backend.buildProject('HildaTheNord');
-        const named = path.join(path.dirname(hilda), 'Hilda - 000800_HildaTheNord.esp.yaml');
-        expect(built.assignedFormIds).toEqual([{ formId: '000800:HildaTheNord.esp', editorId: 'Hilda', file: named }]);
-        expect(fs.readdirSync(path.dirname(hilda))).toEqual([path.basename(named)]);
+        await backend.buildProject('HildaTheNord');
+        expect(fs.readdirSync(path.dirname(hilda))).toEqual(['Hilda.yaml']);
         await expect(backend.deployProject('HildaTheNord')).resolves.toMatchObject({ plugin: 'HildaTheNord.esp' });
     });
 
@@ -949,17 +942,17 @@ describe('the Skyrim backend', () => {
         const again = await backend.addPatch({ project: 'MyPatch', records: ['IronSword'] });
         expect(again.alreadyInProject).toEqual([{ formId: '012EB7:Skyrim.esm', files: [sword] }]);
 
-        // A record written by hand gets its FormID in the build.
-        write(path.join(pluginDir, 'Weapons', 'new sword.yaml'), 'EditorID: MyNewSword\n');
+        // A record written by hand gets its FormID in the build, in the file it was written in.
+        const newSword = path.join(pluginDir, 'Weapons', 'new sword.yaml');
+        write(newSword, 'EditorID: MyNewSword\n');
         await expect(backend.deployProject('MyPatch')).rejects.toThrow(/not been built yet/);
         age(path.join(fixture.projects, 'MyPatch'));
         const built = await backend.buildProject('MyPatch');
-        expect(built.assignedFormIds).toEqual([
-            { formId: '000800:MyPatch.esp', editorId: 'MyNewSword', file: path.join(pluginDir, 'Weapons', 'MyNewSword - 000800_MyPatch.esp.yaml') }]);
+        expect(built.assignedFormIds).toEqual([{ formId: '000800:MyPatch.esp', editorId: 'MyNewSword', file: newSword }]);
         expect(calls.find(c => c.method === 'build')!.params.headerVersion).toBe(1.71);
 
-        // The build renamed a source file after writing the plugin — renaming changes no record — and
-        // the plugin still counts as newer than every source, so deploy accepts it.
+        // The build wrote the FormID into a source before it wrote the plugin, so the plugin counts as
+        // newer than every source, and deploy accepts it.
         const deployed = await backend.deployProject('MyPatch');
         const modFolder = path.join(fixture.instanceDir, 'mods', 'MyPatch');
         expect(deployed).toEqual(expect.objectContaining({
@@ -975,10 +968,10 @@ describe('the Skyrim backend', () => {
         fs.writeFileSync(path.join(modFolder, 'MyPatch.esp'), 'edited in the Creation Kit');
         await expect(backend.deployProject('MyPatch')).rejects.toThrow(/pullProject/);
 
-        // Pull brings it back as text, and makes the plugin the project's own again.
+        // Pull brings it back as text, under Spriggit's names, and makes the plugin the project's own again.
         const pulled = await backend.pullProject('MyPatch');
         expect(pulled.changed).toContain(sword.path);
-        expect(pulled.removed).toContain(path.join(pluginDir, 'Weapons', 'MyNewSword - 000800_MyPatch.esp.yaml'));
+        expect(pulled.removed).toContain(newSword);
         expect(fs.readFileSync(path.join(pluginDir, 'Weapons', 'IronSword - 012EB7_Skyrim.esm.yaml'), 'utf8')).toMatch(/Damage: 12/);
 
         // The pulled text is newer than the last build: deploy wants a build first.

@@ -15,7 +15,7 @@ import { ModError, findMod, listedMods, ownerOf, pluginFiles } from './modList.j
 import { checkGameVersion } from './gameVersion.js';
 import { findCaseInsensitive } from './paths.js';
 import {
-    ProjectError, assignFormIds, belongsAt, copiedEscapes, createProject, type CopiedEscape, fencedRecordFiles, fileHash, keepRecordTexts, misnamedRecordFiles, looseRecordFiles, nameRecordFiles, newestSourceTime, projectExists,
+    ProjectError, assignFormIds, belongsAt, copiedEscapes, createProject, type CopiedEscape, fencedRecordFiles, fileHash, keepRecordTexts, misnamedRecordFiles, looseRecordFiles, newestSourceTime, projectExists,
     projectInfo, projectPaths, readDeployState, readProjectHeader, recordFiles, strayRecordFiles, syncFolder, syncYaml,
     whereRecordsGo, writeDeployState
 } from './projects.js';
@@ -378,36 +378,19 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             throw error;
         }
 
-        // Only a build that succeeded renames its new records' files, so a refusal never leaves a file
-        // under a name its author does not know. Renaming changes no record: the plugin stays newer
-        // than its sources, and deploy takes it.
-        const renamed = nameRecordFiles(paths.plugin, plugin, skip);
-        if (renamed.length > 0) {
-            // Past the renamed folders' times, which carry more than the milliseconds a Date holds.
-            const after = new Date(Math.ceil(Math.max(Date.now(), newestSourceTime(paths))) + 1);
-            fs.utimesSync(output, after, after);
-        }
-        const nameOf = new Map(renamed.map(file => [file.from, file.to]));
-        const finalPath = (file: string) => path.resolve(paths.plugin, nameOf.get(file) ?? file);
-        // A record numbered by an earlier build that then failed is named now; it is listed with this build's.
-        const numbered = new Set(assignedFormIds.map(record => record.file));
-        const earlier = renamed.filter(file => !numbered.has(file.from)).map(({ formId, editorId, from }) => ({ formId, editorId, file: from }));
-        // A warning names its file as the build left it: told of Hilda's missing Female flag under the name this
-        // build had just changed, e4b edited that name nine times, then wrote it anew — a second Hilda (eval probe 23).
-        const named = warnings.map(warning => {
-            const file = renamed.find(({ from }) => warning.startsWith(`${from}: `));
-            return file ? `${file.to} (named ${file.from} until this build numbered it): ${warning.slice(file.from.length + 2)}` : warning;
-        });
-
+        // A file keeps the name its author gave it, the build's FormID written in: renamed the way Spriggit names
+        // a file, Hilda's went on being edited under its old name, then written anew — a second Hilda (eval probe
+        // 23, round 30). A pull writes Spriggit's names.
+        const fullPath = (file: string) => path.resolve(paths.plugin, file);
         return {
             project, plugin, output,
             records: built.records,
             masters: built.masters,
             headerVersion: built.headerVersion,
-            assignedFormIds: [...earlier, ...assignedFormIds].map(record => ({ ...record, file: finalPath(record.file) })),
-            resolvedLinks: (built.resolvedLinks ?? []).map(link => ({ ...link, file: finalPath(link.file) })),
+            assignedFormIds: assignedFormIds.map(record => ({ ...record, file: fullPath(record.file) })),
+            resolvedLinks: (built.resolvedLinks ?? []).map(link => ({ ...link, file: fullPath(link.file) })),
             scripts: { compiled },
-            ...(named.length > 0 ? { warnings: named } : {})
+            ...(warnings.length > 0 ? { warnings } : {})
         };
     }
 

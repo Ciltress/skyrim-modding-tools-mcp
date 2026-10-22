@@ -646,6 +646,7 @@ public static class RecordFiles
         // the file again under its old name, and Hilda was built twice, a man and a woman (eval probe 23).
         // A numbered file written whole again lost the FormKey line the build gave it, but keeps the name the build gave it:
         // told to empty the other, e4b rewrote the numbered one without the line, and was then told only to pick (eval round 28).
+        // A build no longer renames a file (eval round 30); a pull, and builds before that, name it the way Spriggit does.
         bool Numbered((string Relative, FormKey? Key) file) => file.Key is { } key ? key.ModKey == own
             : own is { } plugin && Regex.IsMatch(Path.GetFileName(file.Relative), $@" - [0-9A-Fa-f]{{6}}_{Regex.Escape(plugin.FileName)}\.yaml$", RegexOptions.IgnoreCase);
         foreach (var (editorId, files) in editorIds.Where(pair => pair.Value.Count > 1 && pair.Value.Any(f => f.Key is not { } key || key.ModKey == own)))
@@ -654,7 +655,7 @@ public static class RecordFiles
             var fresh = files.Where(f => f.Key is null && !Numbered(f)).ToList();
             problems.Add($"{string.Join(" and ", files.Select(f => f.Relative))} have the same EditorID {editorId} — " +
                 (numbered.Count == 1 && fresh.Count == files.Count - 1
-                    ? $"one record written twice: a build numbered it and named its file {numbered[0].Relative}. Make the changes " +
+                    ? $"one record written twice: a build numbered it in {numbered[0].Relative}. Make the changes " +
                         $"there, and write {string.Join(" and ", fresh.Select(f => f.Relative))} empty — the build leaves an empty record file out"
                     : "an editor ID names one record: give each new one an EditorID of its own, or write the file of one not needed " +
                         "empty — the build leaves an empty record file out"));

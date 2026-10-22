@@ -157,7 +157,7 @@ export class ProjectsHandlers extends BaseHandler {
                     },
                     description:
                         'Build a project\'s plugin from its text: gives new records their FormIDs (written back into ' +
-                        'their files, renamed once the build succeeds), turns a link written as an editor ID — a new record of the project, or one of the ' +
+                        'their files, which keep their names), turns a link written as an editor ID — a new record of the project, or one of the ' +
                         'load order — into that record\'s FormID (`resolvedLinks`), checks that every link points at a ' +
                         'record that exists, compiles the project\'s Papyrus scripts and writes the plugin with the ' +
                         'header this game version needs. Refuses a project with no records, fields a record type does ' +

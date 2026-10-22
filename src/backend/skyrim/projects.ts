@@ -319,8 +319,8 @@ export function recordFiles(pluginDir: string): string[] {
 
 /**
  * Gives every new record a FormID — a record file without a top-level `FormKey:` line, as an agent
- * writes one — written at the top of its file, which keeps its name until the build succeeds
- * (nameRecordFiles). Once assigned, a FormID never moves: other plugins and saves will point at it.
+ * writes one — written at the top of its file, which keeps its name; a pull writes Spriggit's.
+ * Once assigned, a FormID never moves: other plugins and saves will point at it.
  * Deterministic: files are numbered in path order after the highest number in use. The files in `skip`,
  * which the build leaves out, keep their text.
  */
@@ -375,40 +375,9 @@ export function keepRecordTexts(pluginDir: string): () => void {
     };
 }
 
-/**
- * Renames the files of the project's own records the way Spriggit names them — `<editor ID> -
- * <FormID>_<plugin>.yaml` — so that a pull finds them where it would write them. Called once a build
- * has succeeded: renamed by a build that then failed, a file went on being fixed under its old name,
- * which made a second record (eval round 11). Overrides and the files heading cells keep their names, and so
- * does a record with no EditorID: numbered `000800_StormBolt.esp.yaml`, e4b wrote its fix under the old name,
- * and the next build made it a second spell (eval round 25). A pull writes Spriggit's name in its place.
- */
-export function nameRecordFiles(pluginDir: string, plugin: string, skip: ReadonlySet<string> = new Set()):
-    { from: string; to: string; formId: string; editorId: string | null }[] {
-    const ownKey = new RegExp(`^FormKey:[ \\t]*([0-9A-Fa-f]{6}):${escapeRegExp(plugin)}[ \\t]*(?:#.*)?$`, 'im');
-    const renamed: { from: string; to: string; formId: string; editorId: string | null }[] = [];
-    for (const file of recordFiles(pluginDir).filter(file => !skip.has(file))) {
-        if (/^(Group)?RecordData\.yaml$/.test(path.basename(file))) continue;
-        const text = fs.readFileSync(file, 'utf8');
-        const id = ownKey.exec(text)?.[1].toUpperCase();
-        if (!id) continue;
-        const editorId = editorIdOf(text);
-        if (!editorId) continue;
-        const target = path.join(path.dirname(file), `${safeFileName(editorId)} - ${id}_${plugin}.yaml`);
-        if (target === file || fs.existsSync(target)) continue;
-        fs.renameSync(file, target);
-        renamed.push({ from: relativeTo(pluginDir, file), to: relativeTo(pluginDir, target), formId: `${id}:${plugin}`, editorId });
-    }
-    return renamed;
-}
-
 // A comment after either line is no part of it: `FormKey: 000123:Skyrim.esm # Placeholder` went unread (eval round 14).
 const editorIdOf = (text: string) => /^EditorID:[ \t]*([^\s#]+)/m.exec(text)?.[1] ?? null;
 const relativeTo = (dir: string, file: string) => path.relative(dir, file).replace(/\\/g, '/');
-
-function safeFileName(name: string): string {
-    return name.replace(/[<>:"/\\|?*]/g, '_');
-}
 
 function escapeRegExp(text: string): string {
     return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -483,9 +452,14 @@ export function syncFolder(sources: readonly string[], target: string, keep: (na
     return wanted.size;
 }
 
+/** A link with the editor ID readRecord and addPatch write beside it: `ObjectEffect: 069CE7:Skyrim.esm  # BoundSwordEnchantment`. */
+const LINK_COMMENT = /^([ \t]*(?:- )?(?:\w+:[ \t]*)?[0-9A-Fa-f]{6}:\S+\.es[mpl])[ \t]+#[^\n]*$/gim;
+const withoutLinkComments = (text: string) => text.replace(LINK_COMMENT, '$1');
+
 /**
  * Makes `target` hold exactly the YAML files of `source`, touching only what differs — so git sees
- * the real change and nothing else. Paths are relative to the folders, with forward slashes.
+ * the real change and nothing else. A file that differs only in the editor IDs beside its links, which
+ * the plugin does not hold, is left as it is. Paths are relative to the folders, with forward slashes.
  */
 export function syncYaml(source: string, target: string): { added: string[]; changed: string[]; removed: string[] } {
     const rel = (root: string, file: string) => path.relative(root, file).replace(/\\/g, '/');
@@ -512,7 +486,7 @@ export function syncYaml(source: string, target: string): { added: string[]; cha
         const destination = path.join(target, relative);
         if (!existing.has(relative)) {
             result.added.push(relative);
-        } else if (fs.readFileSync(destination, 'utf8') === text) {
+        } else if (withoutLinkComments(fs.readFileSync(destination, 'utf8')) === withoutLinkComments(text)) {
             continue;
         } else {
             result.changed.push(relative);
