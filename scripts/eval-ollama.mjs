@@ -230,8 +230,11 @@ async function weapon(editorId) {
     return { formId: read.formId, editorId, damage: stat(yaml, 'Damage'), weight: stat(yaml, 'Weight') };
 }
 
+// Read before the first task: a commit made while the round runs is not the build it measured (round 32's e4b row named
+// the commit made during its last task).
+const BUILD = measuredBuild();
 console.log(`eval: ${opt.model} @ num_ctx ${CTX ?? 'Ollama default'}, profile ${opt.profile}, ${RUNS} run(s) per task` +
-    (AUTHORING_RUNS === RUNS ? '' : `, ${AUTHORING_RUNS} per authoring task`));
+    (AUTHORING_RUNS === RUNS ? '' : `, ${AUTHORING_RUNS} per authoring task`) + `, build ${BUILD}`);
 if (OPENCLAW) {
     console.log(`eval: through ${openClaw.version} (${openClaw.entry}), on the configuration ${openClaw.configFile}` +
         `${openClaw.agentId ? `, agent '${openClaw.agentId}'` : ''}` +
@@ -897,7 +900,7 @@ const report = {
     runs: RUNS,
     authoringRuns: AUTHORING_RUNS,
     when: new Date().toISOString(),
-    build: measuredBuild(),
+    build: BUILD,
     secondsPerTurn: laterTurns.length
         ? Math.round(laterTurns.reduce((sum, t) => sum + t.seconds, 0) / laterTurns.length * 100) / 100
         : null,
