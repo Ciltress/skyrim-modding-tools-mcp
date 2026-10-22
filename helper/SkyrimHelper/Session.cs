@@ -368,6 +368,7 @@ public sealed class Session : IDisposable
         // A fix with one right answer is written first, and named in a refusal that comes after it too: the model
         // knows the file as it wrote it, and an edit of the line taken out finds nothing.
         var corrected = RecordFiles.DropCopiedFormKeys(dir, Index);
+        corrected.AddRange(MisplacedFields.Move(dir));
         int records;
         List<(string File, string Copy)> leftOut;
         try

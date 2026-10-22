@@ -587,7 +587,7 @@ public static class RecordLinks
             : null;
 
     /// <summary>The item type of a list field, or null.</summary>
-    private static Type? ElementType(Type type) =>
+    internal static Type? ElementType(Type type) =>
         type == typeof(string) ? null
             : type.GetInterfaces().Append(type)
                 .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>))?.GetGenericArguments()[0];

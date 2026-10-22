@@ -308,6 +308,18 @@ public static class RecordFiles
         Hint(type, FieldsOf(type), key) is { } hint ? $" ({hint})" : "";
 
     /// <summary>
+    /// The part of the record a top-level field it lacks goes under, where the refusal names one place: an NPC's
+    /// level, under Configuration; another, as "move it under BasicStats" says. Null for any other — a field to
+    /// rename or delete, or one "in each item of Effects", which is not one place where a list holds several.
+    /// </summary>
+    internal static string? PartFor(Type type, string key, string text)
+    {
+        if (type.Name == "Npc" && key is "Level" or "CalcMinLevel" or "CalcMaxLevel") return "Configuration";
+        var hint = DataHint(type, key, text) ?? Hint(type, FieldsOf(type), key, ValueOf(text, key));
+        return hint is not null && Regex.Match(hint, @"^move it under (?<part>\w+)$") is { Success: true } move ? move.Groups["part"].Value : null;
+    }
+
+    /// <summary>
     /// The unknown fields of a record file, named for a message: those with one hint together — "Damage,
     /// Weight (move them under BasicStats)" — and those without any last, set apart, so that "Type, Level
     /// (move it under Configuration)" does not send Type along (eval round 11's probes). Those the type has

@@ -325,7 +325,8 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         // Fields a record type does not have, folders that are no group, copied FormKeys, links that name no
         // record: named before any record is numbered. A file in a folder that is no group, whose record its
         // group's folder holds too, is left out, untouched — the same trap (eval probe 10 after round 11).
-        // The helper corrects a FormKey copied into a new record from the record it read, as it says in `corrected`.
+        // The helper corrects a FormKey copied into a new record from the record it read, and moves a field written
+        // where its record has none to the one place it goes, as it says in `corrected`.
         const checked = await this.engine.helper.call<{
             records: number; leftOut?: { file: string; copy: string }[]; notes?: string[]; corrected?: { file: string; change: string }[];
         }>('checkRecords', { projectPluginDir: paths.plugin }).catch((error: unknown) => { throw withCorrections(error); });
