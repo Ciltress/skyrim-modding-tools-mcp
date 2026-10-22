@@ -158,6 +158,26 @@ export function copiedEscapes(pluginDir: string): CopiedEscape[] {
 }
 
 /**
+ * Writes each line copiedEscapes finds as it is to be, a one-line fix at the line's own indentation, and
+ * answers what it wrote. Refused with those lines instead, the escapes cost a build, and three of the seven
+ * runs that met the refusal failed after it (eval rounds 24–31).
+ */
+export function correctCopiedEscapes(pluginDir: string): CopiedEscape[] {
+    const escaped = copiedEscapes(pluginDir);
+    for (const file of new Set(escaped.map(escape => escape.file))) {
+        const text = fs.readFileSync(file, 'utf8');
+        const lines = text.split(/\r?\n/);
+        // From the last line up, so a fix that becomes several lines moves none still to be fixed.
+        for (const { line, kind, fixed } of escaped.filter(escape => escape.file === file).sort((a, b) => b.line - a.line)) {
+            const indent = /^\s*/.exec(lines[line - 1])![0];
+            lines.splice(line - 1, 1, ...(kind === 'line breaks written as \\n' ? fixed : [fixed[0] ? indent + fixed[0] : '']));
+        }
+        fs.writeFileSync(file, lines.join(text.includes('\r\n') ? '\r\n' : '\n'));
+    }
+    return escaped;
+}
+
+/**
  * A line break a copy left as `\n` — `\r\n`, its backslash doubled or not — where a text goes on: before
  * another escape, a space or the line's end. A path's `Armor\nightingale` goes on with a letter.
  */

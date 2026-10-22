@@ -767,9 +767,10 @@ describe('the Skyrim backend', () => {
         expect(fs.readFileSync(fenced, 'utf8')).not.toMatch(/FormKey/);
     });
 
-    it('refuses a record file with the escapes of a JSON answer copied in, naming each file and line, before any is built', async () => {
+    it('writes lines copied with a JSON answer\'s escapes as they are to be, says which, and builds', async () => {
         // Copied out of a JSON string as it reads, a model path kept its doubled backslashes; the build took it,
-        // and the mod would ship a path the game cannot find (e4b, eval rounds 12–15).
+        // and the mod would ship a path the game cannot find (e4b, eval rounds 12–15). Refused with the lines as they
+        // were to be, three of the seven runs that met the refusal failed after it (rounds 24–31): the build writes them.
         const { backend, fixture, calls } = makeBackend();
         await backend.newProject({ project: 'FlameBlade' });
         const sword = path.join(fixture.projects, 'FlameBlade', 'plugin', 'Weapons', 'FlameBlade.yaml');
@@ -777,30 +778,51 @@ describe('the Skyrim backend', () => {
         write(sword, 'EditorID: FlameBlade\nModel:\n  File: Weapons\\\\Iron\\\\LongSword.nif\n');
         write(note, 'EditorID: FlameBladeNote\nBookText: <font face=\\"$HandwrittenFont\\">Burn.\n');
 
-        await expect(asRequestError(backend.buildProject('FlameBlade'))).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
-        await expect(backend.buildProject('FlameBlade')).rejects.toThrow(new RegExp(
-            `${escape(note)}, line 2 \\(a backslash before a quote\\).*; ${escape(sword)}, line 3 \\(two backslashes\\).*` +
-            'single backslash.*quote has no backslash'));
-        expect(calls.some(c => c.method === 'build')).toBe(false);
-        expect(fs.readFileSync(sword, 'utf8')).not.toMatch(/FormKey/);
+        const built = await backend.buildProject('FlameBlade');
+
+        expect(fs.readFileSync(sword, 'utf8')).toMatch(/\nEditorID: FlameBlade\nModel:\n {2}File: Weapons\\Iron\\LongSword\.nif\n$/);
+        expect(fs.readFileSync(note, 'utf8')).toMatch(/\nBookText: <font face="\$HandwrittenFont">Burn\.\n$/);
+        expect(built.corrected).toEqual([
+            `${note}, line 2 (a backslash before a quote): \`BookText: <font face=\\"$HandwrittenFont\\">Burn.\` → \`BookText: <font face="$HandwrittenFont">Burn.\``,
+            `${sword}, line 3 (two backslashes): \`File: Weapons\\\\Iron\\\\LongSword.nif\` → \`File: Weapons\\Iron\\LongSword.nif\``
+        ]);
+        expect(built.warnings).toBeUndefined();
+        expect(calls.some(c => c.method === 'build')).toBe(true);
     });
 
-    it('refuses copied escapes together with what the record checks refuse, in one answer', async () => {
-        // Refused alone, the escapes cost a build: e4b fixed the path, built, and only then heard of the FormKey
-        // line it had copied into the same file (eval round 25, sword+detailed #3).
+    it('names what it corrected in a refusal that comes after, so no edit goes to a line that is gone', async () => {
         const { backend, fixture, calls } = makeBackend();
         await backend.newProject({ project: 'FlameBlade' });
         const sword = path.join(fixture.projects, 'FlameBlade', 'plugin', 'Weapons', 'FlameBlade.yaml');
         write(sword, 'EditorID: FlameBlade\ndamage: 12\nModel:\n  File: Weapons\\\\Iron\\\\LongSword.nif\n');
 
-        const message = await backend.buildProject('FlameBlade').then(() => '', (e: Error) => e.message);
-        expect(message).toMatch(new RegExp(`${escape(sword)}, line 4 \\(two backslashes\\).*single backslash.*` +
-            'Also: 1 record file\\(s\\) cannot be built as written: .*a Weapon has no field damage'));
+        const refused = asRequestError(backend.buildProject('FlameBlade'));
+
+        await expect(refused).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
+        await expect(refused).rejects.toThrow(new RegExp('cannot be built as written: .*a Weapon has no field damage.*' +
+            `Corrected in the files already: ${escape(sword)}, line 4 \\(two backslashes\\): .* → \`File: Weapons\\\\Iron\\\\LongSword\\.nif\``));
+        expect(fs.readFileSync(sword, 'utf8')).toBe('EditorID: FlameBlade\ndamage: 12\nModel:\n  File: Weapons\\Iron\\LongSword.nif\n');
         expect(calls.some(c => c.method === 'build')).toBe(false);
-        expect(fs.readFileSync(sword, 'utf8')).not.toMatch(/FormKey/);
     });
 
-    it('quotes each refused line and gives it as it is to be written', async () => {
+    it('names the helper\'s corrections and its own in one sentence of a refusal', async () => {
+        const { backend, fixture, helperAnswers } = makeBackend();
+        await backend.newProject({ project: 'FlameBlade' });
+        const sword = path.join(fixture.projects, 'FlameBlade', 'plugin', 'Weapons', 'FlameBlade.yaml');
+        write(sword, 'EditorID: FlameBlade\nModel:\n  File: Weapons\\\\Iron\\\\LongSword.nif\n');
+        helperAnswers.checkRecords = () => {
+            throw new HelperError('badRecord', '1 field(s) cannot be built as written: Weapons/FlameBlade.yaml: FlameBlade carries no enchantment. ' +
+                'Corrected in the files already: Weapons/FlameBlade.yaml: removed `FormKey: 012EB7:Skyrim.esm`.');
+        };
+
+        const message = await backend.buildProject('FlameBlade').then(() => '', (e: Error) => e.message);
+
+        expect(message.match(/Corrected in the files already/g)).toHaveLength(1);
+        expect(message).toMatch(new RegExp('carries no enchantment\\. Corrected in the files already: Weapons/FlameBlade\\.yaml: removed `FormKey: 012EB7:Skyrim\\.esm`; ' +
+            `${escape(sword)}, line 3 \\(two backslashes\\): .*\\.$`));
+    });
+
+    it('undoes only the copied escapes, and leaves YAML\'s own inside double quotes', async () => {
         // Told only "line 12 (two backslashes)", e4b edited another line, built again and gave up (eval probe 17).
         const { backend, fixture } = makeBackend();
         await backend.newProject({ project: 'FlameBlade' });
@@ -809,24 +831,25 @@ describe('the Skyrim backend', () => {
             'EditorID: FlameBlade',
             String.raw`  File: Weapons\\Iron\\LongSword.nif`,
             String.raw`BookText: <font face=\"$HandwrittenFont\">Burn.`,
-            // Inside double quotes, YAML's own escapes stay: only the copied pair is undone.
             String.raw`Description: "a \"burning\" blade in Weapons\\\\Iron"`
         ].join('\n') + '\n');
 
-        const message = await backend.buildProject('FlameBlade').then(() => '', (e: Error) => e.message);
-        expect(message).toContain(String.raw`line 2 (two backslashes): ` + '`File: Weapons\\\\Iron\\\\LongSword.nif` → `File: Weapons\\Iron\\LongSword.nif`');
-        expect(message).toContain(String.raw`line 3 (a backslash before a quote): ` +
-            '`BookText: <font face=\\"$HandwrittenFont\\">Burn.` → `BookText: <font face="$HandwrittenFont">Burn.`');
-        expect(message).toContain(String.raw`line 4 (two backslashes): ` +
-            '`Description: "a \\"burning\\" blade in Weapons\\\\\\\\Iron"` → `Description: "a \\"burning\\" blade in Weapons\\\\Iron"`');
-        expect(message).toMatch(/Replace each line with the one after its arrow/);
+        await backend.buildProject('FlameBlade');
+
+        expect(fs.readFileSync(sword, 'utf8')).toContain([
+            'EditorID: FlameBlade',
+            String.raw`  File: Weapons\Iron\LongSword.nif`,
+            'BookText: <font face="$HandwrittenFont">Burn.',
+            String.raw`Description: "a \"burning\" blade in Weapons\\Iron"`
+        ].join('\n') + '\n');
     });
 
-    it('gives a text\'s line breaks copied as \\n back as lines, described line by line', async () => {
+    it('writes a text\'s line breaks copied as \\n as the lines they were', async () => {
         // e4b copied a note's text out of readRecord's answer as one line, its breaks as `\\n` (eval round 18).
         const { backend, fixture } = makeBackend();
         await backend.newProject({ project: 'MavenNote' });
-        write(path.join(fixture.projects, 'MavenNote', 'plugin', 'Books', 'MavenWarning.yaml'), [
+        const note = path.join(fixture.projects, 'MavenNote', 'plugin', 'Books', 'MavenWarning.yaml');
+        write(note, [
             'EditorID: MavenWarning',
             'BookText:',
             '  TargetLanguage: English',
@@ -834,19 +857,22 @@ describe('the Skyrim backend', () => {
             String.raw`    <font face="$HandwrittenFont">Indaryn,\\n\\n\\n    If you dare again.\\n\\n    Maven\\n`
         ].join('\n') + '\n');
 
-        const message = await backend.buildProject('MavenNote').then(() => '', (e: Error) => e.message);
-        expect(message).toContain('line 5 (line breaks written as \\n): ');
-        expect(message).toContain('→ 6 lines: 1 `    <font face="$HandwrittenFont">Indaryn,`, 2 empty, 3 empty, ' +
+        const built = await backend.buildProject('MavenNote');
+
+        expect(fs.readFileSync(note, 'utf8')).toMatch(new RegExp(escape(
+            '  Value: >-\n    <font face="$HandwrittenFont">Indaryn,\n\n\n    If you dare again.\n\n    Maven\n') + '$'));
+        expect(built.corrected).toEqual([expect.stringContaining('line 5 (line breaks written as \\n): ')]);
+        expect(built.corrected![0]).toContain('→ 6 lines: 1 `    <font face="$HandwrittenFont">Indaryn,`, 2 empty, 3 empty, ' +
             '4 `    If you dare again.`, 5 empty, 6 `    Maven`');
-        expect(message).toMatch(/a line break is a real one, where a JSON answer shows \\n/);
     });
 
-    it('takes a backslash at a line\'s end for what a \\n left, and gives the line without it', async () => {
+    it('takes a backslash at a line\'s end for what a \\n left, and writes the line without it at its indentation', async () => {
         // 12b wrote `Value: >-\`, which broke the YAML, and a text whose every line ended in a backslash; refused
         // for its quotes, the line it was given back kept the backslash (eval round 21).
         const { backend, fixture } = makeBackend();
         await backend.newProject({ project: 'MavenNote' });
-        write(path.join(fixture.projects, 'MavenNote', 'plugin', 'Books', 'MavensWarning.yaml'), [
+        const note = path.join(fixture.projects, 'MavenNote', 'plugin', 'Books', 'MavensWarning.yaml');
+        write(note, [
             'EditorID: MavensWarning',
             'BookText:',
             '  TargetLanguage: English',
@@ -857,14 +883,32 @@ describe('the Skyrim backend', () => {
             '  File: Clutter\\Books\\Note03.nif'
         ].join('\n') + '\n');
 
-        const message = await backend.buildProject('MavenNote').then(() => '', (e: Error) => e.message);
+        const built = await backend.buildProject('MavenNote');
 
-        expect(message).toContain('line 4 (a backslash at the end of the line): `Value: >-\\` → `Value: >-`');
-        expect(message).toContain('line 5 (a backslash before a quote): `<font face=\\"$HandwrittenFont\\">Indaryn,\\` → `<font face="$HandwrittenFont">Indaryn,`');
-        expect(message).toContain('line 6 (a backslash at the end of the line): `\\` → an empty line');
-        expect(message).toContain('line 7 (a backslash at the end of the line): `Maven\\` → `Maven`');
-        expect(message).not.toContain('line 8');
-        expect(message).toMatch(/a line ends without one — the line break is the break\.$/);
+        expect(fs.readFileSync(note, 'utf8')).toMatch(new RegExp(escape([
+            'BookText:',
+            '  TargetLanguage: English',
+            '  Value: >-',
+            '    <font face="$HandwrittenFont">Indaryn,',
+            '',
+            '    Maven',
+            '  File: Clutter\\Books\\Note03.nif'
+        ].join('\n') + '\n') + '$'));
+        expect(built.corrected).toHaveLength(4);
+        expect(built.corrected![2]).toContain('line 6 (a backslash at the end of the line): `\\` → an empty line');
+    });
+
+    it('passes on what the helper corrected, a FormKey copied into a new record, ahead of the assigned FormIDs', async () => {
+        const { backend, fixture, helperAnswers } = makeBackend();
+        await newProjectWithRecord(backend, fixture.projects, 'FlameBlade');
+        const change = 'removed `FormKey: 012EB7:Skyrim.esm`, IronSword\'s';
+        helperAnswers.checkRecords = () => ({ records: 1, leftOut: [], corrected: [{ file: 'Weapons/FlameBlade.yaml', change }] });
+
+        const built = await backend.buildProject('FlameBlade');
+
+        expect(built.corrected).toEqual([`${path.join(fixture.projects, 'FlameBlade', 'plugin', 'Weapons', 'FlameBlade.yaml')}: ${change}`]);
+        expect(built.warnings).toBeUndefined();
+        expect(Object.keys(built).indexOf('corrected')).toBeLessThan(Object.keys(built).indexOf('assignedFormIds'));
     });
 
     it('finds each kind of copied escape on its line, and leaves a path\'s \\n and a double-quoted text\'s alone', () => {

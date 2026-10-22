@@ -216,6 +216,11 @@ export interface BuildResult {
     project: string;
     plugin: string;
     output: string;
+    /**
+     * What the build wrote into the files where a fix had one right answer — escapes copied out of a JSON answer, a
+     * FormKey copied into a new record from the record read — each with its file's full path, as it was and is.
+     */
+    corrected?: string[];
     records: number;
     masters: string[];
     headerVersion: number;

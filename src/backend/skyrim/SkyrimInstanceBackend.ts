@@ -15,7 +15,7 @@ import { ModError, findMod, listedMods, ownerOf, pluginFiles } from './modList.j
 import { checkGameVersion } from './gameVersion.js';
 import { findCaseInsensitive } from './paths.js';
 import {
-    ProjectError, assignFormIds, belongsAt, copiedEscapes, createProject, type CopiedEscape, fencedRecordFiles, fileHash, keepRecordTexts, misnamedRecordFiles, looseRecordFiles, newestSourceTime, projectExists,
+    ProjectError, assignFormIds, belongsAt, correctCopiedEscapes, createProject, type CopiedEscape, fencedRecordFiles, fileHash, keepRecordTexts, misnamedRecordFiles, looseRecordFiles, newestSourceTime, projectExists,
     projectInfo, projectPaths, readDeployState, readProjectHeader, recordFiles, strayRecordFiles, syncFolder, syncYaml,
     whereRecordsGo, writeDeployState
 } from './projects.js';
@@ -301,14 +301,20 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
                 'lines and keep what is between them.');
         }
         // Escapes copied out of a JSON answer as they read built without a word, into a path the game cannot
-        // find (eval rounds 12–15): refused, like the fence, so the model rewrites the line — together with what
-        // the record checks refuse, which cost a build of their own when they came after (eval round 25).
-        const escaped = copiedEscapes(paths.plugin);
-        if (escaped.length > 0) {
-            const refused = await this.engine.helper.call('checkRecords', { projectPluginDir: paths.plugin })
-                .then(() => '', (error: unknown) => error instanceof HelperError && error.code === 'badRecord' ? ` Also: ${error.message}` : '');
-            throw new ProjectError(escapesRefused(escaped) + refused);
-        }
+        // find (eval rounds 12–15); refused with the lines as they were to be, three of the seven runs that met the
+        // refusal failed after it (rounds 24–31). The build writes those lines itself, and says so.
+        const corrected = correctCopiedEscapes(paths.plugin).map(escapeCorrected);
+        // A refusal after a correction names it: the model knows the lines as it wrote them, and an edit of one
+        // the build has rewritten finds nothing.
+        // The helper names its own corrections so too: one sentence holds both.
+        const withCorrections = (error: unknown) => {
+            if (corrected.length === 0 || !(error instanceof HelperError || error instanceof ProjectError)) return error;
+            const said = 'Corrected in the files already: ';
+            const message = error.message.includes(said)
+                ? error.message.replace(/\.?\s*$/, `; ${corrected.join('; ')}.`)
+                : `${error.message} ${said}${corrected.join('; ')}.`;
+            return error instanceof HelperError ? new HelperError(error.code, message) : new ProjectError(message);
+        };
         // With records to build, files elsewhere are named but stop nothing: a refusal only deleting a
         // file could satisfy trapped a model whose file tools could not delete (eval round 10).
         const warnings: string[] = [];
@@ -319,8 +325,11 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         // Fields a record type does not have, folders that are no group, copied FormKeys, links that name no
         // record: named before any record is numbered. A file in a folder that is no group, whose record its
         // group's folder holds too, is left out, untouched — the same trap (eval probe 10 after round 11).
-        const checked = await this.engine.helper.call<{ records: number; leftOut?: { file: string; copy: string }[]; notes?: string[] }>(
-            'checkRecords', { projectPluginDir: paths.plugin });
+        // The helper corrects a FormKey copied into a new record from the record it read, as it says in `corrected`.
+        const checked = await this.engine.helper.call<{
+            records: number; leftOut?: { file: string; copy: string }[]; notes?: string[]; corrected?: { file: string; change: string }[];
+        }>('checkRecords', { projectPluginDir: paths.plugin }).catch((error: unknown) => { throw withCorrections(error); });
+        corrected.push(...(checked.corrected ?? []).map(({ file, change }) => `${path.join(paths.plugin, file)}: ${change}`));
         // What builds but likely not as meant — a woman's voice on a man, an enchantment nothing carries (eval probe 14).
         warnings.push(...checked.notes ?? []);
         const leftOut = (checked.leftOut ?? []).map(({ file, copy }) => ({ file: path.join(paths.plugin, file), copy: copy ? path.join(paths.plugin, copy) : '' }));
@@ -375,7 +384,7 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             }
         } catch (error) {
             giveBack();
-            throw error;
+            throw withCorrections(error);
         }
 
         // A file keeps the name its author gave it, the build's FormID written in: renamed the way Spriggit names
@@ -384,6 +393,7 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         const fullPath = (file: string) => path.resolve(paths.plugin, file);
         return {
             project, plugin, output,
+            ...(corrected.length > 0 ? { corrected } : {}),
             records: built.records,
             masters: built.masters,
             headerVersion: built.headerVersion,
@@ -840,22 +850,12 @@ function checkModName(name: string): string {
  * described line by line on one line of text — an answer is JSON, so a line break in it would reach the
  * model as `\n`, the very escape it copied.
  */
-function escapesRefused(escaped: readonly CopiedEscape[]): string {
-    const clip = (text: string) => text.length > 80 ? `${text.slice(0, 80)}…` : text;
-    const each = escaped.map(({ file, line, kind, text, fixed }) => `${file}, line ${line} (${kind}): ` + (fixed.length === 1
+/** A line correctCopiedEscapes wrote, as the build's answer names it: the file, the line as it was, and as it is. */
+function escapeCorrected({ file, line, kind, text, fixed }: CopiedEscape): string {
+    const clip = (part: string) => part.length > 80 ? `${part.slice(0, 80)}…` : part;
+    return `${file}, line ${line} (${kind}): ` + (fixed.length === 1
         ? `\`${text}\` → ${fixed[0] ? `\`${fixed[0]}\`` : 'an empty line'}`
-        : `\`${clip(text)}\` → ${fixed.length} lines: ${fixed.map((next, k) => `${k + 1} ${next.trim() ? `\`${next}\`` : 'empty'}`).join(', ')}`));
-    const kinds = new Set(escaped.map(escape => escape.kind));
-    return `${each.join('; ')}: copied with the escapes a JSON answer shows.` +
-        (escaped.some(escape => escape.fixed.length === 1)
-            ? ' Replace each line with the one after its arrow: in the file, a path\'s folders are apart by a single backslash, ' +
-              `a quote has no backslash before it${kinds.has('a backslash before an apostrophe') ? ', and in single quotes an apostrophe is written twice' : ''}` +
-              `${kinds.has('a backslash at the end of the line') ? ', and a line ends without one — the line break is the break' : ''}.`
-            : '') +
-        (kinds.has('line breaks written as \\n')
-            ? ' In the file a line break is a real one, where a JSON answer shows \\n: replace each line with the lines its arrow ' +
-              'lists, each as quoted with the spaces in front, and the empty ones empty.'
-            : '');
+        : `\`${clip(text)}\` → ${fixed.length} lines: ${fixed.map((next, k) => `${k + 1} ${next.trim() ? `\`${next}\`` : 'empty'}`).join(', ')}`);
 }
 
 /** What disableMod says when plugins the game still loads need one it took out — the game will not start. */

@@ -365,13 +365,27 @@ public sealed class Session : IDisposable
     /// </summary>
     private JsonNode CheckRecords(string dir)
     {
-        var (records, leftOut) = RecordFiles.Require(dir, Index);
-        RecordLinks.Resolve(dir, Index, write: false);
+        // A fix with one right answer is written first, and named in a refusal that comes after it too: the model
+        // knows the file as it wrote it, and an edit of the line taken out finds nothing.
+        var corrected = RecordFiles.DropCopiedFormKeys(dir, Index);
+        int records;
+        List<(string File, string Copy)> leftOut;
+        try
+        {
+            (records, leftOut) = RecordFiles.Require(dir, Index);
+            RecordLinks.Resolve(dir, Index, write: false);
+        }
+        catch (HelperException e) when (corrected.Count > 0)
+        {
+            throw new HelperException(e.Code,
+                $"{e.Message} Corrected in the files already: {string.Join("; ", corrected.Select(c => $"{c.File}: {c.Change}"))}.");
+        }
         return new JsonObject
         {
             ["records"] = records,
             ["leftOut"] = new JsonArray(leftOut.Select(l => (JsonNode)new JsonObject { ["file"] = l.File, ["copy"] = l.Copy }).ToArray()),
-            ["notes"] = new JsonArray(ProjectNotes.Of(dir, Index, Cache).Select(n => (JsonNode)n).ToArray())
+            ["notes"] = new JsonArray(ProjectNotes.Of(dir, Index, Cache).Select(n => (JsonNode)n).ToArray()),
+            ["corrected"] = new JsonArray(corrected.Select(c => (JsonNode)new JsonObject { ["file"] = c.File, ["change"] = c.Change }).ToArray())
         };
     }
 

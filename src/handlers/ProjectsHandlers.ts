@@ -161,7 +161,8 @@ export class ProjectsHandlers extends BaseHandler {
                         'load order — into that record\'s FormID (`resolvedLinks`), checks that every link points at a ' +
                         'record that exists, compiles the project\'s Papyrus scripts and writes the plugin with the ' +
                         'header this game version needs. Refuses a project with no records, fields a record type does ' +
-                        'not have, files below a group\'s folder, and a FormKey copied from another record — each named. ' +
+                        'not have, and files below a group\'s folder — each named. What has one right fix — a FormKey copied ' +
+                        'into a new record, escapes copied out of a JSON answer — it writes into the file and lists in `corrected`. ' +
                         'What builds but likely not as meant — record files outside the plugin folder, an override ' +
                         'renamed as if it were a new record, a woman\'s voice on a man — is answered with status ' +
                         '`built_with_warnings` and the `warnings` first: the plugin is written, and each warning says ' +

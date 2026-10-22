@@ -725,6 +725,40 @@ public static class RecordFiles
             : "";
     }
 
+    /// <summary>
+    /// Takes out of a new record's file the FormKey line copied from the record it was written after — another
+    /// plugin's record of another editor ID — or one that names nothing: no record of the load order, 000000, no
+    /// FormKey at all. Answers each file and what was taken out. A new record has no FormKey line, and the refusal
+    /// offered only that way (eval round 11's probes); refused, it was the refusal runs met most — 51 of 312 in eval
+    /// rounds 24–31, seven failed after it. A file under the name addPatch gives that record's copy is left to
+    /// Foreign: there another editor ID is an override renamed, which only the model can call a mistake.
+    /// </summary>
+    public static List<(string File, string Change)> DropCopiedFormKeys(string pluginDir, RecordIndex index)
+    {
+        var changes = new List<(string File, string Change)>();
+        var own = OwnPlugin(pluginDir);
+        foreach (var (file, relative, _) in FlatRecords(pluginDir))
+        {
+            var text = File.ReadAllText(file);
+            if (Empty(text) || FormKeyLine.Match(text) is not { Success: true } line) continue;
+            var written = line.Groups[1].Value;
+            string why;
+            if (!FormKey.TryFactory(written, out var key)) why = $"'{written}' is no FormKey";
+            else if (key.ID == 0) why = $"{Session.FormKeyText(key)} is no record's FormID";
+            else if (key.ModKey == own || Path.GetFileName(file).EndsWith($"{key.ID:X6}_{key.ModKey.FileName}.yaml", StringComparison.OrdinalIgnoreCase)) continue;
+            else if (!index.ByFormKey.TryGetValue(key, out var entry)) why = $"{Session.FormKeyText(key)} names no record in the load order";
+            else if (Identity(text).EditorId is { } editorId && entry.EditorId is { } theirs && !editorId.Equals(theirs, StringComparison.OrdinalIgnoreCase))
+                why = $"{Session.FormKeyText(key)} is {theirs} of {key.ModKey.FileName}, and this file makes {editorId}";
+            else continue;
+            // The line with its line break: the lines below it move up one.
+            var end = line.Index + line.Length;
+            if (end < text.Length && text[end] == '\n') end++;
+            File.WriteAllText(file, text[..line.Index] + text[end..]);
+            changes.Add((relative, $"removed `{line.Value.TrimEnd('\r')}` — {why}; a new record has no FormKey line, and the build numbers it"));
+        }
+        return changes;
+    }
+
     /// <summary>Throws what is wrong with the files, as the request's fault; answers how many there are, and those left out.</summary>
     public static (int Records, List<(string File, string Copy)> LeftOut) Require(string pluginDir, RecordIndex? index = null)
     {
