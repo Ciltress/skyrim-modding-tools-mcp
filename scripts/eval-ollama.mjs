@@ -948,6 +948,7 @@ const entry = [
     ...(openClawSummary ? [
         `Through ${openClawSummary.version}: first prompt ${openClawSummary.firstPromptTokens} tokens (${openClawTools}), ` +
         `think ${report.think}, num_ctx ${report.numCtx}, num_predict ${openClawFirst?.numPredict ?? 'none'}, ` +
+        `temperature ${openClawFirst?.temperature ?? "the Modelfile's"}, ` +
         `first token after ${openClawSummary.medianFirstTokenSeconds ?? '?'} s (median of the first turns), ` +
         `${openClawSummary.cutAnswers} answers cut off, ${openClawSummary.lengthStops} turns ended at the length limit, ` +
         `${openClawSummary.sideRequests} side requests.`,

@@ -195,6 +195,11 @@ describe('the modding agent\'s workspace files', () => {
         expect(files['AGENTS.md']).toMatch(/`edit` refused: `read` the file/);
     });
 
+    it('tell the agent not to overthink', () => {
+        // The user, 2026-10-22: bonsai-2:27b likes to overthink, so its prompt should say not to and to deliver the task.
+        expect(files['AGENTS.md']).toContain('Don\'t overthink: decide, then deliver the task.');
+    });
+
     it('tell the agent the instance it works on, in OpenClaw\'s directive form, and do without one not configured yet', () => {
         expect(files['USER.md']).toContain('<!-- observed: 2026-10-18 | status: active -->\n\n- Always work on the instance the Skyrim server is bound to ' +
             '(the Mod Organizer instance at G:\\Modding\\SkyrimSE-Test)');

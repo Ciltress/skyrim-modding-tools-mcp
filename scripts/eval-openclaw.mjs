@@ -88,6 +88,7 @@ export async function startProxy(ollama) {
                 toolsBytes: body?.tools ? Buffer.byteLength(JSON.stringify(body.tools)) : 0,
                 systemChars: system.length,
                 think: body?.think, numCtx: body?.options?.num_ctx, numPredict: body?.options?.num_predict,
+                temperature: body?.options?.temperature,
                 status: null, firstTokenMs: null, ms: null, done: false, doneReason: null, abandoned: false,
                 promptTokens: null, cachedTokens: null, outputTokens: null,
                 content: '', thinking: '', toolCalls: []
@@ -403,7 +404,7 @@ export async function runOpenClaw({ entry, prompt, model, cwd, configFile, works
                 serverToolsListed: first.toolNames.filter(n => n?.startsWith(PREFIX)).length,
                 toolNames: first.toolNames,
                 workspaceFilesInPrompt: inPrompt,
-                think: first.think, numCtx: first.numCtx, numPredict: first.numPredict
+                think: first.think, numCtx: first.numCtx, numPredict: first.numPredict, temperature: first.temperature
             } : null,
             sideRequests: proxy.log.filter(e => e.tools === 0 && e.model).map(e => ({ url: e.url, model: e.model, status: e.status, ms: e.ms })),
             cutAnswers: turnStats.filter(t => t.cut).length,

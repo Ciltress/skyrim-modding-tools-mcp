@@ -120,6 +120,7 @@ export function openClawWorkspaceFiles(boundTo: string | undefined, today: strin
             '',
             `You mod Skyrim Special Edition for the user with the \`${SERVER_NAME}__*\` tools (the Skyrim MCP server).`,
             'Your working folder is the server\'s projects folder.',
+            'Don\'t overthink: decide, then deliver the task.',
             '',
             '## Before you write a mod',
             '',
