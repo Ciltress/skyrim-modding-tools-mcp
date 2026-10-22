@@ -152,6 +152,7 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-21 | gemma4:e4b | `all`, OpenClaw | afd183d | 35/39 | 3.43 s | ~7,161 tokens/s | ~182 tokens/s | 100% |
 | 2026-10-21 | gemma4:e4b | `all`, OpenClaw | fbd98b0 | 34/39 | 3.5 s | ~7,410 tokens/s | ~173 tokens/s | 100% |
 | 2026-10-21 | gemma4:e4b | `all`, OpenClaw | 3d33746 | 37/39 | 3.32 s | ~7,407 tokens/s | ~182 tokens/s | 100% |
+| 2026-10-22 | gemma4:e4b | `all`, OpenClaw | bb2fb81 | 39/39 | 3.63 s | ~6,861 tokens/s | ~155 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -272,72 +273,6 @@ model's: four turns lost calling `skills_read` with `skill:` instead of `name:`,
 effect on the enchantment, refused by the build, and the turns ran out. (The seconds do not compare: the
 GPU ran the second half at ~184 tokens/s of prompt against ~891.)
 
-## Round 28 — round 27's three fixes, gemma4:e4b alone (2026-10-21)
-
-**Changed before it** — what round 27 pointed at (88b7ca9), and a fix found on the way (56a8a1b):
-
-- A new enchantment that no record names is refused when the project has a weapon or armor that carries
-  none — the user's choice — naming that record and the lines to write in it: `ObjectEffect:` and
-  `EnchantmentAmount: 500` in a weapon, `ObjectEffect:` alone in an armor (none of the official plugins'
-  3,007 enchanted armors has an EnchantmentAmount). With no such weapon or armor it stays the warning.
-- A part of a record written as one value (`Archetype: ShockDamage`) is refused as that, naming
-  `MutagenObjectType` and its kinds; where the value is one of the part's fields, that field's line is given.
-- A new ValueModifier, PeakValueModifier, DualValueModifier or Absorb effect that names no actor value — or
-  has no Archetype, which reads as a ValueModifier — is refused with the lines to write.
-- A quest's `Filter:` may end in a backslash, as 1,992 of the official plugins' 2,522 quests do: the
-  copied-escapes check refused addPatch's own copy of BQ01, and two of five serialized Creation Club plugins.
-
-gemma4:e4b, `all`, OpenClaw (prompt ~7,410 tokens/s, generation ~173 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2.3 | 1.3 | 0 | 0 | 11580 | 84.5 |
-| read | 3/3 | 3 | 2 | 1 | 0 | 11128 | 38.1 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 10166 | 37.1 |
-| patch | 3/3 | 5.7 | 5 | 0 | 0 | 18660 | 43.7 |
-| build | 3/3 | 7.7 | 7 | 0 | 0 | 20010 | 46 |
-| sword | 2/3 | 12.3 | 11.3 | 3 | 0 | 27226 | 71.5 |
-| sword+detailed | 1/3 | 14.7 | 14 | 5 | 6 | 28042 | 86.9 |
-| spell | 2/3 | 6.7 | 5.7 | 0 | 1 | 17403 | 51.7 |
-| spell+detailed | 3/3 | 6.3 | 5.3 | 0 | 0 | 16671 | 47.6 |
-| npc | 2/3 | 16.7 | 15.7 | 9 | 1 | 30485 | 114.9 |
-| npc+detailed | 3/3 | 12.7 | 11.7 | 7 | 3 | 17606 | 78.5 |
-| note | 3/3 | 6.3 | 5.3 | 1 | 0 | 14481 | 54.4 |
-| note+detailed | 3/3 | 6.3 | 5.3 | 1 | 0 | 13841 | 52.2 |
-
-Through OpenClaw 2026.10.4 (383c124): first prompt 9,795 tokens (26 tools, 16 of them this server's),
-think high, num_ctx 131072, no answer cap; no answer cut off, no turn ended at the length limit, no side
-request; first token after 1.7 s, the median of the first turns.
-
-**Seen.**
-
-- **e4b 34 of 39** (round 27: 35), swords 3 of 6 (4 of 6), spells and NPCs 5 of 6 each, notes 6 of 6. Its
-  turns took 3.5 s (3.43). Rounds 24–28 passed 38, 37, 38, 35 and 34.
-- **The enchantment refusal came once, and was followed.** sword+detailed #3 had renamed an addPatch copy of
-  IronSword and written an enchantment of its own. Told "FlameBlade carries no enchantment … write
-  `ObjectEffect: FlameBladeBurn` and `EnchantmentAmount: 500` in FlameBlade, at the margin", it wrote both
-  lines, with an edit that replaced `Stagger: 0.75`, Data's last line: ObjectEffect landed inside Data and
-  Stagger was gone. Told to move it up, its two edits named the Stagger line it had deleted, and it told the
-  user the mod was built. The part-as-value and actor-value refusals did not come up, and no answer was the
-  reader's line and column.
-- **npc #2 wrote the numbered file whole, without the FormKey line the build had given it.** Told "one record
-  written twice … Make the changes there, and write Npcs/HildaTheNordNPC.yaml empty", it wrote the numbered
-  file; with a FormKey in neither file, the refusal fell back to "give each new one an EditorID of its own,
-  or write the file of one not needed empty", four times, and the old file was never emptied. The only such
-  refusal in rounds 24–28.
-- **spell #1 wrote a spell with neither EditorID nor Name.** Told it had no Name, its edit named
-  `MenuDisplayObject: MAGINVShockSpellArt`, which the build had written as `09FA64:Skyrim.esm`; it built
-  again unchanged and stopped. An edit on a line a build had rewritten came four times in rounds 27–28 and
-  the thinking-medium run; this is the first that ended a run.
-- **Two runs ended on a turn that planned and made no call** (sword #2, sword+detailed #2). OpenClaw answered
-  each with the last tool's failure as `error_payload` ("⚠️ Skyrim Buildproject failed"), as once in each of
-  rounds 24 and 25.
-
-**What it points at next:** the enchantment refusal naming the line to write below — the record's `EditorID:`
-line, which is at the margin and one of a kind (`ObjectEffect` and `EnchantmentAmount` written right below it
-build into the plugin: checked, 2026-10-21); and the one-record-twice refusal knowing the numbered file by its
-name when its FormKey line was written over.
-
 ## Round 29 — round 28's two answers, gemma4:e4b alone (2026-10-21)
 
 **Changed before it** — what round 28 pointed at (b751186):
@@ -387,3 +322,56 @@ request; first token after 1.7 s, the median of the first turns.
 **What it points at next:** nothing on the server's side in this round's misses — one is the edit tool's and
 the model's, the other a turn that made no call. The answers of rounds 27 and 28 came up once in two rounds;
 whether they help shows only over more rounds.
+
+## Round 30 — how `edit` finds its old text, gemma4:e4b alone (2026-10-22)
+
+**Changed before it** — round 29's lost sword typed a line break in an edit's old text as `\n` (bb2fb81):
+
+- The modding agent's AGENTS.md, which OpenClaw puts into every prompt, says below the bullet on `write`
+  and `edit`: "`edit` finds each `oldText` exactly as the file holds it: whole lines with their indentation,
+  and real line breaks — never `\n` typed. `edit` refused: `read` the file, then edit what it holds now."
+  The user's workspace copy got the same two lines, since setup keeps a workspace file that exists.
+
+gemma4:e4b, `all`, OpenClaw (prompt ~6,861 tokens/s, generation ~155 tokens/s):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 3/3 | 2 | 1 | 0 | 0 | 11542 | 92 |
+| read | 3/3 | 3.3 | 2.3 | 1 | 0 | 12696 | 42.1 |
+| filter | 3/3 | 2 | 1 | 0 | 0 | 10197 | 39.9 |
+| patch | 3/3 | 6.3 | 5.3 | 1 | 0 | 19323 | 50.7 |
+| build | 3/3 | 7.7 | 6.7 | 0 | 0 | 20065 | 48.5 |
+| sword | 3/3 | 17.7 | 17 | 5 | 9 | 26782 | 99.8 |
+| sword+detailed | 3/3 | 13 | 12 | 3 | 0 | 25879 | 84.1 |
+| spell | 3/3 | 7.7 | 6.7 | 0 | 1 | 17098 | 55 |
+| spell+detailed | 3/3 | 10.3 | 9.3 | 3 | 2 | 18786 | 67.3 |
+| npc | 3/3 | 15.7 | 14.7 | 6 | 8 | 26853 | 115.4 |
+| npc+detailed | 3/3 | 11.3 | 10.3 | 4 | 3 | 32195 | 70.7 |
+| note | 3/3 | 6 | 5.3 | 0 | 0 | 18236 | 56.9 |
+| note+detailed | 3/3 | 9 | 8 | 3 | 0 | 19047 | 67.6 |
+
+Through OpenClaw 2026.10.4 (383c124): first prompt 9,857 tokens (round 29: 9,794; 26 tools, 16 of them this
+server's), think high, num_ctx 131072, no answer cap; no answer cut off, no turn ended at the length limit, no
+side request; first token after 1.8 s, the median of the first turns.
+
+**Seen.**
+
+- **e4b 39 of 39** (round 29: 37), its first full pass of the 39 tasks. Its turns took 3.63 s (3.32).
+  Rounds 26–30 passed 38, 35, 34, 37 and 39 — within the noise of about ±3.
+- **No edit typed a line break as `\n`** (rounds 24–29: four runs, six edits in round 29's lost sword). The
+  second half of the line went unheeded: one refused edit of 22 was followed by a read (rounds 25–29: 2 of
+  59). The edit tool refused more than in any round since 24 — 22 of 52 edits (rounds 25–29: 9–16 of 29–39).
+- **Six refused edits went to a file the build had renamed**, all in NPC runs. npc #3 built Hilda with a
+  man's voice; the warning named the file
+  `Npcs/HildaTheNordNPC - 000800_HildaTheNord.esp.yaml (named Npcs/HildaTheNordNPC.yaml until this build numbered it)`.
+  e4b edited the old name five times, read it once, then wrote it anew under the old name with a FormKey
+  copied; three builds later the project held two NPCs and the warning was still there. Rounds 25–29 had
+  seven such edits in six runs; round 28's npc #2 failed after them.
+- **Seven refused edits copied a link comment the file does not have.** sword #2 read BoundWeaponSword with
+  readRecord, copied it with addPatch, and edited `ObjectEffect: 069CE7:Skyrim.esm  # BoundSwordEnchantment`
+  as readRecord shows it. addPatch's copy has the FormID bare. It sent the same edit seven times; the eighth,
+  without the comment, matched. This is the first time in rounds 24–30.
+
+**What it points at next:** two causes on the server's side, both in the files a model edits. A build that
+succeeds renames a new record's file, and the model goes on editing the old name. addPatch's copy has no link
+comments, while readRecord's text, which models copy their edits from, has them.
