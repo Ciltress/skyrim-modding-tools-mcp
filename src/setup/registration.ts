@@ -134,6 +134,8 @@ export function openClawWorkspaceFiles(boundTo: string | undefined, today: strin
             '',
             `- A mod is a project. ${tool('newProject')} creates it and answers the full path where each record file`,
             '  goes: write the YAML files exactly there, with `write` and `edit`.',
+            '- `edit` finds each `oldText` exactly as the file holds it: whole lines with their indentation, and',
+            '  real line breaks — never `\\n` typed. `edit` refused: `read` the file, then edit what it holds now.',
             `- A new record — a new sword, a new note — is a new file you write, following a vanilla record`,
             `  read with ${tool('readRecord')}: copy its values instead of guessing. Find records with ${tool('findRecords')}.`,
             `- ${tool('addPatch')} is only for changing an existing record: its copy changes that record everywhere`,

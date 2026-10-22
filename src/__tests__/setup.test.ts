@@ -188,6 +188,13 @@ describe('the modding agent\'s workspace files', () => {
         for (const family of FAMILY_SKILLS) expect(files['AGENTS.md']).toContain(family.skill);
     });
 
+    it('tell the agent that an edit\'s old text holds real line breaks, and to read the file when an edit is refused', () => {
+        // Round 29: e4b sent `oldText: "FormKey: 012EB7:Skyrim.esm\\n"` six times, the edit tool's "escaping differs"
+        // hint notwithstanding, and spent the run's last turns on edits of lines it had changed already.
+        expect(files['AGENTS.md']).toContain('real line breaks — never `\\n` typed');
+        expect(files['AGENTS.md']).toMatch(/`edit` refused: `read` the file/);
+    });
+
     it('tell the agent the instance it works on, in OpenClaw\'s directive form, and do without one not configured yet', () => {
         expect(files['USER.md']).toContain('<!-- observed: 2026-10-18 | status: active -->\n\n- Always work on the instance the Skyrim server is bound to ' +
             '(the Mod Organizer instance at G:\\Modding\\SkyrimSE-Test)');
