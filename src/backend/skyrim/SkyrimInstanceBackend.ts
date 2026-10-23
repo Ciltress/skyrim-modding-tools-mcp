@@ -331,7 +331,8 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             records: number; leftOut?: { file: string; copy: string }[]; notes?: string[]; corrected?: { file: string; change: string }[];
         }>('checkRecords', { projectPluginDir: paths.plugin }).catch((error: unknown) => { throw withCorrections(error); });
         corrected.push(...(checked.corrected ?? []).map(({ file, change }) => `${path.join(paths.plugin, file)}: ${change}`));
-        // What builds but likely not as meant — a woman's voice on a man, an enchantment nothing carries (eval probe 14).
+        // What builds but likely not as meant — a woman's voice on a man, an enchantment nothing carries (eval probe 14),
+        // a magic effect nothing casts (eval round 34).
         warnings.push(...checked.notes ?? []);
         const leftOut = (checked.leftOut ?? []).map(({ file, copy }) => ({ file: path.join(paths.plugin, file), copy: copy ? path.join(paths.plugin, copy) : '' }));
         const copies = leftOut.filter(({ copy }) => copy);

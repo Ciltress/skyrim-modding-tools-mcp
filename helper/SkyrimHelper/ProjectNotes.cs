@@ -64,6 +64,11 @@ public static class ProjectNotes
             if (unworn.Contains(relative) && RecordFiles.Identity(text).EditorId is { } enchantment)
                 notes.Add($"{relative}: no record of the project names {enchantment}, so it does nothing — a weapon or armor " +
                     $"carries it as `ObjectEffect: {enchantment}`");
+            // So too a new magic effect: e4b's Storm Bolt was a magic effect alone, built and told the user as the spell
+            // (eval round 34, spell+detailed #3).
+            if (type == typeof(MagicEffect) && RecordFiles.Identity(text).EditorId is { } effect && !RecordFiles.NamedElsewhere(records, relative, text))
+                notes.Add($"{relative}: no record of the project names {effect}, so the magic effect does nothing — a spell casts it " +
+                    $"as `- BaseEffect: {effect}` among its `Effects`, as an enchantment, potion or scroll does");
         }
         // A record copied whole and renamed, its FormKey and EditorID kept, builds as a change to that record, not as
         // a new one beside it: e4b's "new note" was Maven's own, renamed (eval probe 19). A patch renames now and then.

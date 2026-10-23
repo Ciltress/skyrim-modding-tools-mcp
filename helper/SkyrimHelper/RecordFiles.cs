@@ -447,10 +447,8 @@ public static class RecordFiles
         var unworn = new List<(string, string, List<Carrier>)>();
         foreach (var (relative, type, text) in records)
         {
-            if (type != typeof(ObjectEffect) || !IsNew(text) || Identity(text) is not { EditorId: { } enchantment } identity) continue;
-            var formId = identity.FormKey is { } numbered ? Session.FormKeyText(numbered) : null;
-            if (records.Any(f => f.Relative != relative && (Regex.IsMatch(f.Text, $@"\b{Regex.Escape(enchantment)}\b")
-                    || formId is not null && f.Text.Contains(formId, StringComparison.OrdinalIgnoreCase)))) continue;
+            if (type != typeof(ObjectEffect) || !IsNew(text) || Identity(text) is not { EditorId: { } enchantment }) continue;
+            if (NamedElsewhere(records, relative, text)) continue;
             var armorFirst = ConstantCast.IsMatch(text);
             var carriers = (fresh.Count > 0 ? fresh : bare)
                 .OrderBy(r => r.Type == typeof(Armor) == armorFirst ? 0 : 1)
@@ -465,6 +463,15 @@ public static class RecordFiles
             unworn.Add((relative, enchantment, carriers));
         }
         return unworn;
+    }
+
+    /// <summary>Whether another record of the project names this one — by editor ID, or by the FormID a build wrote in.</summary>
+    internal static bool NamedElsewhere(IReadOnlyList<(string Relative, Type Type, string Text)> records, string relative, string text)
+    {
+        var (key, editorId) = Identity(text);
+        var formId = key is { } numbered ? Session.FormKeyText(numbered) : null;
+        return records.Any(f => f.Relative != relative && (editorId is not null && Regex.IsMatch(f.Text, $@"\b{Regex.Escape(editorId)}\b")
+            || formId is not null && f.Text.Contains(formId, StringComparison.OrdinalIgnoreCase)));
     }
 
     /// <summary>
