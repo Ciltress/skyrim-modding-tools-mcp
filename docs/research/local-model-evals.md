@@ -169,6 +169,8 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-23 | Swift-1.5 27B IQ2_S | `all`, OpenClaw | 3a99884 | 45/45 | 9.83 s | ~1,335 tokens/s | ~61 tokens/s | 100% |
 | 2026-10-23 | gemma4:e4b | `all`, OpenClaw | 98cb041 | 42/45 | 4 s | ~6,771 tokens/s | ~159 tokens/s | 100% |
 | 2026-10-23 | Swift-1.5 27B IQ2_S | `all`, OpenClaw | 98cb041 | 45/45 | 9.59 s | ~1,305 tokens/s | ~61 tokens/s | 100% |
+| 2026-10-23 | gemma4:e4b | `all`, OpenClaw | 8434306 | 42/45 | 3.93 s | ~6,901 tokens/s | ~170 tokens/s | 100% |
+| 2026-10-23 | Swift-1.5 27B IQ2_S | `all`, OpenClaw | 8434306 | 45/45 | 8.82 s | ~1,843 tokens/s | ~62 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -289,94 +291,6 @@ model's: four turns lost calling `skills_read` with `skill:` instead of `name:`,
 effect on the enchantment, refused by the build, and the turns ran out. (The seconds do not compare: the
 GPU ran the second half at ~184 tokens/s of prompt against ~891.)
 
-## Round 34 — "delivered" in AGENTS.md, addPatch's renamed copy a new record; e4b and Swift-1.5 27B (2026-10-23)
-
-**Changed before it:**
-
-- AGENTS.md says when a mod is delivered, beside "Don't overthink: decide, then deliver the task.": "A mod is
-  delivered when the buildProject after your last change answers `success`: after each edit or refusal, build
-  again, and answer with what that build said." It replaces "A mod is done when buildProject answers
-  `success`." (265f2cb). 7 of the 30 runs e4b failed in rounds 23–33 had answered with files changed after
-  their last build.
-- The build takes the `FormKey` line out of addPatch's copy given an editor ID of its own, which makes it a new
-  record, instead of refusing it as an override renamed (c97d6b6).
-- The eval ends at Ollama a request OpenClaw gives up on (28c6a5a), and OpenClaw's memory dreaming is off: its
-  03:00 job had loaded a model in the middle of round 33. bonsai-2:27b is gone; Swift-1.5 27B is OpenClaw's
-  default agent.
-
-gemma4:e4b, `all`, OpenClaw, at 3a99884 (prompt ~7,153 tokens/s, generation ~166 tokens/s; first prompt 9938 tokens (26 tools, 16 of them this server's), think high, num_ctx 131072, num_predict none, temperature the Modelfile's, first token after 1.782 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 1/1 | 2 | 1 | 0 | 0 | 10129 | 65.3 |
-| read | 1/1 | 3 | 2 | 0 | 0 | 11179 | 40 |
-| filter | 1/1 | 2 | 1 | 0 | 0 | 10285 | 39.9 |
-| patch | 1/1 | 6 | 5 | 0 | 0 | 18883 | 44.6 |
-| build | 1/1 | 6 | 5 | 0 | 0 | 18345 | 46.8 |
-| sword | 4/5 | 13 | 12.2 | 6 | 0 | 22711 | 83.1 |
-| sword+detailed | 4/5 | 14.2 | 13.6 | 4 | 9 | 29915 | 100.2 |
-| spell | 5/5 | 6 | 5 | 0 | 0 | 16538 | 48 |
-| spell+detailed | 4/5 | 7.6 | 6.6 | 1 | 2 | 17654 | 54.7 |
-| npc | 5/5 | 8.2 | 7.2 | 1 | 0 | 28414 | 62.6 |
-| npc+detailed | 4/5 | 11.2 | 10.4 | 5 | 6 | 27333 | 77 |
-| note | 4/5 | 6.4 | 5.4 | 1 | 0 | 18407 | 55.7 |
-| note+detailed | 4/5 | 7 | 6 | 1 | 0 | 18571 | 54 |
-
-Swift-1.5 27B IQ2_S, `all`, OpenClaw, at 3a99884 (prompt ~1,335 tokens/s, generation ~61 tokens/s; first prompt 10397 tokens (26 tools, 16 of them this server's), think true, num_ctx 131072, num_predict none, temperature 1, first token after 0.919 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 1/1 | 2 | 1 | 0 | 0 | 10423 | 54.2 |
-| read | 1/1 | 2 | 2 | 0 | 0 | 12939 | 44 |
-| filter | 1/1 | 2 | 1 | 0 | 0 | 11038 | 48.8 |
-| patch | 1/1 | 5 | 5 | 0 | 0 | 19764 | 53.7 |
-| build | 1/1 | 5 | 6 | 0 | 0 | 20063 | 63.9 |
-| sword | 5/5 | 6 | 8 | 0 | 0 | 28192 | 100.8 |
-| sword+detailed | 5/5 | 6.2 | 10.8 | 1 | 0 | 32289 | 171.7 |
-| spell | 5/5 | 5.8 | 6.2 | 0 | 0 | 27184 | 70.7 |
-| spell+detailed | 5/5 | 7.6 | 8.6 | 2 | 0 | 24323 | 104.8 |
-| npc | 5/5 | 5.6 | 6.2 | 0 | 0 | 18799 | 69.2 |
-| npc+detailed | 5/5 | 6.2 | 7.2 | 1 | 0 | 22320 | 75.5 |
-| note | 5/5 | 5.8 | 6.8 | 0 | 0 | 18737 | 70.9 |
-| note+detailed | 5/5 | 6 | 6.4 | 0 | 0 | 18921 | 82.2 |
-
-**Seen.**
-
-- **e4b 39 of 45** (round 33: 42): sword 8 of 10, spell 9, NPC 9, note 8. **No failed run answered with files
-  changed after its last build**, the first round without one since round 30 — one round, so a lead, not a
-  result. The build took a copied `FormKey` out in 12 runs (10 passed), moved an NPC's fields in 4 (all
-  passed), and corrected copied escapes in 2. It refused 15 builds in 9 runs (round 33: 9 in 8). The edit tool
-  refused 16 of e4b's 33 edits (10 of 28); a turn's median thinking was 1,010 characters (1,021).
-- **addPatch's renamed copy did not come up:** sword+detailed #3 renamed its copy of IronSword at its 23rd call
-  and ran out of calls before building it.
-- **e4b's six misses, two the server's:**
-  - npc+detailed #4 gave Hilda the FormKey `001011:HildaTheNord.esp`, past a light plugin's last FormID,
-    000FFF. Mutagen refused the plugin as "out of bounds for the given record compaction settings", naming
-    no file; three builds later the model answered with the error. Fixed after the round (fabe3ab): the
-    build takes that line out and numbers the record, and a link to it in another of the project's files
-    names its editor ID instead.
-  - sword #5 sent `readSkill` `{"name": …}` three times — OpenClaw's own `skills_read` takes `name` — and got
-    the index of skills each time, not the skill. It read neither the items nor the magic skill, wrote the
-    enchantment as `Enchantment` under `BasicStats`, then an ObjectEffect with a magic effect's fields, and
-    ran out of calls. npc+detailed #4 did the same for the NPC skill. 24 runs of rounds 23–34 sent `name`, four
-    of which failed. Fixed after the round (5fc11ca): `readSkill` reads the skill sent as `name`.
-  - sword+detailed #3 copied IronSword with addPatch (first sent as `012EB7:Skyrim.esm#IronSword`, refused),
-    replaced the first lines of its `Data:` block with an `ObjectEffect` line, which broke the YAML, met 5
-    refusals from the edit tool, and ran out of calls.
-  - spell+detailed #3 wrote a magic effect after ShockDamageFFAimed and no spell, built it and answered. It
-    had sent OpenClaw's `skills_read` `skill`, which that tool refuses, and never read the magic skill.
-  - note #2 wrote the note's later lines at the margin under `Value: >-`; the build refused, saying so, and
-    the next turn was empty (`clientError:error_payload`). The fourth such refusal in rounds 25–34; the other
-    three runs passed.
-  - note+detailed #4 wrote a text of its own instead of Maven's, as round 32's note miss did.
-- **Swift-1.5 27B 45 of 45**, the third round running: one build refusal (an invented `SleepOutfit`,
-  npc+detailed #3, built at the next try), 3 edits, 68 minutes; a turn's median thinking 444 characters
-  (round 33: 390). Neither model's run had a side request.
-
-**What it points at next:** the two server misses are fixed. What is left of e4b's is the model's own: edits
-the edit tool refuses (half of them this round), text dedented in a note, and a skill it does not read. A
-second round with the "delivered" line would tell whether it holds.
-
 ## Round 35 — the own FormKey past 000FFF, readSkill's `name`; e4b and Swift-1.5 27B (2026-10-23)
 
 **Changed before it:**
@@ -457,3 +371,86 @@ Survival Mode's that none of its records names.
 
 **What it points at next:** nothing of the server's in this round's misses. What is left is the model
 answering before it builds again, and a vanilla text changed while copying it.
+
+## Round 36 — an unused magic effect noted; e4b and Swift-1.5 27B (2026-10-23)
+
+**Changed before it:**
+
+- The build notes a new magic effect no record of the project names, as it does an enchantment nothing carries
+  (a8d71f9): round 34's spell+detailed #3 built Storm Bolt's effect alone and answered.
+- The third round with AGENTS.md's "delivered" line.
+- Nothing ran beside it: e4b's seconds compare with round 34's again (find 56.3 s; round 34: 65.3 s).
+
+gemma4:e4b, `all`, OpenClaw, at 8434306 (prompt ~6,901 tokens/s, generation ~170 tokens/s; first prompt 9938 tokens (26 tools, 16 of them this server's), think high, num_ctx 131072, num_predict none, temperature the Modelfile's, first token after 1.793 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 1 side requests):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 1/1 | 3 | 2 | 0 | 0 | 11732 | 56.3 |
+| read | 1/1 | 3 | 2 | 0 | 0 | 11198 | 41.8 |
+| filter | 1/1 | 2 | 1 | 0 | 0 | 10301 | 39.5 |
+| patch | 1/1 | 6 | 5 | 0 | 0 | 18173 | 49.4 |
+| build | 1/1 | 5 | 4 | 0 | 0 | 12503 | 46.2 |
+| sword | 5/5 | 14.8 | 14 | 3 | 8 | 31966 | 93 |
+| sword+detailed | 5/5 | 11 | 10.2 | 2 | 5 | 25561 | 78 |
+| spell | 5/5 | 6 | 5 | 0 | 0 | 16665 | 47.5 |
+| spell+detailed | 4/5 | 6.2 | 5.2 | 0 | 0 | 16804 | 49.6 |
+| npc | 4/5 | 8.2 | 7.2 | 1 | 0 | 22129 | 66.5 |
+| npc+detailed | 5/5 | 9.8 | 9 | 7 | 3 | 19885 | 69.5 |
+| note | 5/5 | 6.4 | 5.4 | 1 | 0 | 13694 | 56.1 |
+| note+detailed | 4/5 | 10.4 | 9.6 | 3 | 13 | 20163 | 87.4 |
+
+Swift-1.5 27B IQ2_S, `all`, OpenClaw, at 8434306 (prompt ~1,843 tokens/s, generation ~62 tokens/s; first prompt 10395 tokens (26 tools, 16 of them this server's), think true, num_ctx 131072, num_predict none, temperature 1, first token after 0.926 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 1/1 | 2 | 1 | 0 | 0 | 11634 | 49 |
+| read | 1/1 | 3 | 3 | 0 | 0 | 14587 | 41.4 |
+| filter | 1/1 | 2 | 1 | 0 | 0 | 11036 | 37.7 |
+| patch | 1/1 | 5 | 5 | 0 | 0 | 19760 | 46.4 |
+| build | 1/1 | 6 | 6 | 0 | 0 | 20031 | 52.5 |
+| sword | 5/5 | 5.4 | 7.6 | 0 | 0 | 24425 | 102.1 |
+| sword+detailed | 5/5 | 6 | 9.6 | 0 | 0 | 33122 | 139.9 |
+| spell | 5/5 | 5.8 | 6.4 | 0 | 0 | 20017 | 66.2 |
+| spell+detailed | 5/5 | 6 | 7.2 | 0 | 0 | 22450 | 85.3 |
+| npc | 5/5 | 7.8 | 9.2 | 0 | 0 | 29757 | 77.7 |
+| npc+detailed | 5/5 | 5.4 | 6.6 | 0 | 0 | 18833 | 69.3 |
+| note | 5/5 | 6 | 6.4 | 0 | 0 | 18377 | 86.1 |
+| note+detailed | 5/5 | 6.8 | 7.4 | 0 | 0 | 22331 | 76.5 |
+
+**Seen.**
+
+- **e4b 42 of 45** (round 35: 42): sword 10 of 10, spell 9, NPC 9, note 9. The build took a copied `FormKey`
+  out in 13 runs, corrected escapes in 2 and moved an NPC's fields in 4; all of those runs passed. It refused 13
+  builds in 9 runs (round 35: 16 in 8). The edit tool refused 29 of e4b's 49 edits (11 of 29), 13 of them in one
+  run; a turn's median thinking was 1,091 characters (1,090).
+- **The fixes:** `readSkill` sent `name` in 3 runs, each answered with the skill; all passed. addPatch's renamed
+  copy was corrected in sword #2 and #5, both passed. No run built a magic effect alone, so its note did not
+  come up; no run wrote its own `FormKey` past 000FFF.
+- **e4b's three misses:**
+  - spell+detailed #5 wrote Storm Bolt with no `Name` (and no `EditorID`). The build warned, and e4b passed the
+    warning on to the user: "The user did not ask for a warning fix". The build's `nextStep` — "fix what it
+    says and build again, unless the user asked for it so" — was read that way in two more runs of rounds
+    27–28, one of which failed.
+  - npc #4 was refused an item written as one value, fixed it, made an edit that changed nothing, and answered
+    "successfully built" without building again.
+  - note+detailed #5 copied Maven's note with addPatch and renamed it, and was warned. Between 13 refused
+    edits, each of a line it had changed already, it wrote the `VersionControl` line over the `FormKey` line
+    above it — two lines the same — then wrote the same note again in a new file, and ran out of turns at the
+    build that refused both.
+- **The "delivered" line, three rounds:** one of the three misses answered with a file changed after its last
+  build (round 35: two; round 34: none). No effect to tell yet.
+- **Swift-1.5 27B 45 of 45**, the fifth round running: no build refusal, 2 edits, 64 minutes; a turn's median
+  thinking 438 characters. e4b's run had one side request, 4.6 s, in npc #4.
+
+**After the round:**
+
+- The build takes out a line at the margin written again the same and lists it in `corrected` (4dd34b6):
+  "removed line 2, `VersionControl: 79128` — line 1 says the same". Refused before, it cost a build in six runs
+  of rounds 23–36. Two values of one field, or a field with lines below it, stay refused.
+- A build with warnings says when one may stay (ad33940): "fix what it says and build again — that is part
+  of the task. It stays only where the user asked for just what it names." AGENTS.md's build line says the
+  same, in setup's and in the user's workspace. 13 runs of rounds 23–36 answered on a build with warnings, 6
+  of which failed.
+
+**What it points at next:** 13 spell runs of rounds 25–36 wrote a new spell with neither `EditorID` nor
+`FormKey`, and the build says nothing of the missing editor ID.
