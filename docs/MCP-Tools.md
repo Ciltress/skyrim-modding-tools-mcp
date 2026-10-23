@@ -251,7 +251,8 @@ their section headings, and a section is then fetched by number or title. `readS
 arguments lists collections and skill names, `collection` adds descriptions, and `skill` returns the
 SKILL.md. A loose name reads the skill it means, answered under its real name: `npc` or `npcs` for `skyrim-modding-npcs`,
 `weapon` for the skill whose description leads with weapons, and a skill sent as the `collection`
-(`items`). The guide registry is [`src/lib/guides.ts`](../src/lib/guides.ts); skills are discovered
+(`items`) or as `name`, the way OpenClaw's own `skills_read` takes it (since eval round 35; answered
+with the index before, the skill went unread in 24 runs of rounds 23–34). The guide registry is [`src/lib/guides.ts`](../src/lib/guides.ts); skills are discovered
 from [`skills/`](../skills) by [`src/lib/skills.ts`](../src/lib/skills.ts).
 
 ### 2.7 What this server is bound to

@@ -150,6 +150,12 @@ describe('readSkill', () => {
         expect((await run({ collection: 'items' })).skill.name).toBe('skyrim-modding-items-and-crafting');
     });
 
+    it('reads the skill sent as `name`, as OpenClaw\'s skills_read takes it', async () => {
+        const magic = await run({ name: 'skyrim-modding-magic' });
+        expect(magic.skill.name).toBe('skyrim-modding-magic');
+        expect(magic.content).toMatch(/^---/);
+    });
+
     it('turns a bad request into an argument error, not a fault', async () => {
         await expect(run({ skill: 'no-such-skill' })).rejects.toThrow(/no skill 'no-such-skill'/);
         await expect(run({ collection: 'nope' })).rejects.toThrow(/no collection 'nope'/);

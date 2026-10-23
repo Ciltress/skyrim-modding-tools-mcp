@@ -84,7 +84,10 @@ export class SkillsHandlers extends BaseHandler {
      * @throws {McpError} If the skill, collection or file does not exist.
      */
     private readSkill(args: any): Record<string, any> {
-        const skillName = args?.skill ? String(args.skill).trim() : undefined;
+        // A skill sent as `name`, the way OpenClaw's own skills_read takes it, was answered with the index and went
+        // unread: 24 runs of eval rounds 23–34, four of which failed.
+        const named = args?.skill ?? args?.name;
+        const skillName = named ? String(named).trim() : undefined;
         const collection = args?.collection ? String(args.collection).trim().toLowerCase() : undefined;
         const file = args?.file ? String(args.file).trim() : undefined;
 
