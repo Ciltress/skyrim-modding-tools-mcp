@@ -339,7 +339,8 @@ export function recordFiles(pluginDir: string): string[] {
 
 /**
  * Gives every new record a FormID — a record file without a top-level `FormKey:` line, as an agent
- * writes one — written at the top of its file, which keeps its name; a pull writes Spriggit's.
+ * writes one — written at the top of its file, below the kind line where it names one, and the file keeps its name;
+ * a pull writes Spriggit's.
  * Once assigned, a FormID never moves: other plugins and saves will point at it.
  * Deterministic: files are numbered in path order after the highest number in use. The files in `skip`,
  * which the build leaves out, keep their text.
@@ -374,7 +375,11 @@ export function assignFormIds(pluginDir: string, plugin: string, light: boolean,
         }
         const id = next.toString(16).toUpperCase().padStart(6, '0');
         next++;
-        fs.writeFileSync(file, `FormKey: ${id}:${plugin}\n${text}`);
+        // Where a group has several kinds — Globals: GlobalShort, GlobalFloat… — the reader takes the kind from the
+        // first line and the FormKey from the next: written above the kind, no new global could be read.
+        const at = /^MutagenObjectType:[^\n]*\n/.exec(text)?.[0].length ?? 0;
+        const newline = text.includes('\r\n') ? '\r\n' : '\n';
+        fs.writeFileSync(file, `${text.slice(0, at)}FormKey: ${id}:${plugin}${newline}${text.slice(at)}`);
         assigned.push({ formId: `${id}:${plugin}`, editorId: editorIdOf(text), file: relativeTo(pluginDir, file) });
     }
     return assigned;

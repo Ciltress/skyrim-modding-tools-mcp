@@ -220,6 +220,20 @@ describe('project files', () => {
         expect(assignFormIds(dir, 'MyMod.esp', true)).toEqual([]);
     });
 
+    it('writes a new record\'s FormKey below the kind its file names first, as Spriggit reads it', () => {
+        // Written above `MutagenObjectType: GlobalShort`, the reader took no kind, and no new global could be built.
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyrim-ids-'));
+        roots.push(dir);
+        write(path.join(dir, 'Globals', 'StormHours.yaml'), 'MutagenObjectType: GlobalShort\nEditorID: StormHours\nData: 20\n');
+        write(path.join(dir, 'Globals', 'StormRate.yaml'), 'MutagenObjectType: GlobalFloat\r\nEditorID: StormRate\r\nData: 1.5\r\n');
+
+        expect(assignFormIds(dir, 'MyMod.esp', true).map(a => a.editorId)).toEqual(['StormHours', 'StormRate']);
+        expect(fs.readFileSync(path.join(dir, 'Globals', 'StormHours.yaml'), 'utf8'))
+            .toBe('MutagenObjectType: GlobalShort\nFormKey: 000800:MyMod.esp\nEditorID: StormHours\nData: 20\n');
+        expect(fs.readFileSync(path.join(dir, 'Globals', 'StormRate.yaml'), 'utf8'))
+            .toBe('MutagenObjectType: GlobalFloat\r\nFormKey: 000801:MyMod.esp\r\nEditorID: StormRate\r\nData: 1.5\r\n');
+    });
+
     it('takes the files that head a block of cells or a worldspace\'s folder for no new record', () => {
         // As Spriggit writes a plugin with cells: blocks and sub-blocks have a GroupRecordData.yaml, a cell
         // a folder with its RecordData.yaml. Numbered, they broke the next build of the project.
