@@ -79,8 +79,19 @@ public static class MisplacedFields
             var value = root.Children[partKey];
             if (value is YamlMappingNode { Style: not MappingStyle.Flow } mapping)
             {
-                // A field the part has already would be written twice: which one is meant is the model's to say.
-                if (mapping.Children.Keys.OfType<YamlScalarNode>().Any(k => names.Contains(k.Value!))) return null;
+                // A field the part has already would be written twice: which one is meant is the model's to say — but
+                // the same one value says nothing more at the margin. e4b's sword+detailed #2 set BasicStats' Value to
+                // the 150 it had written at the margin, was told to move it, and answered unbuilt (eval round 37).
+                if (mapping.Children.FirstOrDefault(c => c.Key is YamlScalarNode { Value: { } n } && names.Contains(n)) is { Key: YamlScalarNode inPart } had)
+                {
+                    var atMargin = keys.First(k => k.Value == inPart.Value);
+                    if (had.Value is not YamlScalarNode { Value: { } kept } || root.Children[atMargin] is not YamlScalarNode { Value: { } written }
+                        || kept != written) return null;
+                    var start = (int)atMargin.Start.Line - 1;
+                    var dropped = lines[start].TrimEnd('\r').Trim();
+                    lines.RemoveRange(start, BlockEnd(lines, start, 0) - start);
+                    return new Moved(string.Join('\n', lines), $"removed `{dropped}` at the margin — `{part}` has it already, the same");
+                }
                 indent = mapping.Children.Keys.FirstOrDefault() is { } first ? (int)first.Start.Column - 1 : 2;
             }
             else if (value is YamlScalarNode { Value: null or "" }) indent = 2;

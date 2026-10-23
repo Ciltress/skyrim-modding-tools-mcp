@@ -16,6 +16,10 @@ public static class ProjectNotes
     private static readonly Regex FemaleFlag = new(@"^[ \t]+-[ \t]*Female[ \t]*\r?$|^[ \t]+Flags:[ \t]*\[[^\]\r\n]*\bFemale\b", RegexOptions.Multiline);
     private static readonly Regex TemplateLine = new(@"^Template:[ \t]*\S", RegexOptions.Multiline);
     private static readonly Regex NameLine = new(@"^Name[ \t]*:", RegexOptions.Multiline);
+    private static readonly Regex EffectsLine = new(@"^Effects[ \t]*:", RegexOptions.Multiline);
+
+    /// <summary>The record types whose work is their Effects: each item a magic effect, with its strength.</summary>
+    private static readonly HashSet<string> Effected = new(StringComparer.Ordinal) { "Spell", "ObjectEffect", "Ingestible", "Ingredient", "Scroll" };
 
     /// <summary>The record types the player sees by name — in the inventory, the magic menu, under the crosshair.</summary>
     private static readonly HashSet<string> Named = new(StringComparer.Ordinal)
@@ -53,6 +57,12 @@ public static class ProjectNotes
                 notes.Add($"{relative}: {RecordFiles.Identity(text).EditorId ?? RecordFiles.Article(type.Name)} has no Name, so the game " +
                     "shows it with none — in the inventory, the magic menu, under the crosshair. A name is two lines indented below `Name:`, " +
                     "`TargetLanguage: English` and `Value:` with the name; a record the player never sees can go without");
+            // A spell or enchantment with no Effects builds, and does nothing: e4b's Storm Bolt, the magic effect's fields
+            // it was told to delete deleted with its Effects, and Flame Blade's enchantment of a name alone (eval round 37).
+            if (Effected.Contains(type.Name) && !EffectsLine.IsMatch(text))
+                notes.Add($"{relative}: {RecordFiles.Identity(text).EditorId ?? RecordFiles.Article(type.Name)} has no Effects, so it " +
+                    "does nothing — each item of `Effects` names a magic effect as `- BaseEffect: X`, with its `Data` (Magnitude, Area, " +
+                    "Duration) below, as readRecord shows a vanilla one");
             if (type == typeof(Npc) && Voice(text, index, cache) is { } voice
                 && !(TemplateLine.IsMatch(text) && text.Contains("Traits", StringComparison.Ordinal)))
             {

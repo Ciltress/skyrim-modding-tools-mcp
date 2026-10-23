@@ -266,7 +266,23 @@ public static class RecordFiles
             return Rename(number, $"it is spelled {number}");
         // "Move", not "it goes": told Value and Weight go under BasicStats, a model added BasicStats and kept
         // them at the top level, build after build (eval probe 7 after round 11).
-        return Under(type, key) is { } path ? $"move it {path}" : null;
+        if (Under(type, key) is { } path) return $"move it {path}";
+        // One letter off one field of the type: HalflCostPerk, told "delete it", was deleted, written back and deleted
+        // again until the turns ran out (eval round 37's spell+detailed #3).
+        return known.Where(k => OneEditApart(k, key)).ToList() is [var near] ? Rename(near, $"it is spelled {near}") : null;
+    }
+
+    /// <summary>Whether two names differ, case aside, by one letter added, left out, changed, or two swapped.</summary>
+    private static bool OneEditApart(string a, string b)
+    {
+        (a, b) = (a.ToLowerInvariant(), b.ToLowerInvariant());
+        if (a == b || Math.Abs(a.Length - b.Length) > 1) return false;
+        var i = 0;
+        while (i < a.Length && i < b.Length && a[i] == b[i]) i++;
+        if (a.Length > b.Length) return a[(i + 1)..] == b[i..];
+        if (b.Length > a.Length) return a[i..] == b[(i + 1)..];
+        return a[(i + 1)..] == b[(i + 1)..]
+            || i + 1 < a.Length && a[i] == b[i + 1] && a[i + 1] == b[i] && a[(i + 2)..] == b[(i + 2)..];
     }
 
     /// <summary>The kinds a part of several kinds can be: the concrete classes Mutagen makes for Skyrim.</summary>
@@ -346,9 +362,9 @@ public static class RecordFiles
     {
         var hinted = keys.Select(key => (Key: key, Hint: DataHint(type, key, text) ?? Hint(type, known, key, ValueOf(text, key)))).ToList();
         var named = hinted.Where(f => f.Hint is not null).GroupBy(f => f.Hint!).Select(group => group.Count() == 1
-            ? $"{group.First().Key} ({group.Key}{Moved(text, group.Key, false)})"
+            ? $"{group.First().Key} ({group.Key}{Moved(text, group.Key, [group.First().Key])})"
             : $"{string.Join(", ", group.Select(f => f.Key))} ({Regex.Replace(group.Key, @"^(move it|it is)\b", m => m.Groups[1].Value == "move it" ? "move them" : "they are")}" +
-                $"{Moved(text, group.Key, true)})");
+                $"{Moved(text, group.Key, group.Select(f => f.Key).ToList())})");
         var bare = hinted.Where(f => f.Hint is null).Select(f => f.Key).ToList();
         var them = bare.Count == 1 ? "it" : "them";
         return string.Join(", ", named.Append(bare.Count == 0 ? "" : $"{string.Join(", ", bare)} (delete {them}: {Article(type.Name)} has {them} nowhere)")
@@ -360,16 +376,22 @@ public static class RecordFiles
     /// and Stamina under PlayerSkills, e4b and 12b indented them where they stood, under the field above them
     /// (eval round 22, probe 23). Empty for any other hint.
     /// </summary>
-    private static string Moved(string text, string hint, bool many)
+    private static string Moved(string text, string hint, IReadOnlyList<string> keys)
     {
         if (Regex.Match(hint, @"^move it under (?<part>\w+)$") is not { Success: true } move) return "";
         var part = move.Groups["part"].Value;
-        var them = many ? "them" : "it";
+        var them = keys.Count > 1 ? "them" : "it";
         var at = Regex.Match(text, $@"^{Regex.Escape(part)}:[ \t]*\r?$", RegexOptions.Multiline);
-        return at.Success
-            ? $": delete {them} at the margin and write {them} again below `{part}:` (line {text[..at.Index].Count(c => c == '\n') + 1}), " +
-                "as deep as its other fields"
-            : $": delete {them} at the margin, and write `{part}:` with {them} below, two spaces in";
+        if (!at.Success) return $": delete {them} at the margin, and write `{part}:` with {them} below, two spaces in";
+        // The part has it already, with another value (the same is taken out by the build): moved, it would be there
+        // twice — e4b was told to move BasicStats' Value there, twice, and answered unbuilt (eval round 37).
+        var block = BlockOf(text, part);
+        var had = keys.Select(k => Regex.Match(block, $@"^[ \t]+{Regex.Escape(k)}[ \t]*:.*$", RegexOptions.Multiline))
+            .Where(m => m.Success).Select(m => $"`{m.Value.Trim()}`").ToList();
+        return had.Count > 0
+            ? $": `{part}:` has {string.Join(" and ", had)} already — write the value meant there, and delete {them} at the margin"
+            : $": delete {them} at the margin and write {them} again below `{part}:` (line {text[..at.Index].Count(c => c == '\n') + 1}), " +
+                "as deep as its other fields";
     }
 
     /// <summary>
