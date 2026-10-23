@@ -219,7 +219,8 @@ export interface BuildResult {
     /**
      * What the build wrote into the files where a fix had one right answer — escapes copied out of a JSON answer, a
      * FormKey copied into a new record from the record read or past a light plugin's last FormID, a line written twice
-     * the same, a field moved to the one place its record has it — each with its file's full path and what was changed.
+     * the same, an EditorID taken from the file's name, a field moved to the one place its record has it — each with its
+     * file's full path and what was changed.
      */
     corrected?: string[];
     records: number;

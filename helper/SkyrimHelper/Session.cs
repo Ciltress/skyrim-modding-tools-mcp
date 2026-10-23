@@ -370,6 +370,8 @@ public sealed class Session : IDisposable
         var corrected = RecordFiles.DropCopiedFormKeys(dir, Index);
         // A line written twice first: the YAML reader the moves use refuses the file until it is gone.
         corrected.AddRange(RecordFiles.DropRepeatedLines(dir));
+        // Before the links are checked: a link may name the record by its file's name.
+        corrected.AddRange(RecordFiles.NameFromFiles(dir, Index));
         corrected.AddRange(MisplacedFields.Move(dir));
         int records;
         List<(string File, string Copy)> leftOut;

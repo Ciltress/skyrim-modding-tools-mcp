@@ -94,6 +94,10 @@ public static class RecordFiles
 
     private static readonly Regex ObjectTypeLine = new(@"^MutagenObjectType:[ \t]*(\w+)", RegexOptions.Multiline);
     private static readonly Regex EditorIdLine = new(@"^EditorID:[ \t]*([^\s#]+)[ \t]*(?:#.*?)?\r?$", RegexOptions.Multiline);
+    private static readonly Regex AnyEditorIdLine = new(@"^EditorID[ \t]*:", RegexOptions.Multiline);
+    private static readonly Regex EditorIdName = new(@"^[A-Za-z_][A-Za-z0-9_]*$");
+    // The lines Spriggit writes above a record's EditorID.
+    private static readonly Regex HeadLine = new(@"^(?:FormKey|MutagenObjectType|VersionControl)[ \t]*:");
     private static readonly Regex ModKeyLine = new(@"^ModKey:[ \t]*(\S+?)[ \t]*\r?$", RegexOptions.Multiline);
 
     /// <summary>The file's FormKey and editor ID, as its top-level lines give them.</summary>
@@ -864,6 +868,36 @@ public static class RecordFiles
                 dropped++;
             }
             if (dropped > 0) File.WriteAllText(file, string.Join('\n', lines));
+        }
+        return changes;
+    }
+
+    /// <summary>
+    /// Gives the project's own record written with no EditorID its file's name, where that is an editor ID no other
+    /// record has: the author's own name for it. With none, no link of the project and no tool like SPID can name the
+    /// record, and the build's notes call it "a Spell" — e4b wrote 13 spells so in eval rounds 25–36. A file name that
+    /// is no editor ID, one the load order or the project has, or one two such files share, is left to a note (ProjectNotes).
+    /// </summary>
+    public static List<(string File, string Change)> NameFromFiles(string pluginDir, RecordIndex index)
+    {
+        var changes = new List<(string File, string Change)>();
+        var own = OwnPlugin(pluginDir);
+        var files = FlatRecords(pluginDir).Select(f => (f.File, f.Relative, Text: File.ReadAllText(f.File))).Where(f => !Empty(f.Text)).ToList();
+        var taken = files.Select(f => Identity(f.Text).EditorId).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var unnamed = files
+            .Where(f => !AnyEditorIdLine.IsMatch(f.Text) && (Identity(f.Text).FormKey is not { } key || key.ModKey == own))
+            .Select(f => (f.File, f.Relative, f.Text, Name: Path.GetFileNameWithoutExtension(f.File)))
+            .Where(f => EditorIdName.IsMatch(f.Name)).ToList();
+        foreach (var (file, relative, text, name) in unnamed)
+        {
+            // The load order's own name would take the links meant for its record: the project's resolve first.
+            if (unnamed.Count(u => u.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) > 1 || taken.Contains(name)
+                || index.ByEditorId.TryGetValue(name, out var holder) && holder.ModKey != own) continue;
+            var lines = text.Split('\n').ToList();
+            lines.Insert(lines.TakeWhile(line => HeadLine.IsMatch(line)).Count(), $"EditorID: {name}{(text.Contains("\r\n") ? "\r" : "")}");
+            File.WriteAllText(file, string.Join('\n', lines));
+            changes.Add((relative, $"wrote `EditorID: {name}`, the file's name — a record has an editor ID of its own, by which " +
+                "links and tools like SPID name it"));
         }
         return changes;
     }

@@ -81,6 +81,8 @@ arguments, see [`Tool-Reference.md`](./Tool-Reference.md), which is generated fr
      of that record, so where the editor ID differs from the record it names, the build takes the line
      out and says so in `corrected` — in addPatch's copy of that record too, since eval round 34. So
      too the project's own FormKey past a light plugin's last FormID, 000FFF, since eval round 35.
+     A record of the project written with no `EditorID` takes its file's name for one, where that
+     is an editor ID no other record has, since eval round 38; otherwise the build warns.
    - **A link may name its record by editor ID.** `buildProject` writes that record's FormID into the
      file — the project's own record first, then the load order's — and lists it in `resolvedLinks`,
      so a new record can point at another one written in the same go.
@@ -490,6 +492,8 @@ Start with `healthcheck`.
 | `buildProject` → "the text under `Value: >-` (line N) runs on into `PickUpSound: …`" | The reverse: the record's own fields below a text indented with it, where they would be words of the text and the record would lack them | Write the line named and the field lines after it at the margin again |
 | `buildProject` → "'Enchantments' is no group folder — the folder for them is ObjectEffects" | A folder named for what the record is — enchantments, notes, potions — not for its group | Write the file where the message says, `ObjectEffects/<name>.yaml` |
 | `buildProject` answers `built_with_warnings`: "overrides X of Skyrim.esm and renames it" | A vanilla record copied whole — its `FormKey` and `EditorID` kept — and renamed: the build changes that record instead of making a new one | Meant as a change, nothing to do. Meant as a new record: remove the `FormKey` line and give it an `EditorID` of its own |
+| `buildProject` answers with `corrected`: "…/StormBolt.yaml: wrote `EditorID: StormBolt`, the file's name" | A record of the project written with no `EditorID` line; its file's name is an editor ID no record of the load order or the project has. Since eval round 38 | Nothing to fix; keep the line |
+| `buildProject` answers `built_with_warnings`: "… has no EditorID, so no link of the project and no tool like SPID can name it" | A record of the project with no `EditorID`, whose file's name is no editor ID (a space, a dot), is the load order's or the project's already, or is shared by two such files | Write `EditorID:` with a name no other record has, at the margin below any `FormKey` line |
 | `buildProject` answers `built_with_warnings`: "… has no Name, so the game shows it with none" | A new item, spell, shout or NPC written without `Name:`; an NPC with a `Template` is left out, as it may take its name from that | Write two lines indented below `Name:`, `TargetLanguage: English` and `Value:` with the name; a record the player never sees can go without |
 | `buildProject` → "cannot be read as a record: … Line N is `…`" | A value the YAML reader cannot read: one value where the field takes fields of its own, text where a number belongs | Fix the line the message quotes, as a vanilla record of the type writes it |
 | `buildProject` → "The build read no record from …" | Record files the reader took for none — the plugin would have been empty | Put each file directly into its group's folder, written the way `readRecord` shows one |
