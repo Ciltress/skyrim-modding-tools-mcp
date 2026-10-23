@@ -365,7 +365,11 @@ public static class RecordLinks
                         movedUp.Add(key);
                         continue;
                     }
+                    // A magic effect's Data, below one of its parts: found by name, the Data was a condition's, and e4b
+                    // moved Storm Bolt's magnitude into its Conditions (eval round 39's spell+detailed #4), as at the
+                    // margin in round 24.
                     problem($"{path} has no field {key}" + (RecordFiles.LevelHint(type, key) is { } level ? $" ({level})"
+                        : record.Name == "MagicEffect" && key == "Data" ? $" ({RecordFiles.EffectStrength})"
                         : RecordFiles.HintFor(type, key) is { Length: > 0 } hint ? hint
                         : record != type && RecordFiles.WhereIn(record, key) is { } at ? $" (move it: {RecordFiles.Article(record.Name)}'s {key} is {at})"
                         : " (delete it)"));

@@ -95,6 +95,7 @@ public static class RecordFiles
     private static readonly Regex ObjectTypeLine = new(@"^MutagenObjectType:[ \t]*(\w+)", RegexOptions.Multiline);
     private static readonly Regex EditorIdLine = new(@"^EditorID:[ \t]*([^\s#]+)[ \t]*(?:#.*?)?\r?$", RegexOptions.Multiline);
     private static readonly Regex AnyEditorIdLine = new(@"^EditorID[ \t]*:", RegexOptions.Multiline);
+    private static readonly Regex WrittenEditorIdLine = new(@"^EditorID[ \t]*:[ \t]*(?<value>[^\r\n]*?)[ \t]*(?:[ \t]#[^\r\n]*)?(?=\r?$)", RegexOptions.Multiline);
     private static readonly Regex EditorIdName = new(@"^[A-Za-z_][A-Za-z0-9_]*$");
     // The lines Spriggit writes above a record's EditorID.
     private static readonly Regex HeadLine = new(@"^(?:FormKey|MutagenObjectType|VersionControl)[ \t]*:");
@@ -194,7 +195,7 @@ public static class RecordFiles
     ];
 
     /// <summary>Where the strength of a magic effect is written: in what names it, not in the effect.</summary>
-    private const string EffectStrength = "a magic effect has no strength of its own: Magnitude, Area and Duration go under Data, " +
+    internal const string EffectStrength ="a magic effect has no strength of its own: Magnitude, Area and Duration go under Data, " +
         "in the Effects item of the spell or ObjectEffect that names it as BaseEffect";
 
     /// <summary>A field's name as YAML writes it, at a line's start or in flow style — not the 012EB7 of a FormID.</summary>
@@ -367,9 +368,12 @@ public static class RecordFiles
                 $"{Moved(text, group.Key, group.Select(f => f.Key).ToList())})");
         var bare = hinted.Where(f => f.Hint is null).Select(f => f.Key).ToList();
         var them = bare.Count == 1 ? "it" : "them";
-        // Fields of one other record type alone: an enchantment written in MagicEffects/, told to delete its EnchantType,
-        // Effects and EnchantmentAmount, deleted them, and ran out of turns (eval round 38's sword+detailed #3).
-        var owner = bare.Count == 0 ? [] : Groups.Where(g => g.Value is { IsAbstract: false } other && other != type && bare.All(FieldsOf(other).Contains))
+        // A file of one other record type's fields alone: an enchantment written in MagicEffects/, told to delete its
+        // EnchantType, Effects and EnchantmentAmount, deleted them, and ran out of turns (eval round 38's sword+detailed
+        // #3). Every field of the file, not only those its type lacks: a spell with a magic effect's fields beside its
+        // own Effects was sent to MagicEffects/ (round 39's spell+detailed #4).
+        var fields = TopLevelKey.Matches(text).Select(m => m.Groups[1].Value).Where(k => k != "MutagenObjectType").Distinct().ToList();
+        var owner = bare.Count == 0 ? [] : Groups.Where(g => g.Value is { IsAbstract: false } other && other != type && fields.All(FieldsOf(other).Contains))
             .DistinctBy(g => g.Value).ToList();
         var deleted = owner is [var (folder, of)]
             ? $"{(bare.Count == 1 ? "it is" : "they are")} {Article(of!.Name)}'s, which {Article(type.Name)} has nowhere: if this is " +
@@ -898,6 +902,95 @@ public static class RecordFiles
                 dropped++;
             }
             if (dropped > 0) File.WriteAllText(file, string.Join('\n', lines));
+        }
+        return changes;
+    }
+
+    /// <summary>
+    /// The value of a record's EditorID line as written, its quotes taken off — `Maven's Warning` too, which is no
+    /// editor ID — or null where the record has no such line, or none with a value.
+    /// </summary>
+    internal static string? EditorIdWritten(string text)
+    {
+        if (WrittenEditorIdLine.Match(text) is not { Success: true } line || line.Groups["value"].Value is not { Length: > 0 } written) return null;
+        return written.Length >= 2 && written[0] == '\'' && written[^1] == '\'' ? written[1..^1].Replace("''", "'")
+            : written.Length >= 2 && written[0] == '"' && written[^1] == '"' ? written[1..^1]
+            : written;
+    }
+
+    /// <summary>
+    /// An EditorID written with characters no editor ID has — `Maven's Warning`, `MavenNote:MavenWarning` — written with
+    /// its letters, digits and underscores alone, where no other record has that name. Read as none, `Maven's Warning`
+    /// was answered "has no EditorID" three builds long, and the copied FormKey beside it kept the note an override of
+    /// Maven's (eval round 39's note #5); 7 runs of rounds 23–39 wrote one. A name taken is left to the note.
+    /// </summary>
+    public static List<(string File, string Change)> CleanEditorIds(string pluginDir, RecordIndex index)
+    {
+        var changes = new List<(string File, string Change)>();
+        var own = OwnPlugin(pluginDir);
+        var files = FlatRecords(pluginDir).Select(f => (f.File, f.Relative, Text: File.ReadAllText(f.File))).ToList();
+        var taken = files.Select(f => Identity(f.Text).EditorId).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var (file, relative, text) in files)
+        {
+            if (EditorIdWritten(text) is not { } written || EditorIdName.IsMatch(written)) continue;
+            var name = Regex.Replace(written, "[^A-Za-z0-9_]", "");
+            if (!EditorIdName.IsMatch(name) || taken.Contains(name)
+                || index.ByEditorId.TryGetValue(name, out var holder) && holder.ModKey != own) continue;
+            var line = WrittenEditorIdLine.Match(text);
+            File.WriteAllText(file, text[..line.Index] + $"EditorID: {name}" + text[(line.Index + line.Length)..]);
+            taken.Add(name);
+            changes.Add((relative, $"wrote `EditorID: {name}` for `{written}` — an editor ID is letters, digits and underscores alone, " +
+                "by which links and tools like SPID name the record"));
+        }
+        return changes;
+    }
+
+    /// <summary>
+    /// Takes the project's own FormKey out of the files that share it, where no build gave it to one of them: e4b wrote
+    /// 000800 into a new sword and its enchantment both (eval round 39's sword+detailed #5), and 4 of the 8 runs of
+    /// rounds 23–39 refused two files of one FormKey failed. Where the last built plugin has the record, the file of
+    /// its editor ID keeps it; where none of them is that record, or that plugin cannot be read, the refusal stays.
+    /// </summary>
+    public static List<(string File, string Change)> DropSharedFormKeys(string pluginDir, SkyrimRelease release)
+    {
+        var changes = new List<(string File, string Change)>();
+        if (OwnPlugin(pluginDir) is not { } own) return changes;
+        var shared = FlatRecords(pluginDir).Select(f => (f.File, f.Relative, Text: File.ReadAllText(f.File)))
+            .Where(f => Identity(f.Text).FormKey is { } key && key.ModKey == own)
+            .GroupBy(f => Identity(f.Text).FormKey!.Value).Where(g => g.Count() > 1).ToList();
+        if (shared.Count == 0) return changes;
+        var built = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(pluginDir))!, "build", own.FileName);
+        Dictionary<FormKey, string?> given;
+        try
+        {
+            using var plugin = File.Exists(built) ? SkyrimMod.Create(release).FromPath(new ModPath(own, built)).Construct() : null;
+            given = plugin?.EnumerateMajorRecords().ToDictionary(r => r.FormKey, r => r.EditorID) ?? [];
+        }
+        catch (Exception)
+        {
+            return changes;
+        }
+        foreach (var group in shared)
+        {
+            string? keeper = null;
+            if (given.TryGetValue(group.Key, out var builtId))
+            {
+                keeper = group.FirstOrDefault(f => string.Equals(Identity(f.Text).EditorId, builtId, StringComparison.OrdinalIgnoreCase)).Relative;
+                if (keeper is null) continue;
+            }
+            foreach (var (file, relative, text) in group.Where(f => f.Relative != keeper))
+            {
+                var line = FormKeyLine.Match(text);
+                var end = line.Index + line.Length;
+                if (end < text.Length && text[end] == '\n') end++;
+                File.WriteAllText(file, text[..line.Index] + text[end..]);
+                var others = group.Where(f => f.Relative != relative).Select(f => f.Relative).ToList();
+                changes.Add((relative, $"removed `{line.Value.TrimEnd('\r')}` — " + (keeper is not null
+                    ? $"a build gave it to {keeper}'s record"
+                    : $"{string.Join(" and ", others)} {(others.Count == 1 ? "has" : "have")} it too, and no build gave it to " +
+                        (others.Count == 1 ? "either" : "any of them")) +
+                    "; a new record has no FormKey line, and the build numbers it"));
+            }
         }
         return changes;
     }

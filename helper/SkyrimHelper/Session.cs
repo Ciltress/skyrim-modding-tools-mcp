@@ -367,7 +367,10 @@ public sealed class Session : IDisposable
     {
         // A fix with one right answer is written first, and named in a refusal that comes after it too: the model
         // knows the file as it wrote it, and an edit of the line taken out finds nothing.
-        var corrected = RecordFiles.DropCopiedFormKeys(dir, Index);
+        // An editor ID first: a copied FormKey is taken out by the EditorID beside it.
+        var corrected = RecordFiles.CleanEditorIds(dir, Index);
+        corrected.AddRange(RecordFiles.DropCopiedFormKeys(dir, Index));
+        corrected.AddRange(RecordFiles.DropSharedFormKeys(dir, release));
         // A line written twice first: the YAML reader the moves use refuses the file until it is gone.
         corrected.AddRange(RecordFiles.DropRepeatedLines(dir));
         // Before the links are checked: a link may name the record by its file's name.

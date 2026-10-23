@@ -48,9 +48,14 @@ public static class ProjectNotes
         {
             // Left with no EditorID, its file's name no editor ID to give it (RecordFiles.NameFromFiles): 13 of e4b's
             // spells in eval rounds 25–36 were built so, nameless to links and to tools like SPID.
+            // One written with a space, its letters another record's name, is no editor ID either — told "has no
+            // EditorID" of `Maven's Warning`, e4b wrote the same line three builds long (eval round 39).
             if (RecordFiles.Identity(text).EditorId is null)
-                notes.Add($"{relative}: {RecordFiles.Article(type.Name)} has no EditorID, so no link of the project and no tool like " +
-                    "SPID can name it — write a line `EditorID:` with a name no other record has, at the margin below any FormKey line");
+                notes.Add(RecordFiles.EditorIdWritten(text) is { } written
+                    ? $"{relative}: `EditorID: {written}` is no editor ID, which is letters, digits and underscores alone, so no link of " +
+                        "the project and no tool like SPID can name it — write one no other record has"
+                    : $"{relative}: {RecordFiles.Article(type.Name)} has no EditorID, so no link of the project and no tool like " +
+                        "SPID can name it — write a line `EditorID:` with a name no other record has, at the margin below any FormKey line");
             // A new spell or NPC with no Name builds, and the game shows it with none: e4b's Storm Bolt and Hilda did,
             // and each run ended there (round 22's e4b probe). An NPC with a template may take its name from it.
             if (Named.Contains(type.Name) && !NameLine.IsMatch(text) && !(type == typeof(Npc) && TemplateLine.IsMatch(text)))
