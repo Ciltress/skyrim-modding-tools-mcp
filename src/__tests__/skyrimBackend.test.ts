@@ -675,8 +675,15 @@ describe('the Skyrim backend', () => {
         const warned = await answer();
 
         expect(Object.keys(warned).slice(0, 3)).toEqual(['status', 'warnings', 'nextStep']);
-        expect(warned).toMatchObject({ status: 'built_with_warnings', warnings: [note], nextStep: expect.stringMatching(/^Built, with a warning: read each/), records: 1 });
+        // Its exception names what may stay: "unless the user asked for it so" was read as "no fix asked" (eval round 36).
+        expect(warned).toMatchObject({
+            status: 'built_with_warnings', warnings: [note], records: 1,
+            nextStep: 'Built, with a warning: fix what it says and build again — that is part of the task. It stays only where ' +
+                'the user asked for just what it names.'
+        });
         expect(fs.existsSync(warned.output)).toBe(true);
+        helperAnswers.checkRecords = () => ({ records: 1, leftOut: [], notes: [note, note] });
+        expect((await answer()).nextStep).toMatch(/^Built, with 2 warnings: fix what each says .* One stays only where/);
         helperAnswers.checkRecords = () => ({ records: 1, leftOut: [] });
         expect(await answer()).toMatchObject({ status: 'success', records: 1 });
         expect(await answer()).not.toHaveProperty('warnings');

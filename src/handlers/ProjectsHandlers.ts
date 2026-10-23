@@ -175,12 +175,16 @@ export class ProjectsHandlers extends BaseHandler {
                     const { warnings, ...built } = await asRequestError(this.backend.buildProject(requireString(args, 'project')));
                     if (!warnings?.length) return built;
                     // A warning at the end of an answer that said success was passed by: five of e4b's eight misses
-                    // in eval round 21 end on one, each a build that did what was not asked.
+                    // in eval round 21 end on one, each a build that did what was not asked. Its exception, written
+                    // "unless the user asked for it so", was read as "the user did not ask for a fix" in three runs of
+                    // rounds 27–36, two of which failed (eval round 36): it names what may stay instead.
+                    const one = warnings.length === 1;
                     return {
                         status: 'built_with_warnings',
                         warnings,
-                        nextStep: `Built, with ${warnings.length === 1 ? 'a warning' : `${warnings.length} warnings`}: ` +
-                            'read each — fix what it says and build again, unless the user asked for it so.',
+                        nextStep: `Built, with ${one ? 'a warning' : `${warnings.length} warnings`}: fix what ${one ? 'it' : 'each'} ` +
+                            `says and build again — that is part of the task. ${one ? 'It' : 'One'} stays only where the user ` +
+                            'asked for just what it names.',
                         ...built
                     };
                 }
