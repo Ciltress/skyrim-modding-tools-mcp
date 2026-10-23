@@ -14,8 +14,9 @@ npm run eval:ollama -- --client openclaw --model gemma4:e4b --openclaw-agent sky
 From round 23 a round measures gemma4:e4b alone: what the smallest model gets done, the larger ones get
 done too — in round 22, 26b passed 39 of 39 and 12b 37 where e4b passed 33 — and an e4b round takes 40
 minutes where all three took four hours. Until round 22, e4b probes went unrecorded, and the round was
-every model's. From round 32 the user's 27B models run beside e4b, each a row of its own: bonsai-2:27b
-(`--openclaw-agent skyrim`) and Swift-1.5 27B IQ2_S (`skyrim-swift`); gemma4:12b and 26b are gone from the machine.
+every model's. From round 32 the user's 27B models run beside e4b, each a row of its own: Swift-1.5 27B IQ2_S
+(`--openclaw-agent skyrim-swift`), and in rounds 32–33 bonsai-2:27b (`skyrim`), which the user removed after them;
+gemma4:12b and 26b are gone from the machine.
 
 [`scripts/eval-ollama.mjs`](../../scripts/eval-ollama.mjs) runs the tasks below through the built
 server against the instance in `.env`, with its own agent loop on Ollama's `/api/chat`, then measures
@@ -370,7 +371,8 @@ Swift-1.5 27B IQ2_S, `all`, OpenClaw, at 257d32b (prompt ~1,909 tokens/s, genera
   `Level`'s braces, wrote the right lines once and overwrote them before its next build, and ran out of turns;
   npc #4 wrote them at the margin, then claimed a build it never ran; npc+detailed #5 wrote them as items of
   `Flags`, then indented the rest of the record under `Configuration`, and ran out of turns. The fourth,
-  note+detailed #5, copied Maven's text instead of writing its own.
+  note+detailed #5, wrote a text of its own for the note ("If this note reaches you, it means I have finally
+  decided…") instead of Maven's, word for word.
 - **bonsai-2:27b 45 of 45**, with one build refusal in 45 runs and no correction needed. It wrote files whole —
   2 edits in the round, against e4b's 39 (19 of them refused) — often made several calls in a turn, and took
   fewer turns than e4b: a sword in 6.8 (e4b 11.8), an NPC in 7.8 (12.4). It is slow: 22 s a turn, a sword run
@@ -480,8 +482,10 @@ Swift-1.5 27B IQ2_S, `all`, OpenClaw, at 054ac8a (prompt ~1,920 tokens/s, genera
   runs that passed.
 - **Swift-1.5 27B 45 of 45** again, no build refusal, 2 edits, in 63 minutes; a turn's median thinking 390
   characters.
+- **An OpenClaw job ran in the round:** its daily "Memory Dreaming Promotion" started at 03:00 as the default
+  agent `main`, on bonsai, and Ollama took e4b off the GPU to load it (03:00:10); spell+detailed #5's first turn
+  waited 54 s for that and e4b's reload. The run passed. The job is still on, at 03:00 every day.
 
 **What it points at next:** for the server, little: e4b's misses no longer share a cause, and the 27B models
-meet almost no refusal. A cap on bonsai's answers would bound a loop like sword #5's in the user's own chats
-too — `params.num_predict: 32768` on its model entry stops one after about 7.5 minutes and leaves the 27,334
-tokens it once needed; that is the user's call.
+meet almost no refusal. A cap on bonsai's answers would have bounded a loop like sword #5's in the user's own
+chats too; the user removed bonsai and its agents after the round, and `swift` became the default agent.
