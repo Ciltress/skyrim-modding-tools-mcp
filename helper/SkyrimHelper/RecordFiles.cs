@@ -109,6 +109,18 @@ public static class RecordFiles
         return ModKey.TryFromFileName(line.Groups[1].Value, out var key) ? key : (ModKey?)null;
     }
 
+    private static readonly Regex SmallFlag = new(@"^\s*-\s*Small\s*$|^\s*Flags:\s*\[[^\]]*\bSmall\b", RegexOptions.Multiline);
+
+    /// <summary>Whether a project's folder builds a light plugin: its RecordData.yaml flags it Small, as newProject writes it.</summary>
+    public static bool LightPlugin(string pluginDir)
+    {
+        var header = Path.Combine(pluginDir, "RecordData.yaml");
+        return File.Exists(header) && SmallFlag.IsMatch(File.ReadAllText(header));
+    }
+
+    /// <summary>The highest FormID a light plugin's records can have.</summary>
+    private const uint LightMax = 0xFFF;
+
     /// <summary>
     /// Whether a record file holds no record: nothing, or only blank lines and comments. "Emptied" with a comment,
     /// a magic effect built as a record of no fields and no EditorID (eval round 25).
@@ -744,12 +756,16 @@ public static class RecordFiles
     /// offered only that way (eval round 11's probes); refused, it was the refusal runs met most — 51 of 312 in eval
     /// rounds 24–31, seven failed after it. addPatch's copy given another editor ID too: refused as an override
     /// renamed, it was met in three runs of eval rounds 32–33 and ended sword #4 of round 33 on an empty turn — a
-    /// copy is renamed for a new record. One of addPatch's copies that names no record is left to Foreign.
+    /// copy is renamed for a new record. One of addPatch's copies that names no record is left to Foreign. And the
+    /// plugin's own FormKey past a light plugin's last, 000FFF: Mutagen refused it as "out of bounds for the given
+    /// record compaction settings", naming no file, and npc+detailed #4 of eval round 34 gave up after three builds.
+    /// A link to it in another file of the project names its editor ID instead, which the build resolves.
     /// </summary>
     public static List<(string File, string Change)> DropCopiedFormKeys(string pluginDir, RecordIndex index)
     {
         var changes = new List<(string File, string Change)>();
         var own = OwnPlugin(pluginDir);
+        var light = LightPlugin(pluginDir);
         foreach (var (file, relative, _) in FlatRecords(pluginDir))
         {
             var text = File.ReadAllText(file);
@@ -757,9 +773,15 @@ public static class RecordFiles
             var written = line.Groups[1].Value;
             bool Copied(FormKey key) => Path.GetFileName(file).EndsWith($"{key.ID:X6}_{key.ModKey.FileName}.yaml", StringComparison.OrdinalIgnoreCase);
             string why;
+            var relinked = new List<(string File, string Change)>();
             if (!FormKey.TryFactory(written, out var key)) why = $"'{written}' is no FormKey";
             else if (key.ID == 0) why = $"{Session.FormKeyText(key)} is no record's FormID";
-            else if (key.ModKey == own) continue;
+            else if (key.ModKey == own)
+            {
+                if (!light || key.ID <= LightMax) continue;
+                why = $"{Session.FormKeyText(key)} is past the last FormID a light plugin has, 000FFF";
+                if (Identity(text).EditorId is { } named) relinked = Relink(pluginDir, file, key, named);
+            }
             else if (!index.ByFormKey.TryGetValue(key, out var entry))
             {
                 if (Copied(key)) continue;
@@ -776,6 +798,35 @@ public static class RecordFiles
             if (end < text.Length && text[end] == '\n') end++;
             File.WriteAllText(file, text[..line.Index] + text[end..]);
             changes.Add((relative, $"removed `{line.Value.TrimEnd('\r')}` — {why}; a new record has no FormKey line, and the build numbers it"));
+            changes.AddRange(relinked);
+        }
+        return changes;
+    }
+
+    /// <summary>
+    /// Writes the editor ID in place of a FormKey in the links of the plugin folder's other record files, the FormKey
+    /// lines left as they are; answers each file changed.
+    /// </summary>
+    private static List<(string File, string Change)> Relink(string pluginDir, string record, FormKey key, string editorId)
+    {
+        var changes = new List<(string File, string Change)>();
+        var link = new Regex($@"(?<![0-9A-Fa-f]){Regex.Escape(Session.FormKeyText(key))}(?![\w.])", RegexOptions.IgnoreCase);
+        foreach (var (file, relative, _) in FlatRecords(pluginDir))
+        {
+            if (file == record) continue;
+            var text = File.ReadAllText(file);
+            var lines = text.Split('\n');
+            var count = 0;
+            for (var i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].StartsWith("FormKey:", StringComparison.Ordinal)) continue;
+                var changed = link.Replace(lines[i], editorId);
+                if (changed != lines[i]) { lines[i] = changed; count++; }
+            }
+            if (count == 0) continue;
+            File.WriteAllText(file, string.Join('\n', lines));
+            changes.Add((relative, $"{(count == 1 ? "the link" : $"{count} links")} to {Session.FormKeyText(key)} now name{(count == 1 ? "s" : "")} " +
+                $"{editorId}, the record whose FormKey line was taken out"));
         }
         return changes;
     }
