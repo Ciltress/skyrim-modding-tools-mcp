@@ -838,6 +838,36 @@ public static class RecordFiles
         return changes;
     }
 
+    /// <summary>
+    /// Takes out a top-level line written again the same, which the reader refuses as a field written twice: the line
+    /// above says it already. e4b's note+detailed #5 (eval round 36) wrote VersionControl's line over the FormKey line
+    /// above it, was refused, and ran out of turns; five runs of rounds 23–33 were refused one and built again. Two
+    /// values, or a field with lines below it, are left to the refusal (Twice).
+    /// </summary>
+    public static List<(string File, string Change)> DropRepeatedLines(string pluginDir)
+    {
+        var changes = new List<(string File, string Change)>();
+        foreach (var (file, relative, type) in FlatRecords(pluginDir))
+        {
+            var lines = File.ReadAllText(file).Split('\n').ToList();
+            var known = FieldsOf(type);
+            var seen = new Dictionary<string, (int Line, string Text)>(StringComparer.Ordinal);
+            var dropped = 0;
+            for (var i = 0; i < lines.Count; i++)
+            {
+                if (TopLevelKey.Match(lines[i]) is not { Success: true } key || !known.Contains(key.Groups[1].Value)) continue;
+                var (name, line) = (key.Groups[1].Value, lines[i].Trim());
+                // Numbered as the file was written: the model knows it so.
+                if (seen.TryAdd(name, (i + dropped + 1, line)) || line.EndsWith(':') || seen[name].Text != line) continue;
+                changes.Add((relative, $"removed line {i + dropped + 1}, `{line}` — line {seen[name].Line} says the same, and a record has each field once"));
+                lines.RemoveAt(i--);
+                dropped++;
+            }
+            if (dropped > 0) File.WriteAllText(file, string.Join('\n', lines));
+        }
+        return changes;
+    }
+
     /// <summary>Throws what is wrong with the files, as the request's fault; answers how many there are, and those left out.</summary>
     public static (int Records, List<(string File, string Copy)> LeftOut) Require(string pluginDir, RecordIndex? index = null)
     {
