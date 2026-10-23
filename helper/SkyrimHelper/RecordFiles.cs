@@ -742,8 +742,9 @@ public static class RecordFiles
     /// plugin's record of another editor ID — or one that names nothing: no record of the load order, 000000, no
     /// FormKey at all. Answers each file and what was taken out. A new record has no FormKey line, and the refusal
     /// offered only that way (eval round 11's probes); refused, it was the refusal runs met most — 51 of 312 in eval
-    /// rounds 24–31, seven failed after it. A file under the name addPatch gives that record's copy is left to
-    /// Foreign: there another editor ID is an override renamed, which only the model can call a mistake.
+    /// rounds 24–31, seven failed after it. addPatch's copy given another editor ID too: refused as an override
+    /// renamed, it was met in three runs of eval rounds 32–33 and ended sword #4 of round 33 on an empty turn — a
+    /// copy is renamed for a new record. One of addPatch's copies that names no record is left to Foreign.
     /// </summary>
     public static List<(string File, string Change)> DropCopiedFormKeys(string pluginDir, RecordIndex index)
     {
@@ -754,13 +755,21 @@ public static class RecordFiles
             var text = File.ReadAllText(file);
             if (Empty(text) || FormKeyLine.Match(text) is not { Success: true } line) continue;
             var written = line.Groups[1].Value;
+            bool Copied(FormKey key) => Path.GetFileName(file).EndsWith($"{key.ID:X6}_{key.ModKey.FileName}.yaml", StringComparison.OrdinalIgnoreCase);
             string why;
             if (!FormKey.TryFactory(written, out var key)) why = $"'{written}' is no FormKey";
             else if (key.ID == 0) why = $"{Session.FormKeyText(key)} is no record's FormID";
-            else if (key.ModKey == own || Path.GetFileName(file).EndsWith($"{key.ID:X6}_{key.ModKey.FileName}.yaml", StringComparison.OrdinalIgnoreCase)) continue;
-            else if (!index.ByFormKey.TryGetValue(key, out var entry)) why = $"{Session.FormKeyText(key)} names no record in the load order";
+            else if (key.ModKey == own) continue;
+            else if (!index.ByFormKey.TryGetValue(key, out var entry))
+            {
+                if (Copied(key)) continue;
+                why = $"{Session.FormKeyText(key)} names no record in the load order";
+            }
             else if (Identity(text).EditorId is { } editorId && entry.EditorId is { } theirs && !editorId.Equals(theirs, StringComparison.OrdinalIgnoreCase))
-                why = $"{Session.FormKeyText(key)} is {theirs} of {key.ModKey.FileName}, and this file makes {editorId}";
+                why = Copied(key)
+                    ? $"{Session.FormKeyText(key)} is {theirs} of {key.ModKey.FileName}, and addPatch's copy of it was given the EditorID " +
+                        $"{editorId}, which makes it a new record and leaves {theirs} as it is"
+                    : $"{Session.FormKeyText(key)} is {theirs} of {key.ModKey.FileName}, and this file makes {editorId}";
             else continue;
             // The line with its line break: the lines below it move up one.
             var end = line.Index + line.Length;
