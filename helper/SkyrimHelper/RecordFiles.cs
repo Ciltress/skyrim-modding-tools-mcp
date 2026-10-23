@@ -367,7 +367,15 @@ public static class RecordFiles
                 $"{Moved(text, group.Key, group.Select(f => f.Key).ToList())})");
         var bare = hinted.Where(f => f.Hint is null).Select(f => f.Key).ToList();
         var them = bare.Count == 1 ? "it" : "them";
-        return string.Join(", ", named.Append(bare.Count == 0 ? "" : $"{string.Join(", ", bare)} (delete {them}: {Article(type.Name)} has {them} nowhere)")
+        // Fields of one other record type alone: an enchantment written in MagicEffects/, told to delete its EnchantType,
+        // Effects and EnchantmentAmount, deleted them, and ran out of turns (eval round 38's sword+detailed #3).
+        var owner = bare.Count == 0 ? [] : Groups.Where(g => g.Value is { IsAbstract: false } other && other != type && bare.All(FieldsOf(other).Contains))
+            .DistinctBy(g => g.Value).ToList();
+        var deleted = owner is [var (folder, of)]
+            ? $"{(bare.Count == 1 ? "it is" : "they are")} {Article(of!.Name)}'s, which {Article(type.Name)} has nowhere: if this is " +
+                $"{Article(of.Name)}, write it in {folder}/, and this file empty — the build leaves an empty record file out"
+            : $"delete {them}: {Article(type.Name)} has {them} nowhere";
+        return string.Join(", ", named.Append(bare.Count == 0 ? "" : $"{string.Join(", ", bare)} ({deleted})")
             .Where(s => s.Length > 0));
     }
 

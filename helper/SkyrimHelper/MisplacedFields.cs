@@ -60,7 +60,68 @@ public static class MisplacedFields
                 (parts.TryGetValue(part, out var keys) ? keys : parts[part] = []).Add(key);
         foreach (var (part, keys) in parts)
             if (Under(lines, root, type, part, keys) is { } under) return under;
-        return Up(lines, text, root, type, "", null, null, null);
+        return Up(lines, text, root, type, "", null, null, null) ?? Wrap(lines, root, type, "");
+    }
+
+    /// <summary>
+    /// A part written as one value where the part has a field of its own name — an NPC's `- Item: 04F78D:Skyrim.esm`
+    /// with `Count: 1` beside it, where an item is `Item:` with `Item:` and `Count:` below — written as that field, a
+    /// level deeper, with the one-line fields beside it that the part has. Refused, both runs of e4b's that wrote an
+    /// NPC's items so answered without building again (eval rounds 36 and 38). Walked as Up walks a record.
+    /// </summary>
+    private static Moved? Wrap(List<string> lines, YamlMappingNode mapping, Type type, string path)
+    {
+        if (mapping.Children.TryGetValue(new YamlScalarNode("MutagenObjectType"), out var kind)
+            && kind is YamlScalarNode { Value: { Length: > 0 } named } && RecordFiles.KindOf(type, named) is { } concrete)
+            type = concrete;
+        foreach (var (keyNode, value) in mapping.Children)
+        {
+            if (keyNode is not YamlScalarNode { Value: { } key } field) continue;
+            var property = type.GetProperties(Public).Where(p => p.Name == key).OrderBy(p => p.DeclaringType == type ? 0 : 1).FirstOrDefault();
+            if (property is null) continue;
+            var propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+            if (propertyType == typeof(string) || typeof(ITranslatedStringGetter).IsAssignableFrom(propertyType)
+                || RecordLinks.LinkTarget(propertyType) is not null) continue;
+            var fieldPath = path.Length == 0 ? key : $"{path}.{key}";
+            var listed = typeof(System.Collections.IEnumerable).IsAssignableFrom(propertyType);
+            if (value is YamlScalarNode { Value: { Length: > 0 } one } && propertyType.IsClass && !propertyType.IsAbstract && !listed
+                && propertyType.GetProperties(Public).Any(p => p.Name == key && p.CanWrite))
+                return Wrapped(lines, mapping, field, one, type, propertyType, fieldPath);
+            if (value is YamlMappingNode nested && !listed)
+            {
+                if (Wrap(lines, nested, propertyType, fieldPath) is { } moved) return moved;
+            }
+            else if (value is YamlSequenceNode items && RecordLinks.ElementType(propertyType) is { } element)
+                for (var i = 0; i < items.Children.Count; i++)
+                    if (items.Children[i] is YamlMappingNode inner && Wrap(lines, inner, element, $"{fieldPath}[{i}]") is { } moved)
+                        return moved;
+        }
+        return null;
+    }
+
+    /// <summary>The part at <paramref name="at"/>, written as <paramref name="one"/>, written as its own field below it, with those beside it it has.</summary>
+    private static Moved? Wrapped(List<string> lines, YamlMappingNode mapping, YamlScalarNode at, string one, Type type, Type part, string path)
+    {
+        var key = at.Value!;
+        var (line, column) = ((int)at.Start.Line - 1, (int)at.Start.Column - 1);
+        var beside = mapping.Children
+            .Where(c => c.Key is YamlScalarNode { Value: { } n } && n != key && n != "MutagenObjectType" && !Has(type, n) && part.GetProperties(Public).Any(p => p.Name == n))
+            .Select(c => (Key: (YamlScalarNode)c.Key, c.Value)).ToList();
+        // Only fields of one line, each on a line of its own: a block, or the field after a list item's dash, is left to the refusal.
+        if (beside.Any(b => b.Value is not YamlScalarNode || b.Value.End.Line != b.Key.Start.Line
+                || lines[(int)b.Key.Start.Line - 1][..((int)b.Key.Start.Column - 1)].Trim().Length > 0))
+            return null;
+        var rest = lines[line][(column + key.Length)..].TrimStart().TrimStart(':').Trim();
+        var taken = beside.Select(b => (Line: (int)b.Key.Start.Line - 1, Text: lines[(int)b.Key.Start.Line - 1].Trim())).ToList();
+        foreach (var (index, _) in taken.OrderByDescending(t => t.Line)) lines.RemoveAt(index);
+        var keyLine = line - taken.Count(t => t.Line < line);
+        var depth = new string(' ', column + 2);
+        lines[keyLine] = lines[keyLine][..column] + $"{key}:";
+        lines.InsertRange(keyLine + 1, taken.Select(t => depth + t.Text).Prepend($"{depth}{key}: {rest}"));
+        var names = beside.Select(b => b.Key.Value!).ToList();
+        return new Moved(string.Join('\n', lines),
+            $"moved `{key}: {one}`{(names.Count > 0 ? $" and {Quoted(names)}" : "")} under `{path}:` — it takes fields of its own, " +
+            string.Join(", ", part.GetProperties(Public).Where(p => p.CanWrite).Select(p => p.Name)));
     }
 
     /// <summary>
