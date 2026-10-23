@@ -145,11 +145,18 @@ export async function startProxy(ollama) {
                 });
             });
             upstream.on('error', error => {
+                if (entry.abandoned) return;
                 entry.error = error.message;
                 if (!res.headersSent) res.writeHead(502);
                 res.end();
             });
-            res.on('close', () => { if (!res.writableEnded) entry.abandoned = true; });
+            // Given up on, the request is ended at Ollama too: left open, bonsai's looping turn went on 36 minutes after
+            // its run timed out at 20, and the next run's first turn waited 17 of them (eval round 33).
+            res.on('close', () => {
+                if (res.writableEnded) return;
+                entry.abandoned = true;
+                upstream.destroy();
+            });
             upstream.end(raw);
         });
     });
