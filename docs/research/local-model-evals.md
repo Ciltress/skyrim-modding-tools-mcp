@@ -14,7 +14,8 @@ npm run eval:ollama -- --client openclaw --model gemma4:e4b --openclaw-agent sky
 From round 23 a round measures gemma4:e4b alone: what the smallest model gets done, the larger ones get
 done too — in round 22, 26b passed 39 of 39 and 12b 37 where e4b passed 33 — and an e4b round takes 40
 minutes where all three took four hours. Until round 22, e4b probes went unrecorded, and the round was
-every model's.
+every model's. From round 32 the user's 27B models run beside e4b, each a row of its own: bonsai-2:27b
+(`--openclaw-agent skyrim`) and Swift-1.5 27B IQ2_S (`skyrim-swift`); gemma4:12b and 26b are gone from the machine.
 
 [`scripts/eval-ollama.mjs`](../../scripts/eval-ollama.mjs) runs the tasks below through the built
 server against the instance in `.env`, with its own agent loop on Ollama's `/api/chat`, then measures
@@ -88,9 +89,11 @@ with thinking off. The script measures it after the tasks, apart from them: thei
 Ollama's prompt cache and answer in a few dozen tokens, so figures taken from them would not compare.
 *GPU*: the share of the model Ollama put on the GPU.
 
-**The machine**, unless a round says otherwise: Windows 11, RTX 5080 16 GB, 32 GB RAM; Ollama 0.40.4
-with `OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0`; num_ctx 131072; the model's own defaults
-otherwise (gemma4: thinking on, temperature 1); three runs per task, seeds 1001–1003 — since round 32 one run each
+**The machine**, unless a round says otherwise: Windows 11, RTX 5080 16 GB, 32 GB RAM; Ollama 0.40.6 (0.40.4
+before 2026-10-17) with `OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0`; num_ctx 131072; the model's own defaults
+otherwise (gemma4: thinking on, temperature 1; bonsai-2:27b: temperature 1 set in OpenClaw, its Modelfile's top_k 20,
+top_p 0.95, min_p 0.05; Swift-1.5: temperature 1, top_p 0.95, top_k 20, min_p 0 from its model card, `think: true`,
+which its template takes as `xhigh`); three runs per task, seeds 1001–1003 — since round 32 one run each
 of the five reading and patching tasks and five of each authoring task (`--runs 1 --authoring-runs 5`). The instance is
 the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods.
 
@@ -155,6 +158,9 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-21 | gemma4:e4b | `all`, OpenClaw | 3d33746 | 37/39 | 3.32 s | ~7,407 tokens/s | ~182 tokens/s | 100% |
 | 2026-10-22 | gemma4:e4b | `all`, OpenClaw | bb2fb81 | 39/39 | 3.63 s | ~6,861 tokens/s | ~155 tokens/s | 100% |
 | 2026-10-22 | gemma4:e4b | `all`, OpenClaw | bf66bbe | 34/39 | 3.59 s | ~7,071 tokens/s | ~168 tokens/s | 100% |
+| 2026-10-22 | gemma4:e4b | `all`, OpenClaw | c676b39 | 41/45 | 3.7 s | ~7,176 tokens/s | ~182 tokens/s | 100% |
+| 2026-10-22 | bonsai-2:27b | `all`, OpenClaw | 257d32b | 45/45 | 22.34 s | ~2,163 tokens/s | ~73 tokens/s | 100% |
+| 2026-10-23 | Swift-1.5 27B IQ2_S | `all`, OpenClaw | 257d32b | 45/45 | 8.52 s | ~1,909 tokens/s | ~64 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -275,59 +281,6 @@ model's: four turns lost calling `skills_read` with `skill:` instead of `name:`,
 effect on the enchantment, refused by the build, and the turns ran out. (The seconds do not compare: the
 GPU ran the second half at ~184 tokens/s of prompt against ~891.)
 
-## Round 30 — how `edit` finds its old text, gemma4:e4b alone (2026-10-22)
-
-**Changed before it** — round 29's lost sword typed a line break in an edit's old text as `\n` (bb2fb81):
-
-- The modding agent's AGENTS.md, which OpenClaw puts into every prompt, says below the bullet on `write`
-  and `edit`: "`edit` finds each `oldText` exactly as the file holds it: whole lines with their indentation,
-  and real line breaks — never `\n` typed. `edit` refused: `read` the file, then edit what it holds now."
-  The user's workspace copy got the same two lines, since setup keeps a workspace file that exists.
-
-gemma4:e4b, `all`, OpenClaw (prompt ~6,861 tokens/s, generation ~155 tokens/s):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 3/3 | 2 | 1 | 0 | 0 | 11542 | 92 |
-| read | 3/3 | 3.3 | 2.3 | 1 | 0 | 12696 | 42.1 |
-| filter | 3/3 | 2 | 1 | 0 | 0 | 10197 | 39.9 |
-| patch | 3/3 | 6.3 | 5.3 | 1 | 0 | 19323 | 50.7 |
-| build | 3/3 | 7.7 | 6.7 | 0 | 0 | 20065 | 48.5 |
-| sword | 3/3 | 17.7 | 17 | 5 | 9 | 26782 | 99.8 |
-| sword+detailed | 3/3 | 13 | 12 | 3 | 0 | 25879 | 84.1 |
-| spell | 3/3 | 7.7 | 6.7 | 0 | 1 | 17098 | 55 |
-| spell+detailed | 3/3 | 10.3 | 9.3 | 3 | 2 | 18786 | 67.3 |
-| npc | 3/3 | 15.7 | 14.7 | 6 | 8 | 26853 | 115.4 |
-| npc+detailed | 3/3 | 11.3 | 10.3 | 4 | 3 | 32195 | 70.7 |
-| note | 3/3 | 6 | 5.3 | 0 | 0 | 18236 | 56.9 |
-| note+detailed | 3/3 | 9 | 8 | 3 | 0 | 19047 | 67.6 |
-
-Through OpenClaw 2026.10.4 (383c124): first prompt 9,857 tokens (round 29: 9,794; 26 tools, 16 of them this
-server's), think high, num_ctx 131072, no answer cap; no answer cut off, no turn ended at the length limit, no
-side request; first token after 1.8 s, the median of the first turns.
-
-**Seen.**
-
-- **e4b 39 of 39** (round 29: 37), its first full pass of the 39 tasks. Its turns took 3.63 s (3.32).
-  Rounds 26–30 passed 38, 35, 34, 37 and 39 — within the noise of about ±3.
-- **No edit typed a line break as `\n`** (rounds 24–29: four runs, six edits in round 29's lost sword). The
-  second half of the line went unheeded: one refused edit of 22 was followed by a read (rounds 25–29: 2 of
-  59). The edit tool refused more than in any round since 24 — 22 of 52 edits (rounds 25–29: 9–16 of 29–39).
-- **Six refused edits went to a file the build had renamed**, all in NPC runs. npc #3 built Hilda with a
-  man's voice; the warning named the file
-  `Npcs/HildaTheNordNPC - 000800_HildaTheNord.esp.yaml (named Npcs/HildaTheNordNPC.yaml until this build numbered it)`.
-  e4b edited the old name five times, read it once, then wrote it anew under the old name with a FormKey
-  copied; three builds later the project held two NPCs and the warning was still there. Rounds 25–29 had
-  seven such edits in six runs; round 28's npc #2 failed after them.
-- **Seven refused edits copied a link comment the file does not have.** sword #2 read BoundWeaponSword with
-  readRecord, copied it with addPatch, and edited `ObjectEffect: 069CE7:Skyrim.esm  # BoundSwordEnchantment`
-  as readRecord shows it. addPatch's copy has the FormID bare. It sent the same edit seven times; the eighth,
-  without the comment, matched. This is the first time in rounds 24–30.
-
-**What it points at next:** two causes on the server's side, both in the files a model edits. A build that
-succeeds renames a new record's file, and the model goes on editing the old name. addPatch's copy has no link
-comments, while readRecord's text, which models copy their edits from, has them.
-
 ## Round 31 — files keep their names, addPatch's copies show editor IDs, gemma4:e4b alone (2026-10-22)
 
 **Changed before it** — what round 30 pointed at, both the user's choice (440fd9d):
@@ -382,3 +335,107 @@ so rounds from 32 on run without them and without OpenClaw's background learning
 **What it points at next:** nothing new on the server's side. Whether the editor IDs in addPatch's copies
 cost more than they save shows only over more rounds: one round found seven edits lost without them, the
 next three with them.
+
+## Round 32 — the build corrects what has one right fix; bonsai-2:27b and Swift-1.5 27B beside e4b (2026-10-22/23)
+
+**Changed before it:**
+
+- The build corrects what has one right fix instead of refusing it (79459b2, the user's choice): a `FormKey`
+  copied into a new record — or a placeholder, `000000`, one naming no record — is taken out and the record
+  numbered; escapes copied out of a JSON answer are written as the line means. Each is listed in the answer's
+  `corrected`, with its file; a refusal after it names them as "Corrected in the files already". A copy under
+  addPatch's file name given another editor ID stays refused: an override renamed is the model's call.
+- Five runs of each authoring task, one of the five others (`--runs 1 --authoring-runs 5`, d50a876): 45 runs a
+  model, 40 of them authoring.
+- OpenClaw's own skill reviews are off (`skills.workshop.autonomous.mode off`): one had run gemma4:12b during
+  round 31's warm-up.
+- Two new models, the user's, gemma4:12b and 26b being gone from the machine: **bonsai-2:27b** (Qwen3.5
+  family, 26.9B, Q2_0) through the `skyrim` agent, and **Swift-1.5 27B** (`hf.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF:IQ2_S`,
+  a fine-tune of Qwen3.8-27B) through `skyrim-swift`, both at 128k. Before their parts, at the user's word:
+  temperature 1 for bonsai, and the line "Don't overthink: decide, then deliver the task." in the Skyrim
+  workspace's AGENTS.md and setup's (95a3ec1) — e4b's part ran before it. Swift has the sampling its model
+  card gives (temperature 1, top_p 0.95, top_k 20, min_p 0). The eval now records the temperature it sends and
+  names the build it started on (257d32b): e4b's row had named 95a3ec1, a commit made during its last task.
+
+gemma4:e4b, `all`, OpenClaw, at c676b39 (prompt ~7,176 tokens/s, generation ~182 tokens/s; first prompt 9878 tokens (26 tools, 16 of them this server's), think high, num_ctx 131072, num_predict none, first token after 1.77 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 1/1 | 2 | 1 | 0 | 0 | 11493 | 67.6 |
+| read | 1/1 | 3 | 2 | 0 | 0 | 12638 | 41 |
+| filter | 1/1 | 2 | 1 | 0 | 0 | 10217 | 39.5 |
+| patch | 1/1 | 6 | 5 | 0 | 0 | 17984 | 46.2 |
+| build | 1/1 | 7 | 6 | 0 | 0 | 18276 | 47 |
+| sword | 5/5 | 11.8 | 11 | 2 | 4 | 24625 | 78.1 |
+| sword+detailed | 5/5 | 13 | 12 | 7 | 5 | 30766 | 90.5 |
+| spell | 5/5 | 6.2 | 5.6 | 0 | 0 | 16789 | 48.2 |
+| spell+detailed | 5/5 | 6 | 5.2 | 0 | 0 | 16567 | 44.7 |
+| npc | 3/5 | 12.4 | 11.6 | 11 | 4 | 20470 | 72.9 |
+| npc+detailed | 4/5 | 14.4 | 13.6 | 10 | 6 | 19578 | 86.1 |
+| note | 5/5 | 7 | 6 | 3 | 0 | 14484 | 59.1 |
+| note+detailed | 4/5 | 6.8 | 5.8 | 0 | 0 | 18376 | 52.4 |
+
+bonsai-2:27b, `all`, OpenClaw, at 257d32b (prompt ~2,163 tokens/s, generation ~73 tokens/s; first prompt 10255 tokens (26 tools, 16 of them this server's), think high, num_ctx 131072, num_predict none, temperature 1, first token after 1.393 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 1/1 | 2 | 1 | 0 | 0 | 11853 | 48.3 |
+| read | 1/1 | 3 | 2 | 0 | 0 | 13015 | 39.6 |
+| filter | 1/1 | 2 | 1 | 0 | 0 | 10969 | 47.6 |
+| patch | 1/1 | 6 | 7 | 0 | 0 | 22860 | 100.7 |
+| build | 1/1 | 6 | 6 | 0 | 0 | 20009 | 49.8 |
+| sword | 5/5 | 6.8 | 9.2 | 1 | 0 | 28132 | 416.5 |
+| sword+detailed | 5/5 | 7.4 | 10.6 | 2 | 0 | 28727 | 273.6 |
+| spell | 5/5 | 6.8 | 8.8 | 2 | 0 | 22786 | 90.5 |
+| spell+detailed | 5/5 | 6.6 | 7.4 | 1 | 0 | 22529 | 86.6 |
+| npc | 5/5 | 7.8 | 9.6 | 0 | 0 | 25156 | 86.8 |
+| npc+detailed | 5/5 | 6.8 | 7.4 | 0 | 0 | 26194 | 91.6 |
+| note | 5/5 | 7 | 7.8 | 0 | 0 | 19486 | 217.2 |
+| note+detailed | 5/5 | 6.2 | 7.2 | 0 | 0 | 22894 | 306.1 |
+
+Swift-1.5 27B IQ2_S, `all`, OpenClaw, at 257d32b (prompt ~1,909 tokens/s, generation ~64 tokens/s; first prompt 10352 tokens (26 tools, 16 of them this server's), think true, num_ctx 131072, num_predict none, temperature 1, first token after 0.869 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 1/1 | 2 | 1 | 0 | 0 | 11929 | 49.2 |
+| read | 1/1 | 2 | 3 | 0 | 0 | 17494 | 41.7 |
+| filter | 1/1 | 2 | 1 | 0 | 0 | 10994 | 41.2 |
+| patch | 1/1 | 6 | 6 | 0 | 0 | 20743 | 55.8 |
+| build | 1/1 | 5 | 6 | 0 | 0 | 20049 | 61.4 |
+| sword | 5/5 | 6.4 | 8.4 | 0 | 0 | 27211 | 122.5 |
+| sword+detailed | 5/5 | 6.6 | 10.8 | 0 | 0 | 31207 | 118.4 |
+| spell | 5/5 | 5.4 | 6.6 | 0 | 0 | 19900 | 59.9 |
+| spell+detailed | 5/5 | 7 | 7.8 | 0 | 0 | 26340 | 78.1 |
+| npc | 5/5 | 6 | 6.8 | 1 | 0 | 26382 | 61.7 |
+| npc+detailed | 5/5 | 6.6 | 7 | 1 | 0 | 18967 | 67.4 |
+| note | 5/5 | 5.6 | 7 | 0 | 0 | 18631 | 67.6 |
+| note+detailed | 5/5 | 6.4 | 7.2 | 0 | 0 | 22433 | 80.7 |
+
+**Seen.**
+
+- **e4b 41 of 45**, round 31 34 of 39 — the same within the noise. **The corrections worked:** in 15 of its
+  45 runs the build corrected something — a `FormKey` copied from IronSword or Maven's note in 11, copied
+  escapes in 3 — and 11 of those built at once. No run met the copied-FormKey refusal; in round 31, six had,
+  and one failed after it.
+- **Three of e4b's four misses were one NPC mistake:** Hilda's `Level`, `CalcMinLevel` and `CalcMaxLevel` in
+  the wrong place, the refusal saying where they go. npc #3 nested them inside `Level`, then wrote all four in
+  `Level`'s braces, wrote the right lines once and overwrote them before its next build, and ran out of turns;
+  npc #4 wrote them at the margin, then claimed a build it never ran; npc+detailed #5 wrote them as items of
+  `Flags`, then indented the rest of the record under `Configuration`, and ran out of turns. The fourth,
+  note+detailed #5, copied Maven's text instead of writing its own.
+- **bonsai-2:27b 45 of 45**, with one build refusal in 45 runs and no correction needed. It wrote files whole —
+  2 edits in the round, against e4b's 39 (19 of them refused) — often made several calls in a turn, and took
+  fewer turns than e4b: a sword in 6.8 (e4b 11.8), an NPC in 7.8 (12.4). It is slow: 22 s a turn, a sword run
+  7 minutes on average and 17 at most, the round 136 minutes (e4b 48). At 256k first, 29% of its 19 GB went
+  to the CPU and the first task took 103 s against 48 at 128k; the user set it back to 128k.
+- **Swift-1.5 27B 45 of 45**, one build refusal, 3 edits, none refused, in 59 minutes: it thinks little — a
+  turn's median 459 characters of thinking, e4b's 1,090, bonsai's 929 — and a turn takes 8.5 s. Its first
+  attempt failed on every request: its chat template takes the reasoning efforts `xhigh` (its default),
+  `medium` and `low`, and raises on the `high` OpenClaw sends for thinking max, which Ollama answers with 500.
+  OpenClaw sends a model entry's own `think` only where the agent's thinking is off: so the Swift agents'
+  thinking is off and the model entry's `params.think` is true, which reaches the template as its default.
+
+**What it points at next:** the misplaced field. 13 of the 27 runs e4b failed in rounds 23–32 had been told
+to move a field, three of round 32's four; the branch `build-moves-misplaced-fields` (0d195bb) moves one with
+one place to go, as the copied `FormKey` is taken out. The two 27B models got everything done with almost no
+help from the server's refusals: what holds them back is time, bonsai's most.
