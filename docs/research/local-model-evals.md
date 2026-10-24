@@ -54,7 +54,7 @@ OpenClaw it is left out of the list).
 | filter | three armor pieces Dawnguard.esm adds, with FormIDs | three FormIDs that are ARMO records defined in Dawnguard.esm |
 | patch | a patch IronSwordBuff raising the Iron Sword's damage to 12, not built | the project's copy has `Damage: 12`, its editor ID and its weight unchanged |
 | build | a patch SteelSwordLight in which the Steel Sword weighs 5, built | the copy has `Weight: 5`, and buildProject succeeded and wrote the plugin |
-| sword | a new mod FlameBlade: a new one-handed sword "Flame Blade" with a fire damage enchantment, built | a new weapon of that name (its FormID in the project's own plugin), a one-handed sword, whose enchantment lists a fire effect (`ResistValue: ResistFire`), and the build succeeded |
+| sword | a new mod FlameBlade: a new one-handed sword "Flame Blade" with a fire damage enchantment, built | a new weapon of that name (its FormID in the project's own plugin), a one-handed sword the player can carry (no `NonPlayable` or `BoundWeapon` among its flags, from round 45), whose enchantment lists a fire effect (`ResistValue: ResistFire`), and the build succeeded |
 | spell | a new mod StormBolt: a new Destruction spell "Storm Bolt" that deals shock damage, built | a new spell of that name, with an effect of the Destruction school and a shock effect (`ResistShock`), and the build succeeded |
 | npc | a new mod HildaTheNord: one new NPC, a female Nord named "Hilda", built | a new NPC of that name, of the race NordRace (read from the instance), flagged Female, and the build succeeded |
 | note | a new mod MavenNote: a new note "Maven's Warning" with exactly the text of the vanilla note "Note From Maven", built | a new book of that name whose text is the vanilla one (read from the instance; whitespace collapsed, so how a block is folded does not count, but a `\"` or `\n` left in does), and the build succeeded |
@@ -64,6 +64,14 @@ of them holds an escape a copy should have decoded — a doubled backslash or a 
 double-quoted string, or one still there once the string is decoded. It is what copying a JSON string
 as it reads leaves: e4b wrote `File: Weapons\\Iron\\Sword.nif` in rounds 12–13. `note` (from round 15)
 is the task built to show it: a text with quotes and line breaks, and a model path with backslashes.
+
+**A sword the player can carry** (from round 45): the sword check fails a sword flagged `NonPlayable` or
+`BoundWeapon`, a conjured weapon kept out of the player's inventory. findRecords answered the Bound Sword
+first for "sword" from round 30 to 44, and 10 of e4b's swords of rounds 31–44 were copied from it with its
+flags; 9 of those runs passed before. Counted so, replayed from each run's writes and edits, e4b would have
+had 33 of 39 in round 31 (34 recorded), 40 of 45 in round 32 (41), 41 in round 33 (42), 40 in round 36 (42),
+38 in round 37 (39), 42 in round 38 (43), 41 in round 40 (42) and 43 in round 44 (44). The rows keep the
+counts as recorded; Swift built no such sword.
 
 The authoring tasks (from round 9) author new records by hand, following vanilla ones. A link — the sword's
 enchantment, a spell's effects — is followed into the project when the model wrote the record there,

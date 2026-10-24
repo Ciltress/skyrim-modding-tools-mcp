@@ -502,6 +502,9 @@ const TASKS = [
             return {
                 newSword: !!sword,
                 oneHandedSword: !!sword && (/AnimationType:[ \t]*OneHandSword/.test(sword.text) || sword.text.includes('01E711:Skyrim.esm')),
+                // A sword the player can carry: copied from the Bound Sword, 10 of e4b's of rounds 31–44 kept its
+                // NonPlayable and BoundWeapon flags — a conjured weapon, kept out of the inventory — and 9 passed without this.
+                playable: !!sword && !/^[ \t]+-[ \t]*(?:NonPlayable|BoundWeapon)[ \t]*\r?$|^[ \t]*Flags:[ \t]*\[[^\]\r\n]*\b(?:NonPlayable|BoundWeapon)\b/m.test(sword.text),
                 fireEnchantment: effects.some(text => /^ResistValue:[ \t]*ResistFire[ \t]*\r?$/m.test(text)),
                 built: builtProject('FlameBlade', calls)
             };
