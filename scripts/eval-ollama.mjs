@@ -577,6 +577,33 @@ function leftEscapes() {
     });
 }
 
+/** A record's text with its link comments, line ends and trailing spaces aside — `# IronSword` after a FormID. */
+const bareRecord = text => text.replace(/\r\n/g, '\n').replace(/([0-9A-Fa-f]{6}:\S+\.es[mpl])[ \t]+#[^\n]*/gi, '$1')
+    .split('\n').map(line => line.trimEnd()).join('\n').trimEnd();
+
+/**
+ * The run's overrides that change nothing, as `project: FormKey`: each file reads as readRecord shows the record in a
+ * plugin other than the project's own. Such a copy only undoes, in game, what mods loaded before it change there.
+ */
+async function unchangedCopies() {
+    const copies = [];
+    for (const project of fs.existsSync(projectsDir) ? fs.readdirSync(projectsDir) : []) {
+        const { plugin, records } = projectRecords(project);
+        for (const { formKey, text } of records) {
+            if (!plugin || !formKey || formKey.toLowerCase().endsWith(`:${plugin.toLowerCase()}`)) continue;
+            try {
+                const theirs = (await callServerJson('readRecord', { record: formKey })).versions
+                    ?.find(v => v.plugin?.toLowerCase() !== plugin.toLowerCase());
+                if (theirs?.files?.length === 1 && typeof theirs.files[0].text === 'string'
+                    && bareRecord(theirs.files[0].text) === bareRecord(text)) copies.push(`${project}: ${formKey}`);
+            } catch {
+                // A FormKey the load order lacks, or an answer cut short: no copy of a record it has.
+            }
+        }
+    }
+    return copies;
+}
+
 const wanted = opt.tasks ? opt.tasks.split(',').map(s => s.trim()) : TASKS.map(t => t.id);
 const unknownTasks = wanted.filter(id => !TASKS.some(t => t.id === id));
 if (unknownTasks.length) fail(`unknown task(s) ${unknownTasks.join(', ')}; the tasks are ${TASKS.map(t => t.id).join(', ')}.`);
@@ -724,8 +751,12 @@ async function resultOf(task, run, { answer, calls, stop, turns, started, histor
         : {};
     // Every task that leaves record files is held to them having no escapes a copy should have decoded.
     const escapes = leftEscapes();
+    // And to keeping no copy of a record that changes nothing: 6 of e4b's sword runs of rounds 33–43 passed with the Iron
+    // Sword or a fire enchantment copied with addPatch and built into the plugin untouched, beside the new sword.
+    const copies = Object.keys(checks).length ? await unchangedCopies() : [];
     if (Object.keys(checks).length && filesUnder(projectsDir).some(file => file.endsWith('.yaml'))) {
         checks.noEscapesCopied = escapes.length === 0;
+        checks.noUnchangedCopy = copies.length === 0;
     }
     return {
         task: task.id,
@@ -733,6 +764,7 @@ async function resultOf(task, run, { answer, calls, stop, turns, started, histor
         ...(task.preread ? { preread: task.preread } : {}),
         success: Object.keys(checks).length > 0 && Object.values(checks).every(Boolean),
         checks,
+        ...(copies.length ? { unchangedCopies: copies } : {}),
         stop,
         turns: turns.length,
         calls: calls.length,

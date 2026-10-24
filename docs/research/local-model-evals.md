@@ -74,6 +74,16 @@ had 33 of 39 in round 31 (34 recorded), 40 of 45 in round 32 (41), 41 in round 3
 38 in round 37 (39), 42 in round 38 (43), 41 in round 40 (42) and 43 in round 44 (44). The rows keep the
 counts as recorded; Swift built no such sword.
 
+**No copy that changes nothing** (from round 46's Swift half): every task that leaves record files also
+passes only when none of them overrides a record and changes nothing in it — a file that reads, its link
+comments aside, as `readRecord` shows the record in a plugin other than the project's own. In game such a copy
+only undoes what mods loaded before it change there. Round 46's e4b half ran before the script checked it,
+and is counted by replay. Replayed from each run's addPatch copies, writes and the edits that applied, 7 of
+e4b's passing runs of rounds 33–45 left one: the Iron Sword or a fire enchantment, copied with addPatch and
+built untouched beside the new sword. Counted so, with the sword check above, e4b would have had 40 of 45 in
+round 33 (42 recorded), 40 in round 35 (42), 39 in round 36 (42), 40 in round 42 (41), 40 in round 43 (41) and
+42 in round 45 (43). The rows keep the counts as recorded; Swift left no such copy.
+
 The authoring tasks (from round 9) author new records by hand, following vanilla ones. A link — the sword's
 enchantment, a spell's effects — is followed into the project when the model wrote the record there,
 and into the load order (through `readRecord`) when it used a vanilla one; either passes.
