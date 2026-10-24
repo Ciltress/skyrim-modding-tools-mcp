@@ -17,6 +17,13 @@ public static class ProjectNotes
     private static readonly Regex TemplateLine = new(@"^Template:[ \t]*\S", RegexOptions.Multiline);
     private static readonly Regex NameLine = new(@"^Name[ \t]*:", RegexOptions.Multiline);
     private static readonly Regex EffectsLine = new(@"^Effects[ \t]*:", RegexOptions.Multiline);
+    private static readonly Regex DestructionLine = new(@"^MagicSkill:[ \t]*Destruction\b", RegexOptions.Multiline);
+    private static readonly Regex DetrimentalFlag = new(@"^[ \t]*-[ \t]*Detrimental[ \t]*\r?$|^Flags:[ \t]*\[[^\]\r\n]*\bDetrimental\b", RegexOptions.Multiline);
+    // An Archetype that changes an actor value by the magnitude — its Type written so, or left out, as a value modifier's is.
+    private static readonly Regex ChangedValue = new(
+        @"^Archetype:[ \t]*\r?\n(?:[ \t]+(?!Type:)[^\r\n]*\r?\n|[ \t]+Type:[ \t]*(?:Dual|Peak)?ValueModifier[ \t]*\r?\n)*?[ \t]+ActorValue:[ \t]*(Health|Magicka|Stamina)\b",
+        RegexOptions.Multiline);
+    private static readonly Regex OtherArchetype = new(@"^Archetype:[ \t]*\r?\n(?:[ \t]+[^\r\n]*\r?\n)*?[ \t]+Type:[ \t]*(?!(?:Dual|Peak)?ValueModifier\b)\w+", RegexOptions.Multiline);
 
     /// <summary>The record types whose work is their Effects: each item a magic effect, with its strength.</summary>
     private static readonly HashSet<string> Effected = new(StringComparer.Ordinal) { "Spell", "ObjectEffect", "Ingestible", "Ingredient", "Scroll" };
@@ -68,6 +75,14 @@ public static class ProjectNotes
                 notes.Add($"{relative}: {RecordFiles.Identity(text).EditorId ?? RecordFiles.Article(type.Name)} has no Effects, so it " +
                     "does nothing — each item of `Effects` names a magic effect as `- BaseEffect: X`, with its `Data` (Magnitude, Area, " +
                     "Duration) below, as readRecord shows a vanilla one");
+            // A Destruction effect that changes Health, Magicka or Stamina without the Detrimental flag restores it: e4b's
+            // Storm Bolt was a name, a school and an actor value, and healed its target (eval round 40's spell+detailed #3).
+            // 170 of the load order's 181 such effects are flagged so; the rest are a quest's fakes and Dragonborn's spiders.
+            if (type == typeof(MagicEffect) && DestructionLine.IsMatch(text) && !DetrimentalFlag.IsMatch(text)
+                && !OtherArchetype.IsMatch(text) && ChangedValue.Match(text) is { Success: true } changed)
+                notes.Add($"{relative}: {RecordFiles.Identity(text).EditorId ?? RecordFiles.Article(type.Name)} changes {changed.Groups[1].Value} " +
+                    "without the Detrimental flag, so it restores it — a damage effect has `- Detrimental` and `- Hostile` among its Flags, " +
+                    "as readRecord {\"record\": \"ShockDamageFFAimed\"} shows; one meant to restore can go without");
             if (type == typeof(Npc) && Voice(text, index, cache) is { } voice
                 && !(TemplateLine.IsMatch(text) && text.Contains("Traits", StringComparison.Ordinal)))
             {

@@ -255,7 +255,7 @@ public static class RecordFiles
     /// line, a field of one value to rename is answered as the line to write: told "an enchantment is
     /// ObjectEffect", a model wrote <c>EnchantmentID</c> (eval round 11's probes).
     /// </summary>
-    private static string? Hint(Type type, HashSet<string> known, string key, string? value = null)
+    private static string? Hint(Type type, HashSet<string> known, string key, string? value = null, IReadOnlyList<string>? values = null)
     {
         string Rename(string field, string otherwise) =>
             value is { Length: > 0 } && OneValue(type, field) ? $"write it as `{field}: {value}`" : otherwise;
@@ -267,7 +267,7 @@ public static class RecordFiles
             return Rename(number, $"it is spelled {number}");
         // "Move", not "it goes": told Value and Weight go under BasicStats, a model added BasicStats and kept
         // them at the top level, build after build (eval probe 7 after round 11).
-        if (Under(type, key) is { } path) return $"move it {path}";
+        if (Under(type, key, values) is { } path) return $"move it {path}";
         // One letter off one field of the type: HalflCostPerk, told "delete it", was deleted, written back and deleted
         // again until the turns ran out (eval round 37's spell+detailed #3).
         return known.Where(k => OneEditApart(k, key)).ToList() is [var near] ? Rename(near, $"it is spelled {near}") : null;
@@ -300,9 +300,11 @@ public static class RecordFiles
     /// Where a field of the record's parts is, two levels deep at most, the nearest first, and at one
     /// depth a part before a list's items: "under BasicStats", "under Data, in each item of Effects". A
     /// magic effect's <c>Type</c> is its Archetype's, not a sound's. Only the parts Mutagen makes for
-    /// Skyrim are followed — a link's FormKey, a text's Value are no field a record is written with.
+    /// Skyrim are followed — a link's FormKey, a text's Value are no field a record is written with. Of two parts at one
+    /// depth with the field, the one whose field takes the <paramref name="values"/> written: a weapon's Flags are
+    /// Data's and Critical's, and OnDeath is only Critical's — sent to Data, e4b ran out of turns (eval round 40's sword #2).
     /// </summary>
-    private static string? Under(Type type, string key)
+    private static string? Under(Type type, string key, IReadOnlyList<string>? values = null)
     {
         const BindingFlags Public = BindingFlags.Public | BindingFlags.Instance;
         var level = new List<(Type Part, string Path, bool Listed)> { (type, "", false) };
@@ -323,10 +325,31 @@ public static class RecordFiles
             // of several kinds has the fields of each: Archetype's Type is MagicEffectArchetype's.
             var hits = next.Where(n => (n.Part.IsAbstract ? Parts.Value.Where(n.Part.IsAssignableFrom) : [n.Part])
                 .Any(kind => kind.GetProperties(Public).Any(p => p.Name.Equals(key, StringComparison.OrdinalIgnoreCase)))).ToList();
+            if (hits.Count > 1 && values is { Count: > 0 } && hits.Where(h => Takes(h.Part, key, values)).ToList() is [var fits]) return fits.Path;
             if (hits.Count > 0) return hits.OrderBy(h => h.Listed).First().Path;
             level = next;
         }
         return null;
+    }
+
+    /// <summary>Whether a part's field of names takes each of the values: a flag or a kind its enum has.</summary>
+    private static bool Takes(Type part, string key, IReadOnlyList<string> values)
+    {
+        if (part.GetProperties(BindingFlags.Public | BindingFlags.Instance).FirstOrDefault(p => p.Name == key) is not { } property) return false;
+        var type = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+        if (type.IsGenericType && typeof(System.Collections.IEnumerable).IsAssignableFrom(type)) type = type.GetGenericArguments()[0];
+        return type.IsEnum && values.All(v => Enum.GetNames(type).Contains(v, StringComparer.OrdinalIgnoreCase));
+    }
+
+    /// <summary>The values a top-level field is written with: its one value, a list in brackets, or the items listed below it.</summary>
+    private static List<string> ValuesOf(string text, string key)
+    {
+        var block = BlockOf(text, key);
+        if (block.Length == 0) return [];
+        var first = Regex.Replace(block.Split('\n')[0][(key.Length + 1)..], @"[ \t]#.*$", "").Trim();
+        if (first.Length > 0) return first.Trim('[', ']').Split(',').Select(v => v.Trim()).Where(v => v.Length > 0).ToList();
+        return block.Split('\n').Skip(1).Select(line => Regex.Match(line, @"^[ \t]*-[ \t]*([^\s#]+)")).Where(m => m.Success)
+            .Select(m => m.Groups[1].Value).ToList();
     }
 
     /// <summary>Where a record type has a field: "at the top level", "under Data", or null for nowhere.</summary>
@@ -348,7 +371,7 @@ public static class RecordFiles
     internal static string? PartFor(Type type, string key, string text)
     {
         if (type.Name == "Npc" && key is "Level" or "CalcMinLevel" or "CalcMaxLevel") return "Configuration";
-        var hint = DataHint(type, key, text) ?? Hint(type, FieldsOf(type), key, ValueOf(text, key));
+        var hint = DataHint(type, key, text) ?? Hint(type, FieldsOf(type), key, ValueOf(text, key), ValuesOf(text, key));
         return hint is not null && Regex.Match(hint, @"^move it under (?<part>\w+)$") is { Success: true } move ? move.Groups["part"].Value : null;
     }
 
@@ -361,7 +384,7 @@ public static class RecordFiles
     /// </summary>
     private static string Unknown(Type type, HashSet<string> known, IEnumerable<string> keys, string text)
     {
-        var hinted = keys.Select(key => (Key: key, Hint: DataHint(type, key, text) ?? Hint(type, known, key, ValueOf(text, key)))).ToList();
+        var hinted = keys.Select(key => (Key: key, Hint: DataHint(type, key, text) ?? Hint(type, known, key, ValueOf(text, key), ValuesOf(text, key)))).ToList();
         var named = hinted.Where(f => f.Hint is not null).GroupBy(f => f.Hint!).Select(group => group.Count() == 1
             ? $"{group.First().Key} ({group.Key}{Moved(text, group.Key, [group.First().Key])})"
             : $"{string.Join(", ", group.Select(f => f.Key))} ({Regex.Replace(group.Key, @"^(move it|it is)\b", m => m.Groups[1].Value == "move it" ? "move them" : "they are")}" +
