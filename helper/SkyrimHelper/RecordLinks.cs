@@ -71,6 +71,7 @@ public static class RecordLinks
             }
             if (yaml.Documents.Count == 0 || yaml.Documents[0].RootNode is not YamlMappingNode root) continue;
             if (FieldInText(text, type, root) is { } swallowed) problems.Add($"{relative}: {swallowed}");
+            if (TakenEditorId(text, index, ownPlugin) is { } taken) problems.Add($"{relative}: {taken}");
             // What every official weapon or armor of its kind carries itself, named with the links' problems.
             if (RecordFiles.Identity(text).FormKey is not { } written || written.ModKey == ownPlugin)
                 if (RecordFiles.Uncarried(type, text, index) is { } uncarried) problems.Add($"{relative}: {uncarried}");
@@ -668,6 +669,24 @@ public static class RecordLinks
         var name = type.Name;
         if (type.IsInterface && name.StartsWith('I')) name = name[1..];
         return name.EndsWith("Getter", StringComparison.Ordinal) ? name[..^"Getter".Length] : name;
+    }
+
+    /// <summary>
+    /// A new record — no FormKey line yet — written with the editor ID of a record of the load order: every link by it
+    /// names the new one, and the game has two records of one editor ID. e4b wrote `EditorID: ShockDamageFFAimed` with a
+    /// few lines to change Skyrim.esm's, and its spell then cast that empty effect, refused until the turns ran out
+    /// (eval rounds 31 and 51, spell+detailed #3) — 4 runs of rounds 30–51 wrote one.
+    /// </summary>
+    private static string? TakenEditorId(string text, RecordIndex index, ModKey? ownPlugin)
+    {
+        if (RecordFiles.Identity(text) is not { FormKey: null, EditorId: { } editorId }
+            || !index.ByEditorId.TryGetValue(editorId, out var key) || key.ModKey == ownPlugin
+            || !index.ByFormKey.TryGetValue(key, out var entry))
+            return null;
+        var formId = Session.FormKeyText(key);
+        return $"a new record, with the editor ID of {key.ModKey.FileName}'s {Kind(entry.GetterType)} {entry.EditorId} ({formId}) — every link " +
+            $"by {editorId} would name this one instead. To change {key.ModKey.FileName}'s, copy it in with addPatch {{\"records\": " +
+            $"[\"{formId}\"]}} and edit the copy, and write this file empty; for a new record, give it an EditorID of its own";
     }
 
     /// <summary>

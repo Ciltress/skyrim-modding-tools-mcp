@@ -90,7 +90,9 @@ public static class RecordFiles
 
     private static readonly Regex TopLevelKey = new(@"^([A-Za-z_]\w*)[ \t]*:", RegexOptions.Multiline);
     // A comment after the value is no part of it: `FormKey: 000123:Skyrim.esm # Placeholder` passed for a new record (round 14).
-    private static readonly Regex FormKeyLine = new(@"^FormKey:[ \t]*([^\s#]*)[ \t]*(?:#.*?)?\r?$", RegexOptions.Multiline);
+    // A value of words is one too: `FormKey: [Will be assigned]` matched nothing, and the reader's list was refused as
+    // "FormKey takes fields of its own" (eval round 51's sword+detailed #1) — taken out now, as any line that is no FormKey.
+    private static readonly Regex FormKeyLine = new(@"^FormKey:[ \t]*([^#\r\n]*?)[ \t]*(?:#.*?)?\r?$", RegexOptions.Multiline);
 
     private static readonly Regex ObjectTypeLine = new(@"^MutagenObjectType:[ \t]*(\w+)", RegexOptions.Multiline);
     private static readonly Regex EditorIdLine = new(@"^EditorID:[ \t]*([^\s#]+)[ \t]*(?:#.*?)?\r?$", RegexOptions.Multiline);
@@ -203,9 +205,10 @@ public static class RecordFiles
 
     /// <summary>
     /// A magic effect's Data, answered by what it holds. Found by name, a Data was a condition's: "move it in each
-    /// item of Conditions" sent e4b away (eval round 24). A strength — Magnitude, Area, Duration — goes in the
-    /// Effects item of the spell; the magic effect's own fields, which xEdit shows under DATA (Flags, BaseCost…),
-    /// at the margin, with the edit that puts them there.
+    /// item of Conditions" sent e4b away (eval round 24) — and again for a `Data: {}` holding nothing (round 51's
+    /// spell+detailed #3). A strength — Magnitude, Area, Duration — or nothing goes in the Effects item of the spell;
+    /// the magic effect's own fields, which xEdit shows under DATA (Flags, BaseCost…), at the margin, with the edit
+    /// that puts them there.
     /// </summary>
     private static string? DataHint(Type type, string key, string text)
     {
@@ -214,7 +217,7 @@ public static class RecordFiles
             .Select(m => m.Groups[1].Value).Distinct().ToList();
         var strength = keys.Any(k => k is "Magnitude" or "Area" or "Duration");
         var own = keys.Where(k => k != "MutagenObjectType" && FieldsOf(type).Contains(k)).ToList();
-        if (own.Count == 0) return strength ? EffectStrength : null;
+        if (own.Count == 0) return EffectStrength;
         var theirs = $"{string.Join(", ", own)} {(own.Count == 1 ? "is" : "are")} the magic effect's own, at the margin";
         if (strength) return $"{EffectStrength}; {theirs}";
         var flow = Regex.Replace(block.Split('\n')[0][(key.Length + 1)..], "#.*$", "").Trim().Length > 0;
