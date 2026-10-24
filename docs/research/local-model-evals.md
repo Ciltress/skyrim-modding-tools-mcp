@@ -66,7 +66,8 @@ as it reads leaves: e4b wrote `File: Weapons\\Iron\\Sword.nif` in rounds 12–13
 is the task built to show it: a text with quotes and line breaks, and a model path with backslashes.
 
 **A sword the player can carry** (from round 45): the sword check fails a sword flagged `NonPlayable` or
-`BoundWeapon`, a conjured weapon kept out of the player's inventory. findRecords answered the Bound Sword
+`BoundWeapon`, a conjured weapon kept out of the player's inventory — in round 45 counted by replaying each
+run's writes and edits, as that round ran before the script checked it. findRecords answered the Bound Sword
 first for "sword" from round 30 to 44, and 10 of e4b's swords of rounds 31–44 were copied from it with its
 flags; 9 of those runs passed before. Counted so, replayed from each run's writes and edits, e4b would have
 had 33 of 39 in round 31 (34 recorded), 40 of 45 in round 32 (41), 41 in round 33 (42), 40 in round 36 (42),
