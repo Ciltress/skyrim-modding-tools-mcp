@@ -181,6 +181,8 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-23 | Swift-1.5 27B IQ2_S | `all`, OpenClaw | cbcccda | 44/45 | 8.13 s | ~1,903 tokens/s | ~64 tokens/s | 100% |
 | 2026-10-24 | gemma4:e4b | `all`, OpenClaw | dad7e67 | 44/45 | 3.89 s | ~7,047 tokens/s | ~172 tokens/s | 100% |
 | 2026-10-24 | Swift-1.5 27B IQ2_S | `all`, OpenClaw | dad7e67 | 45/45 | 8.06 s | ~1,911 tokens/s | ~64 tokens/s | 100% |
+| 2026-10-24 | gemma4:e4b | `all`, OpenClaw | ee82522 | 41/45 | 3.71 s | ~7,050 tokens/s | ~173 tokens/s | 100% |
+| 2026-10-24 | Swift-1.5 27B IQ2_S | `all`, OpenClaw | ee82522 | 45/45 | 8.15 s | ~1,894 tokens/s | ~64 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -301,87 +303,6 @@ model's: four turns lost calling `skills_read` with `skill:` instead of `name:`,
 effect on the enchantment, refused by the build, and the turns ran out. (The seconds do not compare: the
 GPU ran the second half at ~184 tokens/s of prompt against ~891.)
 
-## Round 40 — a spaced EditorID, a shared FormKey, two hints; e4b and Swift-1.5 27B (2026-10-23)
-
-**Changed before it:**
-
-- An `EditorID` written with characters no editor ID has is written with its letters alone; the project's own
-  `FormKey` in several files is taken out where no build gave it; the other type's hint comes only for a file
-  of that type's fields alone; a magic effect's `Data` below one of its parts is answered as its strength
-  (056aa9c).
-- The seventh round with AGENTS.md's "delivered" line. Nothing ran beside it.
-
-gemma4:e4b, `all`, OpenClaw, at cbcccda (prompt ~7,184 tokens/s, generation ~174 tokens/s; first prompt 9947 tokens (26 tools, 16 of them this server's), think high, num_ctx 131072, num_predict none, temperature the Modelfile's, first token after 1.785 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 4 side requests):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 1/1 | 2 | 1 | 0 | 0 | 11608 | 90.6 |
-| read | 1/1 | 3 | 2 | 0 | 0 | 12674 | 39.9 |
-| filter | 1/1 | 2 | 1 | 0 | 0 | 10294 | 39.7 |
-| patch | 1/1 | 4 | 3 | 0 | 0 | 13431 | 44.9 |
-| build | 1/1 | 7 | 6 | 0 | 0 | 20329 | 47.5 |
-| sword | 4/5 | 13 | 12.2 | 6 | 2 | 38326 | 95.7 |
-| sword+detailed | 4/5 | 11.4 | 11 | 2 | 5 | 26873 | 88.7 |
-| spell | 5/5 | 7.4 | 6.4 | 0 | 2 | 18825 | 53.7 |
-| spell+detailed | 4/5 | 8.2 | 7.2 | 2 | 0 | 18589 | 58.4 |
-| npc | 5/5 | 7.6 | 6.6 | 1 | 1 | 19947 | 56.2 |
-| npc+detailed | 5/5 | 8.6 | 7.6 | 3 | 1 | 15990 | 55.8 |
-| note | 5/5 | 6.2 | 5.2 | 0 | 0 | 13825 | 56.4 |
-| note+detailed | 5/5 | 7.4 | 6.4 | 3 | 0 | 19303 | 83.8 |
-
-Swift-1.5 27B IQ2_S, `all`, OpenClaw, at cbcccda (prompt ~1,903 tokens/s, generation ~64 tokens/s; first prompt 10395 tokens (26 tools, 16 of them this server's), think true, num_ctx 131072, num_predict none, temperature 1, first token after 0.898 s (median of the first turns), 1 answers cut off, 0 turns ended at the length limit, 0 side requests):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 1/1 | 2 | 1 | 0 | 0 | 10418 | 51.4 |
-| read | 1/1 | 3 | 2 | 0 | 0 | 12958 | 44.1 |
-| filter | 1/1 | 2 | 1 | 0 | 0 | 11037 | 41.9 |
-| patch | 1/1 | 4 | 4 | 0 | 0 | 18087 | 48 |
-| build | 1/1 | 7 | 7 | 0 | 0 | 20982 | 59.1 |
-| sword | 5/5 | 6 | 8.2 | 0 | 0 | 27282 | 117.5 |
-| sword+detailed | 4/5 | 5.8 | 9.4 | 0 | 0 | 30125 | 333 |
-| spell | 5/5 | 5.8 | 6.8 | 0 | 0 | 20002 | 64.5 |
-| spell+detailed | 5/5 | 6.8 | 7.2 | 0 | 0 | 21694 | 83 |
-| npc | 5/5 | 5.6 | 6.4 | 0 | 0 | 21063 | 64 |
-| npc+detailed | 5/5 | 7 | 8.2 | 0 | 0 | 27512 | 71.2 |
-| note | 5/5 | 5.6 | 6.6 | 0 | 0 | 18468 | 68.2 |
-| note+detailed | 5/5 | 5.6 | 6.4 | 0 | 0 | 21981 | 77.5 |
-
-**Seen.**
-
-- **e4b 42 of 45** (round 39: 38): sword 8 of 10, spell 9, NPC 10, note 10. The build took a copied `FormKey`
-  out in 15 runs, corrected escapes in 3 and moved fields in 4; one of those runs failed (sword #2). It refused
-  14 builds in 8 runs (round 39: 13 in 8). The edit tool refused 11 of e4b's 23 edits (17 of 42); a turn's
-  median thinking was 1,012 characters (1,087).
-- **The fixes:** none of round 39's came up — no run wrote a spaced `EditorID`, shared a `FormKey`, or wrote
-  another type's fields. Round 37's refusal naming the value a part has already came in sword+detailed #2, which
-  passed. A record took its file's name for an `EditorID` in npc+detailed #5; the warning of no `Name` came in 3
-  runs, each fixed.
-- **e4b's three misses:**
-  - sword #2 wrote its enchantment inside `Critical`, which the build moved out, and named a magic effect as
-    the enchantment. Rewriting `Critical`, it put its `Flags: - OnDeath` at the margin, was told "move it under
-    Data" — where OnDeath is no flag — did, and ran out of turns.
-  - spell+detailed #3 wrote Storm Bolt's effect as a name, a school, an aim and Health: no flags, no projectile,
-    no resistance. The build answered `success`. Without `Detrimental`, a Destruction effect on Health restores
-    it; 170 of the load order's 181 such effects are flagged so.
-  - sword+detailed #4 copied a magic effect's fields into its enchantment. Refused, two edits refused, the run
-    ended on an empty turn (OpenClaw's `error_payload`), after four side requests.
-- **The "delivered" line, seven rounds:** none of the misses answered with a file changed after its last build
-  (round 39: two).
-- **Swift-1.5 27B 44 of 45**, its first miss in nine rounds: in sword+detailed #3 its fifth turn thought 54,574
-  characters, and the run timed out at 20 minutes. Otherwise no build refusal, 2 edits, 79 minutes with the
-  timeout; a turn's median thinking 474 characters.
-
-**After the round (c536229):**
-
-- A field two parts have goes to the one whose field takes the value written — `Flags: - OnDeath` under
-  `Critical`, `- NonPlayable` under `Data` — in the move the build makes and in the hint of a refusal.
-- A Destruction magic effect that changes Health, Magicka or Stamina without `Detrimental` is noted: "changes
-  Health without the Detrimental flag, so it restores it".
-
-**What it points at next:** an aimed effect without a projectile — 23 of the load order's 177 have none, riding
-on another effect's — so a spell whose aimed effects all lack one fires nothing, which the build does not check.
-
 ## Round 41 — a field two parts have, a healing Destruction effect; e4b and Swift-1.5 27B (2026-10-24)
 
 **Changed before it:**
@@ -450,3 +371,78 @@ first: an NPC named Nord is TreasCorpseCommonerNordFemale now, the Creation Club
 **What it points at next:** nothing of the server's in this round's miss. Leads left: a spell whose aimed
 effects all lack a projectile (23 of the load order's 177 aimed effects have none, riding on another's); a
 renamed copy that keeps the copied record's `Name`; an addPatch copy built unchanged.
+
+## Round 42 — findRecords answers Skyrim.esm's own first; e4b and Swift-1.5 27B (2026-10-24)
+
+**Changed before it:**
+
+- Among records that match a search alike, findRecords answers Skyrim.esm's own first (92a2811): an NPC named
+  Nord was the Creation Club's dead one, which e4b copied for Hilda in rounds 37 and 41.
+- The ninth round with AGENTS.md's "delivered" line. Nothing ran beside it.
+
+gemma4:e4b, `all`, OpenClaw, at ee82522 (prompt ~7,050 tokens/s, generation ~173 tokens/s; first prompt 9945 tokens (26 tools, 16 of them this server's), think high, num_ctx 131072, num_predict none, temperature the Modelfile's, first token after 1.794 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 3 side requests):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 1/1 | 2 | 1 | 0 | 0 | 11628 | 87.6 |
+| read | 1/1 | 3 | 2 | 0 | 0 | 12704 | 41.9 |
+| filter | 0/1 | 2 | 1 | 0 | 0 | 10281 | 39.5 |
+| patch | 1/1 | 7 | 6 | 0 | 0 | 20455 | 48.7 |
+| build | 1/1 | 7 | 6 | 0 | 0 | 19687 | 48.7 |
+| sword | 5/5 | 10.6 | 9.6 | 1 | 0 | 23259 | 66.3 |
+| sword+detailed | 4/5 | 14.2 | 13.4 | 4 | 7 | 30457 | 96.5 |
+| spell | 5/5 | 7.8 | 6.8 | 1 | 2 | 17442 | 58.6 |
+| spell+detailed | 4/5 | 7.2 | 6.2 | 3 | 0 | 17721 | 60.7 |
+| npc | 5/5 | 8.2 | 7.4 | 0 | 0 | 18270 | 62.4 |
+| npc+detailed | 5/5 | 8.6 | 7.6 | 0 | 1 | 30408 | 62.8 |
+| note | 4/5 | 6.2 | 5.2 | 0 | 0 | 13778 | 55.1 |
+| note+detailed | 5/5 | 6 | 5 | 0 | 0 | 18514 | 54.8 |
+
+Swift-1.5 27B IQ2_S, `all`, OpenClaw, at ee82522 (prompt ~1,894 tokens/s, generation ~64 tokens/s; first prompt 10406 tokens (26 tools, 16 of them this server's), think true, num_ctx 131072, num_predict none, temperature 1, first token after 0.933 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 1/1 | 2 | 1 | 0 | 0 | 10429 | 53.5 |
+| read | 1/1 | 3 | 3 | 0 | 0 | 17572 | 41.7 |
+| filter | 1/1 | 3 | 2 | 0 | 0 | 21750 | 52.9 |
+| patch | 1/1 | 4 | 5 | 0 | 0 | 19761 | 58 |
+| build | 1/1 | 6 | 6 | 0 | 0 | 20001 | 50.5 |
+| sword | 5/5 | 6.6 | 8.6 | 0 | 0 | 30219 | 109.3 |
+| sword+detailed | 5/5 | 6 | 9.2 | 0 | 0 | 29852 | 140.5 |
+| spell | 5/5 | 6 | 6.6 | 0 | 0 | 19878 | 62.8 |
+| spell+detailed | 5/5 | 6.6 | 8.2 | 1 | 0 | 24047 | 90.6 |
+| npc | 5/5 | 5.6 | 6 | 0 | 0 | 20023 | 58.7 |
+| npc+detailed | 5/5 | 6.8 | 6.8 | 1 | 0 | 21378 | 63.6 |
+| note | 5/5 | 6.2 | 6.8 | 0 | 0 | 18828 | 73.9 |
+| note+detailed | 5/5 | 6.6 | 7.2 | 0 | 0 | 19596 | 69.6 |
+
+**Seen.**
+
+- **e4b 41 of 45** (round 41: 44): filter 0 of 1, sword 9 of 10, spell 9, NPC 10, note 9. The build took a
+  copied `FormKey` out in 12 runs and moved fields in 4; one of those runs failed. It refused 7 builds in 7
+  runs (round 41: 11 in 8). The edit tool refused 10 of e4b's 26 edits (19 of 42); a turn's median thinking was
+  1,060 characters (1,047).
+- **The filter task failed for the change before the round,** the first time in the rounds recorded here: asked
+  for three of Dawnguard.esm's armors with `plugin` and `limit: 3`, the search put first, as Skyrim.esm's own,
+  the Falmer armor Dawnguard changes, and e4b gave it as Dawnguard's. Before, Dawnguard's own had come first by
+  their editor IDs alone. Swift asked for 200, read `definedIn`, and passed. No check of the regression set
+  replayed the filter task's search; one does now.
+- **The fixes that came up:** an `EditorID` written `MavenNote:MavenWarning` was written `MavenNoteMavenWarning`
+  in note #3, and a line written twice the same was taken out in sword+detailed #5 — both runs passed. The
+  warning of no `Name` came in 3 runs, each fixed.
+- **e4b's other misses:**
+  - sword+detailed #3 wrote the sword's price, `Value: 150`, inside its `Name`. Told the field was written twice
+    — keep the one meant — it wrote the name `Flame Blade (150)`; the build answered `success`.
+  - note #4 copied Maven's text and signed it "Maven's Warning".
+  - spell+detailed #5 ended on an empty turn (OpenClaw's `error_payload`), after three side requests.
+- **The "delivered" line, nine rounds:** none of the misses answered with a file changed after its last build
+  (round 41: one).
+- **Swift-1.5 27B 45 of 45:** its first build refusal of all its rounds, in npc+detailed #1, which passed; 4
+  edits, 62 minutes; a turn's median thinking 453 characters.
+
+**After the round (e9742fa):** with a plugin named, the search answers the records it adds before those it
+changes; without one, Skyrim.esm's own first among equals, as in round 42. Dawnguard's first three armors are
+its own again, and an NPC named Nord is still Skyrim.esm's.
+
+**What it points at next:** a field of the record written inside a part that has one of its name — the sword's
+`Value` inside `Name` — is refused as written twice there, with no word of where the other belongs.
