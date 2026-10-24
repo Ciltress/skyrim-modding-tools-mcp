@@ -703,6 +703,40 @@ describe('the Skyrim backend', () => {
         expect(await answer()).not.toHaveProperty('warnings');
     });
 
+    it('says first that each change in `corrected` is done, so the file is read before it is edited again', async () => {
+        // Told what the build had moved, e4b made the moves itself and wrote its NPC anew without its FormKey (eval round 45).
+        const { backend, fixture, helperAnswers } = makeBackend();
+        await newProjectWithRecord(backend, fixture.projects, 'HildaTheNord');
+        const change = 'moved `Level` under `Configuration` — a Npc has it there, not at the margin';
+        helperAnswers.checkRecords = () => ({ records: 1, leftOut: [], corrected: [{ file: 'Npcs/Hilda.yaml', change }] });
+        const handler = createHandlers(backend as unknown as AppBackend).find(h => h.getTools().some(t => t.name === 'buildProject'))!;
+        const answer = async () => JSON.parse((await handler.handle('buildProject', { project: 'HildaTheNord' })).content[0].text);
+        const done = 'Each change in `corrected` is done: the build wrote it into the file, and the plugin has it. A file it ' +
+            'changed no longer reads as it was written — read it before editing it again.';
+
+        const built = await answer();
+
+        expect(Object.keys(built).slice(0, 2)).toEqual(['status', 'nextStep']);
+        expect(built).toMatchObject({ status: 'success', nextStep: `Built. ${done}`, corrected: [expect.stringContaining(change)] });
+        helperAnswers.checkRecords = () => ({ records: 1, leftOut: [], notes: ['a note'], corrected: [{ file: 'Npcs/Hilda.yaml', change }] });
+        expect((await answer()).nextStep).toMatch(/^Built, with a warning: fix what it says .* just what it names\. Each change in `corrected` is done:/);
+    });
+
+    it('passes on what the helper notes once the plugin is written — an override that changes nothing — as a warning', async () => {
+        const { backend, fixture, helperAnswers } = makeBackend();
+        await newProjectWithRecord(backend, fixture.projects, 'MavenNote');
+        const note = 'Books/Note.yaml: overrides LetterRiftenBlackBriarMeadery04 of Skyrim.esm and changes nothing in it';
+        helperAnswers.build = params => {
+            write(params.outputPath, 'plugin');
+            return { records: 1, masters: ['Skyrim.esm'], headerVersion: params.headerVersion, resolvedLinks: [], notes: [note] };
+        };
+
+        const built = await backend.buildProject('MavenNote');
+
+        expect(built.warnings).toEqual([note]);
+        expect(fs.existsSync(built.output)).toBe(true);
+    });
+
     it('refuses a build that read no record from the files, and leaves no plugin to deploy', async () => {
         // A file below its group's folder got a FormID but was not read: the build succeeded empty (round 10).
         const { backend, fixture, helperAnswers } = makeBackend();

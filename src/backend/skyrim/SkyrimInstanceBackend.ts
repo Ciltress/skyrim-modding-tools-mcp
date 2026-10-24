@@ -369,7 +369,7 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         const output = path.join(paths.build, plugin);
         // The helper writes links named by editor ID into the files as FormIDs; a build that fails takes them back.
         const giveBack = keepRecordTexts(paths.plugin);
-        let built: { records: number; masters: string[]; headerVersion: number; resolvedLinks: BuildResult['resolvedLinks'] };
+        let built: { records: number; masters: string[]; headerVersion: number; resolvedLinks: BuildResult['resolvedLinks']; notes?: string[] };
         try {
             built = await afterLocalWrites(this.engine.helper.call<typeof built>('build', {
                 projectPluginDir: paths.plugin,
@@ -388,6 +388,8 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             giveBack();
             throw withCorrections(error);
         }
+        // An override that changes nothing, said once the plugin is written: told apart only from the record itself.
+        warnings.push(...built.notes ?? []);
 
         // A file keeps the name its author gave it, the build's FormID written in: renamed the way Spriggit names
         // a file, Hilda's went on being edited under its old name, then written anew — a second Hilda (eval probe

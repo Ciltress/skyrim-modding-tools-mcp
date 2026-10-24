@@ -173,7 +173,14 @@ export class ProjectsHandlers extends BaseHandler {
                 onFailure: 'Failed to build the project',
                 run: async args => {
                     const { warnings, ...built } = await asRequestError(this.backend.buildProject(requireString(args, 'project')));
-                    if (!warnings?.length) return built;
+                    // Told what the build had moved, e4b made the moves itself — edits of the file as it had been, which
+                    // found nothing — then wrote it anew without the FormKey line the build gave it (eval round 45's
+                    // npc #3): 4 of the 209 builds with `corrected` in rounds 30–45 were followed so, and 2 of those runs failed.
+                    const done = built.corrected?.length
+                        ? 'Each change in `corrected` is done: the build wrote it into the file, and the plugin has it. A file it ' +
+                            'changed no longer reads as it was written — read it before editing it again.'
+                        : undefined;
+                    if (!warnings?.length) return done ? { nextStep: `Built. ${done}`, ...built } : built;
                     // A warning at the end of an answer that said success was passed by: five of e4b's eight misses
                     // in eval round 21 end on one, each a build that did what was not asked. Its exception, written
                     // "unless the user asked for it so", was read as "the user did not ask for a fix" in three runs of
@@ -184,7 +191,7 @@ export class ProjectsHandlers extends BaseHandler {
                         warnings,
                         nextStep: `Built, with ${one ? 'a warning' : `${warnings.length} warnings`}: fix what ${one ? 'it' : 'each'} ` +
                             `says and build again — that is part of the task. ${one ? 'It' : 'One'} stays only where the user ` +
-                            'asked for just what it names.',
+                            'asked for just what it names.' + (done ? ` ${done}` : ''),
                         ...built
                     };
                 }

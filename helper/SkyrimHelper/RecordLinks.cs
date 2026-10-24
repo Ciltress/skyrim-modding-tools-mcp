@@ -445,6 +445,13 @@ public static class RecordLinks
                 else if (value is YamlScalarNode { Value: { Length: > 0 } one } && one is not ("~" or "null" or "Null" or "NULL")
                     && typeof(Loqui.ILoquiObject).IsAssignableFrom(propertyType))
                     problem(PartAsValue(field, propertyType, one, record));
+                // Left empty, a part the record cannot be without reads as none, and the reader failed with "Object reference not
+                // set to an instance of an object": e4b's Hilda, her `Level:` emptied once the build had moved CalcMinLevel and
+                // CalcMaxLevel out of it up to Configuration (eval round 45's npc+detailed #3, two builds; round 35's #1).
+                else if (value is YamlScalarNode { Value: null or "" or "~" or "null" or "Null" or "NULL" }
+                    && typeof(Loqui.ILoquiObject).IsAssignableFrom(propertyType)
+                    && new NullabilityInfoContext().Create(property).WriteState == NullabilityState.NotNull)
+                    problem(PartAsValue(field, propertyType, null, record));
             }
         }
         if (movedUp.Count > 0)
@@ -569,11 +576,12 @@ public static class RecordLinks
     /// <summary>
     /// What a part of the record written as one value takes: `Archetype: ShockDamage`, which the reader answered
     /// with "Expected 'Scalar', got 'MappingEnd'" and a line and column, twice to e4b (eval round 27). A value one of
-    /// the part's fields takes is given as that field's line.
+    /// the part's fields takes is given as that field's line. One written empty (<paramref name="one"/> null) is said so.
     /// </summary>
-    private static string PartAsValue(string field, Type type, string one, Type record)
+    private static string PartAsValue(string field, Type type, string? one, Type record)
     {
         var leaf = field[(field.LastIndexOf('.') + 1)..];
+        if (one is null && type.Name == "ANpcLevel") return $"{field} is empty — {RecordFiles.NpcLevel}";
         var shapes = type.IsAbstract
             ? type.Assembly.GetTypes().Where(t => !t.IsAbstract && !t.IsInterface && type.IsAssignableFrom(t)).OrderBy(t => t.Name, StringComparer.Ordinal).ToList()
             : [type];
@@ -582,7 +590,8 @@ public static class RecordLinks
                 .Select(p => (Shape: shape, Field: p.Name,
                     Value: Enum.GetNames(Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType).FirstOrDefault(n => n.Equals(one, StringComparison.OrdinalIgnoreCase)))))
             .FirstOrDefault(f => f.Value is not null);
-        var said = $"{field} is written as one value, {one} — it takes fields of its own, on lines indented below `{leaf}:`";
+        var said = (one is null ? $"{field} is empty" : $"{field} is written as one value, {one}") +
+            $" — it takes fields of its own, on lines indented below `{leaf}:`";
         if (fit.Value is not null)
             return said + $": write `{leaf}:` with " + (type.IsAbstract ? $"`MutagenObjectType: {fit.Shape.Name}` and " : "") +
                 $"`{fit.Field}: {fit.Value}` below it, two spaces in";

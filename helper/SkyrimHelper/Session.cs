@@ -496,8 +496,44 @@ public sealed class Session : IDisposable
             ["records"] = written.EnumerateMajorRecords().Count(),
             ["masters"] = new JsonArray(written.ModHeader.MasterReferences.Select(m => (JsonNode)m.Master.FileName.String).ToArray()),
             ["headerVersion"] = written.ModHeader.Stats.Version,
-            ["resolvedLinks"] = resolvedLinks
+            ["resolvedLinks"] = resolvedLinks,
+            ["notes"] = new JsonArray((await UnchangedOverrides(dir, mod.ModKey)).Select(n => (JsonNode)n).ToArray())
         };
+    }
+
+    private static readonly Regex LinkComment = new(@"(?<=[0-9A-Fa-f]{6}:\S+\.es[mpl])[ \t]+#[^\n]*", RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// The project's overrides that change nothing: each file reads, its link comments aside, as addPatch writes the
+    /// record from the load order without the project. e4b's "new note" was Maven's own, copied and built as it was
+    /// (eval round 45's note+detailed #1); 9 records of rounds 30–45 were copied so and built, untouched, in 8 runs, and 2
+    /// of them failed — the 6 that passed each left the Iron Sword or a fire enchantment in the plugin beside the new sword.
+    /// </summary>
+    private async Task<List<string>> UnchangedOverrides(string dir, ModKey own)
+    {
+        var copies = RecordFiles.FlatRecords(dir)
+            .Select(f => (f.Relative, Text: File.ReadAllText(f.File)))
+            .Where(f => RecordFiles.Identity(f.Text).FormKey is { } key && key.ModKey != own)
+            .ToList();
+        var contexts = copies.Select(c => Contexts(RecordFiles.Identity(c.Text).FormKey!.Value).FirstOrDefault(x => x.ModKey != own))
+            .OfType<IModContext<ISkyrimMod, ISkyrimModGetter, IMajorRecord, IMajorRecordGetter>>().ToList();
+        if (contexts.Count == 0) return [];
+        string Bare(string text) => string.Join('\n', LinkComment.Replace(Lf(text), "").Split('\n').Select(l => l.TrimEnd())).TrimEnd();
+        var asLoaded = (await Render(contexts, own))
+            .Where(r => RecordFiles.Identity(r.Text).FormKey is not null)
+            .ToDictionary(r => RecordFiles.Identity(r.Text).FormKey!.Value, r => Bare(r.Text));
+        var notes = new List<string>();
+        foreach (var (relative, text) in copies)
+        {
+            var key = RecordFiles.Identity(text).FormKey!.Value;
+            if (!asLoaded.TryGetValue(key, out var loaded) || loaded != Bare(text)) continue;
+            var id = Index.ByFormKey.TryGetValue(key, out var entry) && entry.EditorId is { } editorId ? editorId : FormKeyText(key);
+            notes.Add($"{relative}: overrides {id} of {key.ModKey.FileName} and changes nothing in it, every field as the load order " +
+                $"has it — in game it only undoes what mods loaded before this one change there. A new record like it is this file " +
+                $"without its FormKey line, with an EditorID of its own; a change to {id} is written into this file; a copy that is " +
+                "neither is written empty, and the build leaves it out");
+        }
+        return notes;
     }
 
     private async Task<JsonNode> Serialize(JsonObject p)
