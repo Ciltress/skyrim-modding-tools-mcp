@@ -735,6 +735,22 @@ describe('the Skyrim backend', () => {
             /: Not built: 1 field\(s\) cannot be built as written: Weapons\/FlameBlade\.yaml: Damage is high\. Fix what this names, then build again — only a build that answers success writes the plugin\.$/);
     });
 
+    it('says in a refusal that names corrections that they are made, and that a corrected file is read before it is edited', async () => {
+        // After 12 of the 29 refusals of eval rounds 40–50 that named corrections, e4b's edits redid them and found nothing.
+        const { backend, fixture, helperAnswers } = makeBackend();
+        await newProjectWithRecord(backend, fixture.projects, 'FlameBlade');
+        helperAnswers.checkRecords = () => {
+            throw new HelperError('badRecord', '1 field(s) cannot be built as written: Npcs/Hilda.yaml: AIData.Aggression is Average. ' +
+                'Corrected in the files already: Npcs/Hilda.yaml: moved `Level` under `Configuration`.');
+        };
+        const handler = createHandlers(backend as unknown as AppBackend).find(h => h.getTools().some(t => t.name === 'buildProject'))!;
+
+        await expect(handler.handle('buildProject', { project: 'FlameBlade' })).rejects.toThrow(
+            new RegExp('moved `Level` under `Configuration`\\. The corrections are made: redo none of them, and read a corrected file ' +
+                'before editing it — it no longer reads as you wrote it\\. Fix what else this names, then build again — only a build ' +
+                'that answers success writes the plugin\\.$'));
+    });
+
     it('passes on what the helper notes once the plugin is written — an override that changes nothing — as a warning', async () => {
         const { backend, fixture, helperAnswers } = makeBackend();
         await newProjectWithRecord(backend, fixture.projects, 'MavenNote');

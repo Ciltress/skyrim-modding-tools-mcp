@@ -225,10 +225,16 @@ export class ProjectsHandlers extends BaseHandler {
                 run: async args => {
                     // A refusal answered as a build: 10 of the 13 e4b runs of eval rounds 31–47 that ended on a refused build
                     // told the user the mod was built — most fixed the file after it and never built again. Said at both ends.
+                    // After 12 of the 29 refusals of rounds 40–50 that named corrections it had written, e4b's edits found
+                    // nothing — it made the build's moves itself, from the file as it had written it, and read it first once.
                     const { warnings, ...built } = await asRequestError(this.backend.buildProject(requireString(args, 'project'))
                         .catch((error: unknown) => {
                             if (error instanceof Error) error.message = `Not built: ${error.message.replace(/\.?\s*$/, '.')} ` +
-                                'Fix what this names, then build again — only a build that answers success writes the plugin.';
+                                (error.message.includes('Corrected in the files already')
+                                    ? 'The corrections are made: redo none of them, and read a corrected file before editing it — it ' +
+                                        'no longer reads as you wrote it. Fix what else this names'
+                                    : 'Fix what this names') +
+                                ', then build again — only a build that answers success writes the plugin.';
                             throw error;
                         }));
                     // Told what the build had moved, e4b made the moves itself — edits of the file as it had been, which

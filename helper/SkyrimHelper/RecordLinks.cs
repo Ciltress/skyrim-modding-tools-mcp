@@ -619,6 +619,11 @@ public static class RecordLinks
     {
         var leaf = field[(field.LastIndexOf('.') + 1)..];
         if (one is null && type.Name == "ANpcLevel") return $"{field} is empty — {RecordFiles.NpcLevel}";
+        // `Level: 1` under Configuration: told only of the kinds and readRecord, e4b moved the lines the build had moved
+        // already, five edits refused (eval round 50's npc #5). The level's lines, its number in them.
+        if (type.Name == "ANpcLevel")
+            return $"{field} is written as one value, {one} — " + (int.TryParse(one, out var level)
+                ? RecordFiles.NpcLevel.Replace("NpcLevel, Level: 10}", $"NpcLevel, Level: {level}}}") : RecordFiles.NpcLevel);
         var shapes = type.IsAbstract
             ? type.Assembly.GetTypes().Where(t => !t.IsAbstract && !t.IsInterface && type.IsAssignableFrom(t)).OrderBy(t => t.Name, StringComparer.Ordinal).ToList()
             : [type];
