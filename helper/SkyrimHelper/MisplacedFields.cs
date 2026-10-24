@@ -103,6 +103,48 @@ public static class MisplacedFields
         return changes;
     }
 
+    /// <summary>A field at the margin with a value of its own on its line, plain — no text block, quote or flow below.</summary>
+    private static readonly System.Text.RegularExpressions.Regex ValueAtMargin =
+        new(@"^(?<key>[A-Z][A-Za-z0-9]*):[ \t]+[^\s'""|>\[{&*!#]");
+
+    /// <summary>An indented `Key: value`, its value on its line.</summary>
+    private static readonly System.Text.RegularExpressions.Regex IndentedValue = new(@"^(?<indent>[ \t]+)(?<key>[A-Za-z0-9_]+):[ \t]+\S");
+
+    /// <summary>
+    /// Fields of the record written indented below a field at the margin that has a value of its own, where the YAML
+    /// reader stops — taken to the margin. e4b's edits put Flame Blade's FirstPersonModel, EquipSound and UnequipSound two
+    /// spaces in below `ImpactDataSet: WPNzBlade1HandImpactSet`, and it ran out of turns on the break (eval round 47's
+    /// sword #5). Lines that are no field of the record at the margin — a part's, its own line lost — are left to the refusal.
+    /// </summary>
+    public static List<(string File, string Change)> Dedent(string pluginDir)
+    {
+        var changes = new List<(string File, string Change)>();
+        foreach (var (file, relative, type) in RecordFiles.FlatRecords(pluginDir))
+        {
+            var text = File.ReadAllText(file).Replace("\r\n", "\n");
+            if (Root(text) is not null) continue;
+            var fields = RecordFiles.FieldsOf(type);
+            var lines = text.Split('\n');
+            var changed = false;
+            for (var at = 0; at < lines.Length - 1; at++)
+            {
+                if (!ValueAtMargin.IsMatch(lines[at])) continue;
+                var run = Enumerable.Range(at + 1, lines.Length - at - 1).TakeWhile(i => lines[i].Length > 0 && char.IsWhiteSpace(lines[i][0])).ToList();
+                var each = run.Select(i => IndentedValue.Match(lines[i])).ToList();
+                if (run.Count == 0 || each.Any(m => !m.Success || !fields.Contains(m.Groups["key"].Value))
+                    || each.Select(m => m.Groups["indent"].Value).Distinct().Count() > 1) continue;
+                foreach (var i in run) lines[i] = lines[i].TrimStart();
+                var keys = each.Select(m => m.Groups["key"].Value).ToList();
+                var them = keys.Count == 1 ? "it" : "them";
+                changes.Add((relative, $"moved {Quoted(keys)} to the margin — `{lines[at].Trim()}` above {them} has a value of its own, so " +
+                    $"no line goes below it, and {RecordFiles.Article(type.Name)} has {them} at the margin"));
+                changed = true;
+            }
+            if (changed) Save(file, string.Join('\n', lines));
+        }
+        return changes;
+    }
+
     /// <summary>Whether two values written are the same: 40 and 40.0 are.</summary>
     private static bool Same(string a, string b) =>
         a == b || double.TryParse(a, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var x)

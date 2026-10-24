@@ -231,8 +231,21 @@ public static class RecordLinks
                         ? "delete one of the two lines, they are the same"
                         : $"keep the one meant, `{lines[first].Trim()}` or `{lines[at - 1].Trim()}`, and delete the other");
         }
+        // Indented below a field that has a value of its own: a part's fields whose line was lost, under `EnchantmentAmount:
+        // 500` (eval round 35's sword+detailed #3) — the line above, named; the record's own fields there are moved
+        // (MisplacedFields.Dedent).
+        static int Depth(string line) => line.Length - line.TrimStart(' ').Length;
+        if (at >= 2 && at <= lines.Length && Depth(lines[at - 1]) > 0
+            && Array.FindLastIndex(lines, at - 2, line => line.Trim().Length > 0 && Depth(line) < Depth(lines[at - 1])) is var above and >= 0
+            && ValueLine.IsMatch(lines[above]))
+            return $"the YAML breaks at {where}: it is indented below line {above + 1}, `{lines[above].Trim()}`, which has a value of its " +
+                "own, so no line goes below it. A field beside it is written as deep as it is; a part's fields go below a line of the " +
+                "part's name alone, `Part:`";
         return $"the YAML breaks at {where}: {reason} Indent a field's own fields by two spaces below it, and give every other line a `Field: value`";
     }
+
+    /// <summary>A field with a value of its own on its line, plain — no text block, quote or flow below it.</summary>
+    private static readonly Regex ValueLine = new(@"^[ \t]*(?:- +)?[A-Za-z0-9_]+:[ \t]+[^\s'""|>\[{&*!#]", RegexOptions.None, TimeSpan.FromSeconds(5));
 
     /// <summary>A field of the record at the margin, `Key: value` or `Key:`, as Spriggit writes one.</summary>
     private static readonly Regex MarginField = new(@"^(?<key>[A-Z][A-Za-z0-9]*):(?: |$)", RegexOptions.None, TimeSpan.FromSeconds(5));

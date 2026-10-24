@@ -722,6 +722,19 @@ describe('the Skyrim backend', () => {
         expect((await answer()).nextStep).toMatch(/^Built, with a warning: fix what it says .* just what it names\. Each change in `corrected` is done:/);
     });
 
+    it('says at both ends of a refusal that nothing was built, and that a build again is what writes the plugin', async () => {
+        // 10 of the 13 e4b runs of eval rounds 31–47 that ended on a refused build told the user the mod was built.
+        const { backend, fixture, helperAnswers } = makeBackend();
+        await newProjectWithRecord(backend, fixture.projects, 'FlameBlade');
+        helperAnswers.checkRecords = () => {
+            throw new HelperError('badRecord', '1 field(s) cannot be built as written: Weapons/FlameBlade.yaml: Damage is high.');
+        };
+        const handler = createHandlers(backend as unknown as AppBackend).find(h => h.getTools().some(t => t.name === 'buildProject'))!;
+
+        await expect(handler.handle('buildProject', { project: 'FlameBlade' })).rejects.toThrow(
+            /: Not built: 1 field\(s\) cannot be built as written: Weapons\/FlameBlade\.yaml: Damage is high\. Fix what this names, then build again — only a build that answers success writes the plugin\.$/);
+    });
+
     it('passes on what the helper notes once the plugin is written — an override that changes nothing — as a warning', async () => {
         const { backend, fixture, helperAnswers } = makeBackend();
         await newProjectWithRecord(backend, fixture.projects, 'MavenNote');

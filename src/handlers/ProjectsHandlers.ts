@@ -172,7 +172,14 @@ export class ProjectsHandlers extends BaseHandler {
                 },
                 onFailure: 'Failed to build the project',
                 run: async args => {
-                    const { warnings, ...built } = await asRequestError(this.backend.buildProject(requireString(args, 'project')));
+                    // A refusal answered as a build: 10 of the 13 e4b runs of eval rounds 31–47 that ended on a refused build
+                    // told the user the mod was built — most fixed the file after it and never built again. Said at both ends.
+                    const { warnings, ...built } = await asRequestError(this.backend.buildProject(requireString(args, 'project'))
+                        .catch((error: unknown) => {
+                            if (error instanceof Error) error.message = `Not built: ${error.message.replace(/\.?\s*$/, '.')} ` +
+                                'Fix what this names, then build again — only a build that answers success writes the plugin.';
+                            throw error;
+                        }));
                     // Told what the build had moved, e4b made the moves itself — edits of the file as it had been, which
                     // found nothing — then wrote it anew without the FormKey line the build gave it (eval round 45's
                     // npc #3): 4 of the 209 builds with `corrected` in rounds 30–45 were followed so, and 2 of those runs failed.

@@ -397,6 +397,8 @@ public sealed class Session : IDisposable
         corrected.AddRange(RecordFiles.DropSharedFormKeys(dir, release));
         // A line written twice first: the YAML reader the moves use refuses the file until it is gone.
         corrected.AddRange(RecordFiles.DropRepeatedLines(dir));
+        // So too a record's fields indented below one that has a value: the reader stops there.
+        corrected.AddRange(MisplacedFields.Dedent(dir));
         // Before the links are checked: a link may name the record by its file's name.
         corrected.AddRange(RecordFiles.NameFromFiles(dir, Index));
         corrected.AddRange(MisplacedFields.Move(dir));
