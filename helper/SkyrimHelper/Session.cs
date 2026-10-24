@@ -191,8 +191,9 @@ public sealed class Session : IDisposable
                     : e.FormKey.ModKey == SkyrimMaster ? 0 : 1)
                 .ThenBy(e => e.EditorId, StringComparer.OrdinalIgnoreCase);
         }
-        if (types is { Count: > 0 }) matches = matches.Where(e => types.Contains(e.Signature) || types.Contains(e.Type));
         if (plugin is not null) matches = matches.Where(e => e.Plugins.Any(k => k.FileName.String.Equals(plugin, StringComparison.OrdinalIgnoreCase)));
+        var untyped = matches;
+        if (types is { Count: > 0 }) matches = matches.Where(e => types.Contains(e.Signature) || types.Contains(e.Type));
 
         var all = matches.ToList();
         var rows = new JsonArray();
@@ -204,6 +205,16 @@ public sealed class Session : IDisposable
             // "Steel Sword" looked up as an editor ID found nothing, and a model gave up (eval round 11's probes).
             answer["nextStep"] = "records takes exact FormIDs and editor IDs only; to search in-game names and parts of " +
                 $"editor IDs, send text instead: {{\"text\": \"{notFound[0]!.GetValue<string>().Replace("\"", "")}\"}}";
+        }
+        // Maven's note searched as a MISC record found nothing, and e4b asked the user for its FormID (eval round 46's
+        // note+detailed #3; round 39's failed so too): what the search finds of other types, named with them.
+        else if (all.Count == 0 && types is { Count: > 0 } && untyped.ToList() is { Count: > 0 } other)
+        {
+            var shown = other.Take(3).ToList();
+            answer["nextStep"] = $"No record of the types asked matches; {other.Count} of other types {(other.Count == 1 ? "does" : "do")}: " +
+                string.Join("; ", shown.Select(e => $"{e.EditorId ?? FormKeyText(e.FormKey)}" + (e.Name is { Length: > 0 } name ? $" \"{name}\"" : "") +
+                    $", {RecordFiles.Article(e.Type)} ({e.Signature})")) +
+                $" — send types [{string.Join(", ", shown.Select(e => $"\"{e.Signature}\"").Distinct())}] for {(shown.Count == 1 ? "it" : "those")}, or no types";
         }
         return answer;
     }
@@ -511,10 +522,13 @@ public sealed class Session : IDisposable
     /// </summary>
     private async Task<List<string>> UnchangedOverrides(string dir, ModKey own)
     {
-        var copies = RecordFiles.FlatRecords(dir)
-            .Select(f => (f.Relative, Text: File.ReadAllText(f.File)))
-            .Where(f => RecordFiles.Identity(f.Text).FormKey is { } key && key.ModKey != own)
-            .ToList();
+        var records = RecordFiles.FlatRecords(dir).Select(f => (f.Relative, f.Type, Text: File.ReadAllText(f.File))).ToList();
+        var copies = records.Where(f => RecordFiles.Identity(f.Text).FormKey is { } key && key.ModKey != own).ToList();
+        // The project's new records: told the three ways out, e4b answered with its new sword and its new note built and
+        // the copy each was made from left beside it (eval round 46's sword #4 and note+detailed #2) — named, the copy is left over.
+        var made = records.Select(f => (f.Type, Identity: RecordFiles.Identity(f.Text)))
+            .Where(f => f.Identity.EditorId is not null && (f.Identity.FormKey is not { } key || key.ModKey == own))
+            .Select(f => (f.Type, Id: f.Identity.EditorId!)).ToList();
         var contexts = copies.Select(c => Contexts(RecordFiles.Identity(c.Text).FormKey!.Value).FirstOrDefault(x => x.ModKey != own))
             .OfType<IModContext<ISkyrimMod, ISkyrimModGetter, IMajorRecord, IMajorRecordGetter>>().ToList();
         if (contexts.Count == 0) return [];
@@ -523,15 +537,18 @@ public sealed class Session : IDisposable
             .Where(r => RecordFiles.Identity(r.Text).FormKey is not null)
             .ToDictionary(r => RecordFiles.Identity(r.Text).FormKey!.Value, r => Bare(r.Text));
         var notes = new List<string>();
-        foreach (var (relative, text) in copies)
+        foreach (var (relative, type, text) in copies)
         {
             var key = RecordFiles.Identity(text).FormKey!.Value;
             if (!asLoaded.TryGetValue(key, out var loaded) || loaded != Bare(text)) continue;
             var id = Index.ByFormKey.TryGetValue(key, out var entry) && entry.EditorId is { } editorId ? editorId : FormKeyText(key);
-            notes.Add($"{relative}: overrides {id} of {key.ModKey.FileName} and changes nothing in it, every field as the load order " +
-                $"has it — in game it only undoes what mods loaded before this one change there. A new record like it is this file " +
-                $"without its FormKey line, with an EditorID of its own; a change to {id} is written into this file; a copy that is " +
-                "neither is written empty, and the build leaves it out");
+            var said = $"{relative}: overrides {id} of {key.ModKey.FileName} and changes nothing in it, every field as the load order " +
+                "has it — in game it only undoes what mods loaded before this one change there. ";
+            notes.Add(made.FirstOrDefault(m => m.Type == type).Id is { } mine
+                ? said + $"{mine} is the project's new {type.Name}: where it is what was asked for, this copy is left over — write this " +
+                    $"file empty, and the build leaves it out; where {id} was to change too, write the change into this file"
+                : said + $"A new record like it is this file without its FormKey line, with an EditorID of its own; a change to {id} is " +
+                    "written into this file; a copy that is neither is written empty, and the build leaves it out");
         }
         return notes;
     }

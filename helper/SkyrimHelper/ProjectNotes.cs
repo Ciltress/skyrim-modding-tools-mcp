@@ -109,9 +109,12 @@ public static class ProjectNotes
                     notes.Add($"{relative}: {name} is a woman (Female) who speaks with {voice.EditorID}, a man's voice — " +
                         "the npcs skill names each race's woman's voice");
             }
+            // With no weapon or armor in the project, said so: e4b wrote Flame Blade's enchantment alone, and answered that
+            // the sword was written and carried it (eval round 46's sword #5).
             if (unworn.Contains(relative) && RecordFiles.Identity(text).EditorId is { } enchantment)
                 notes.Add($"{relative}: no record of the project names {enchantment}, so it does nothing — a weapon or armor " +
-                    $"carries it as `ObjectEffect: {enchantment}`");
+                    $"carries it as `ObjectEffect: {enchantment}`" + (records.Any(r => r.Type == typeof(Weapon) || r.Type == typeof(Armor))
+                        ? "" : ", and the project has none: write the one meant to carry it, in its Weapons or Armors folder"));
             // So too a new magic effect: e4b's Storm Bolt was a magic effect alone, built and told the user as the spell
             // (eval round 34, spell+detailed #3).
             if (type == typeof(MagicEffect) && RecordFiles.Identity(text).EditorId is { } effect && !RecordFiles.NamedElsewhere(records, relative, text))
