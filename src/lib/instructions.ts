@@ -21,7 +21,8 @@ export function serverInstructions(target: string): string {
         'This server authors and analyses Skyrim Special Edition mods: it looks records up across the ' +
         'load order, builds mods kept as text projects into plugins deployed to the mod manager (Mod Organizer or Amethyst), ' +
         'and installs downloaded mods — with a Nexus Mods API key, it also finds them on Nexus Mods. ' +
-        'Records are changed by editing the project\'s YAML files with your ordinary file tools.',
+        'Records are changed by editing the project\'s YAML files with your ordinary file tools, or field by field ' +
+        'with editRecord, which needs no old text to match.',
         `It is bound to ${target} and cannot be switched to another at runtime.`,
         'Before modding, read the skill skyrim-modding-basics, then the skill of the records you will write: ' +
         `${FAMILY_SKILLS.map(family => `${family.skill} (${family.covers})`).join(', ')} (readSkill).`,

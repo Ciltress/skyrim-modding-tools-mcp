@@ -396,10 +396,35 @@ const hasFlag = (text, flag) =>
     new RegExp(`^[ \\t]+- ${flag}[ \\t]*\\r?$`, 'm').test(text) || new RegExp(`Flags:[ \\t]*\\[[^\\]]*\\b${flag}\\b`).test(text);
 
 /** The magic effects a spell or an enchantment lists. */
-const effectsOf = text => [...text.matchAll(/BaseEffect:[ \t]*([0-9A-Fa-f]{6}:\S+)/g)].map(m => m[1]);
+const effectsOf = text => [...text.matchAll(/BaseEffect:[ \t]*([^\s#]+)/g)].map(m => m[1]);
+
+/**
+ * The FormKey a link of a project's record names: a FormID as written; an editor ID as the build resolves it — the
+ * project's own record, the pin in its links.lock.json, the load order's record. Since round 48 the build keeps links
+ * written by editor ID in the files, where it wrote them as FormIDs before: the checks resolve them as it does.
+ */
+async function linkTarget(project, link) {
+    if (!link) return undefined;
+    if (/^[0-9A-Fa-f]{6}:\S+\.es[mpl]$/i.test(link)) return link;
+    const id = link.split(':')[0].toLowerCase();
+    const own = projectRecords(project).records.find(r => /^EditorID:[ \t]*(\S+)/m.exec(r.text)?.[1]?.toLowerCase() === id);
+    if (own?.formKey) return own.formKey;
+    try {
+        const pins = JSON.parse(fs.readFileSync(path.join(projectsDir, project, 'links.lock.json'), 'utf8'));
+        const pinned = Object.entries(pins).find(([editorId]) => editorId.toLowerCase() === id)?.[1];
+        if (pinned) return pinned;
+    } catch { /* no pins yet */ }
+    try {
+        return (await callServerJson('findRecords', { records: [link.split(':')[0]], limit: 1 })).records[0]?.formId;
+    } catch {
+        return undefined;
+    }
+}
 
 /** A record's text wherever it is: written in the project, or in the load order (read through the server). */
-async function recordAnywhere(project, formKey) {
+async function recordAnywhere(project, link) {
+    const formKey = await linkTarget(project, link);
+    if (!formKey) return '';
     const own = projectRecords(project).records.find(r => r.formKey?.toLowerCase() === formKey.toLowerCase());
     if (own) return own.text;
     try {
@@ -497,11 +522,13 @@ const TASKS = [
             'hits, with a charge of 500. Build it, but do not deploy it.',
         check: async ({ calls }) => {
             const sword = newRecords('FlameBlade', 'weapons').find(r => /^flame blade$/i.test(nameOf(r.text)));
-            const enchantment = sword && /^ObjectEffect:[ \t]*(\S+)/m.exec(sword.text)?.[1];
+            const enchantment = sword && /^ObjectEffect:[ \t]*([^\s#]+)/m.exec(sword.text)?.[1];
             const effects = enchantment ? await effectTexts('FlameBlade', await recordAnywhere('FlameBlade', enchantment)) : [];
             return {
                 newSword: !!sword,
-                oneHandedSword: !!sword && (/AnimationType:[ \t]*OneHandSword/.test(sword.text) || sword.text.includes('01E711:Skyrim.esm')),
+                // The sword keyword by its FormID, or by its editor ID, which the build keeps in the file since round 48.
+                oneHandedSword: !!sword && (/AnimationType:[ \t]*OneHandSword/.test(sword.text) || sword.text.includes('01E711:Skyrim.esm')
+                    || /^[ \t]*-[ \t]*WeapTypeSword[ \t]*(?:#.*)?\r?$/m.test(sword.text)),
                 // A sword the player can carry: copied from the Bound Sword, 10 of e4b's of rounds 31–44 kept its
                 // NonPlayable and BoundWeapon flags — a conjured weapon, kept out of the inventory — and 9 passed without this.
                 playable: !!sword && !/^[ \t]+-[ \t]*(?:NonPlayable|BoundWeapon)[ \t]*\r?$|^[ \t]*Flags:[ \t]*\[[^\]\r\n]*\b(?:NonPlayable|BoundWeapon)\b/m.test(sword.text),
@@ -537,9 +564,9 @@ const TASKS = [
         detailed: 'Make a new mod called HildaTheNord with one new NPC: a woman of the Nord race named "Hilda", a ' +
             'one-handed warrior with a Nord woman\'s voice, whose level follows the player\'s between 5 and 30, dressed in ' +
             'iron armor. Build it, but do not deploy it.',
-        check: ({ calls }) => {
+        check: async ({ calls }) => {
             const npc = newRecords('HildaTheNord', 'npcs').find(r => /^hilda$/i.test(nameOf(r.text)));
-            const race = npc && /^Race:[ \t]*(\S+)/m.exec(npc.text)?.[1];
+            const race = npc && await linkTarget('HildaTheNord', /^Race:[ \t]*([^\s#]+)/m.exec(npc.text)?.[1]);
             return {
                 newNpc: !!npc,
                 nord: race?.toLowerCase() === truth.nordRace.toLowerCase(),

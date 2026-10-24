@@ -36,19 +36,25 @@ public static class RecordLinks
     private sealed record Replacement(int Start, int End, string Text);
 
     /// <summary>
-    /// Writes the FormKey of the record each editor-ID link names into its file, and answers what was
-    /// replaced. Throws, changing no file, when a link names no record of a type its field takes.
-    /// Without <paramref name="write"/> it only throws: checked before FormIDs are assigned, a refusal
-    /// leaves every file under the name its author knows — refused after, a model went on fixing the
-    /// file under its old name, which made a second record (eval round 11).
+    /// Finds the FormKey of the record each editor-ID link names, and answers what each named; <paramref name="rewrites"/>
+    /// holds each file with them written in, for the reader's copy. The project's files keep the editor IDs: written
+    /// into them as FormIDs, e4b's next edits of those lines found nothing, 12 times in eval rounds 40–47 — Storm Bolt's
+    /// `MenuDisplayObject: MAGINVShockSpellArt` in seven. A link to the load order keeps to its pin (LinkPins).
+    /// Throws when a link names no record of a type its field takes.
     /// </summary>
-    public static JsonArray Resolve(string pluginDir, RecordIndex index, bool write)
+    public static JsonArray Resolve(string pluginDir, RecordIndex index, IReadOnlyDictionary<string, FormKey> pins,
+        out List<(string Relative, string Text)> rewrites)
     {
         var (own, unnamed) = OwnRecords(pluginDir);
         var ownPlugin = RecordFiles.OwnPlugin(pluginDir);
         var resolved = new JsonArray();
         var problems = new List<string>();
-        var rewrites = new List<(string File, string Text)>();
+        var rewritten = new List<(string Relative, string Text)>();
+        // The record a pin names, while the load order has it under that editor ID still.
+        Target? Pinned(string editorId) =>
+            pins.TryGetValue(editorId, out var pin) && index.ByFormKey.TryGetValue(pin, out var entry)
+                && string.Equals(entry.EditorId, editorId, StringComparison.OrdinalIgnoreCase)
+                ? new Target(pin, entry.EditorId!, entry.GetterType) : null;
 
         foreach (var (file, relative, type) in RecordFiles.FlatRecords(pluginDir))
         {
@@ -123,9 +129,9 @@ public static class RecordLinks
                 }
                 var editorId = written.Groups["id"].Value;
                 var found = own.TryGetValue(editorId, out var mine) ? mine
-                    : index.ByEditorId.TryGetValue(editorId, out var key) && index.ByFormKey.TryGetValue(key, out var entry)
+                    : Pinned(editorId) ?? (index.ByEditorId.TryGetValue(editorId, out var key) && index.ByFormKey.TryGetValue(key, out var entry)
                         ? new Target(key, entry.EditorId ?? editorId, entry.GetterType)
-                        : null;
+                        : null);
                 if (found is null)
                 {
                     var near = Near(editorId, takes, own, index);
@@ -167,10 +173,10 @@ public static class RecordLinks
                 problems[before] = problems[before].Insert(relative.Length + 2, RecordFiles.Droppable(type, relative, text,
                     RecordFiles.FlatRecords(pluginDir).Where(f => f.Relative != relative).Select(f => (f.Relative, File.ReadAllText(f.File)))));
             if (replacements.Count == 0) continue;
-            var rewritten = text;
+            var withFormIds = text;
             foreach (var r in replacements.OrderByDescending(r => r.Start))
-                rewritten = rewritten[..r.Start] + r.Text + rewritten[r.End..];
-            rewrites.Add((file, rewritten));
+                withFormIds = withFormIds[..r.Start] + r.Text + withFormIds[r.End..];
+            rewritten.Add((relative, withFormIds));
         }
         // A new enchantment no record names, beside a weapon or armor that carries none (RecordFiles.Unworn).
         var records = RecordFiles.FlatRecords(pluginDir).Select(f => (f.Relative, f.Type, Text: File.ReadAllText(f.File)))
@@ -186,8 +192,7 @@ public static class RecordLinks
                 ". Write each field the way readRecord shows a record of its type; a link is a record's FormID, or the exact " +
                 "editor ID of a record of this project's or of the load order.");
         }
-        if (!write) return [];
-        foreach (var (file, text) in rewrites) File.WriteAllText(file, text);
+        rewrites = rewritten;
         return resolved;
     }
 

@@ -1,15 +1,16 @@
 import { BaseHandler } from './BaseHandler.js';
 import type { ToolSpec } from './BaseHandler.js';
-import { asRequestError, optionalBoolean, optionalString, optionalStringList, recordRef, requireString } from './args.js';
+import { asRequestError, optionalBoolean, optionalObject, optionalString, optionalStringList, recordRef, requireString } from './args.js';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { FAMILY_SKILLS } from '../lib/skills.js';
 
 /**
  * Projects: mods authored as text (docs/adr/0004). Records are changed by editing the project's YAML
- * files with ordinary file tools — there is deliberately no tool that edits a record. These tools
- * create the starting points, and move a project between text, plugin and the mod manager:
+ * files with ordinary file tools, or field by field with editRecord, which needs no text to match
+ * (docs/adr/0008). These tools create the starting points, and move a project between text, plugin and
+ * the mod manager:
  *
- *   newProject / addPatch  ->  edit plugin/*.yaml  ->  buildProject  ->  deployProject
+ *   newProject / addPatch  ->  edit plugin/*.yaml, editRecord  ->  buildProject  ->  deployProject
  *                                        ^                                      |
  *                                        +------ pullProject <- Creation Kit ---+
  */
@@ -146,6 +147,55 @@ export class ProjectsHandlers extends BaseHandler {
             },
             {
                 definition: {
+                    name: 'editRecord',
+                    annotations: {
+                        title: 'Edit record fields',
+                        readOnlyHint: false,
+                        // Writes over the values it is given; the rest of the file stays as it is.
+                        destructiveHint: true,
+                        idempotentHint: true,
+                        openWorldHint: false
+                    },
+                    // 95 of e4b's text edits were refused in eval rounds 40–47: old text from memory, indented otherwise
+                    // than the file, or made stale by a build's own changes (docs/adr/0008).
+                    description:
+                        'Change fields of one record file of a project by their paths — no old text to match. `set` takes ' +
+                        'each field\'s path and its value: {"Data.Damage": 12, "Name": "Flame Blade", ' +
+                        '"Effects[0].Data.Magnitude": 40, "Keywords": ["WeapTypeSword"]} — a text field (Name, Description) ' +
+                        'takes its words, a link a FormID or an editor ID, a list or a part a list or an object, written whole. ' +
+                        '`remove` takes paths to delete: ["Critical", "Effects[1]"]. Changes only those lines, refuses a field ' +
+                        'the record\'s type does not have, and answers the file\'s new text. Then run buildProject.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            project: PROJECT,
+                            record: {
+                                type: 'string',
+                                description: 'The record file: its path in the plugin folder, like "Weapons/FlameBlade.yaml", or the record\'s EditorID.'
+                            },
+                            set: {
+                                type: 'object',
+                                description: 'Fields by path, each with its new value. A path joins fields with dots, and names a list\'s item by its number from 0.'
+                            },
+                            remove: {
+                                type: 'array',
+                                items: { type: 'string', description: 'A field\'s path, like "Critical" or "Effects[1]".' },
+                                description: 'Paths of fields, or of a list\'s items, to delete.'
+                            }
+                        },
+                        required: ['project', 'record']
+                    }
+                },
+                onFailure: 'Failed to edit the record',
+                run: args => asRequestError(this.backend.editRecord({
+                    project: requireString(args, 'project'),
+                    record: requireString(args, 'record', 'The record file, like "Weapons/FlameBlade.yaml", or its EditorID.'),
+                    set: optionalObject(args, 'set', '{"Data.Damage": 12}'),
+                    remove: optionalStringList(args, 'remove', '["Critical"]')
+                }))
+            },
+            {
+                definition: {
                     name: 'buildProject',
                     annotations: {
                         title: 'Build project',
@@ -157,8 +207,8 @@ export class ProjectsHandlers extends BaseHandler {
                     },
                     description:
                         'Build a project\'s plugin from its text: gives new records their FormIDs (written back into ' +
-                        'their files, which keep their names), turns a link written as an editor ID — a new record of the project, or one of the ' +
-                        'load order — into that record\'s FormID (`resolvedLinks`), checks that every link points at a ' +
+                        'their files, which keep their names), builds a link written as an editor ID — a new record of the project, or one of the ' +
+                        'load order — as that record\'s FormID, the file keeping the editor ID (`resolvedLinks`), checks that every link points at a ' +
                         'record that exists, compiles the project\'s Papyrus scripts and writes the plugin with the ' +
                         'header this game version needs. Refuses a project with no records, fields a record type does ' +
                         'not have, and files below a group\'s folder — each named. What has one right fix — a FormKey copied ' +

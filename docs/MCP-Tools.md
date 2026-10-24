@@ -70,7 +70,10 @@ arguments, see [`Tool-Reference.md`](./Tool-Reference.md), which is generated fr
 
 9. **Domain rules.**
    - **Records are changed by editing project text** with your ordinary file tools — read, edit,
-     write the YAML files in a project's `plugin/` folder. No tool edits a record.
+     write the YAML files in a project's `plugin/` folder — or field by field with `editRecord`,
+     which needs no old text to match: `{"set": {"BasicStats.Damage": 12}, "remove": ["Critical"]}`.
+     It changes only those fields' lines, refuses a field the record's type does not have, and answers
+     the file's new text (docs/adr/0008, since eval round 48).
    - **A `path` in an answer is a full path**, ready for your file tools; `addPatch` adds the file's
      text, so you can edit it at once. A path relative to something says so in its name:
      `readRecord`'s `pathInPluginFolder`.
@@ -84,9 +87,13 @@ arguments, see [`Tool-Reference.md`](./Tool-Reference.md), which is generated fr
      and one written into two files where no build gave it to either, since eval round 40.
      A record of the project written with no `EditorID` takes its file's name for one, where that
      is an editor ID no other record has, since eval round 38; otherwise the build warns.
-   - **A link may name its record by editor ID.** `buildProject` writes that record's FormID into the
-     file — the project's own record first, then the load order's — and lists it in `resolvedLinks`,
-     so a new record can point at another one written in the same go.
+   - **A link may name its record by editor ID.** `buildProject` builds it as that record's FormID —
+     the project's own record first, then the load order's — and lists it in `resolvedLinks`, so a new
+     record can point at another one written in the same go. The file keeps the editor ID, since eval
+     round 48: written in as FormIDs, those lines were what 12 of e4b's refused edits of rounds 40–47
+     still sent. `links.lock.json`, beside the plugin folder, keeps the FormID each link to the load
+     order named first, and the next build keeps to it: a mod installed later whose record has the
+     same editor ID does not change the link.
    - **Change other mods through a patch** (`addPatch`), never in their plugins: an override copied
      from the winning version keeps every other mod's changes, and survives their updates.
    - **Build, deploy and pull are explicit steps.** Deploy refuses a stale build and refuses to
@@ -143,7 +150,7 @@ nothing is enforced, and a client must not trust annotations from a server it do
 | Flag | True when |
 | --- | --- |
 | `readOnlyHint` | The call changes nothing in the backend. A check that sends data but persists nothing is read-only; anything that executes caller-supplied code is not. |
-| `destructiveHint` | The call overwrites or removes something that was already there: `deployProject` (the mod folder), `pullProject` (the project's text). Adding something new is **not** destructive — `addPatch` never overwrites a file, and `buildProject` replaces only its own previous output. |
+| `destructiveHint` | The call overwrites or removes something that was already there: `deployProject` (the mod folder), `pullProject` (the project's text), `editRecord` (the values it is given). Adding something new is **not** destructive — `addPatch` never overwrites a file, and `buildProject` replaces only its own previous output. |
 | `idempotentHint` | Repeating the call really does leave the same state: `addPatch` (a record already in the project is left alone), `newProject` (an existing project is returned as it is), `deployProject` of the same build. A write that appends to a history every time never qualifies. |
 | `openWorldHint` | The call reaches past the instance this server is bound to, into an outside service: reading Nexus Mods (`searchNexus`, `readNexusMod`), sending, publishing, pushing to an external remote. `false` everywhere else. |
 
@@ -328,7 +335,8 @@ reference inside it is a FormID: resolve the ones you reason about with `findRec
 
 ```jsonc
 {"tool":"addPatch","args":{"project":"IronSwordBuff","records":["IronSword"]}}   // copies the winning version in
-// added[].files holds the copy's full path and text: edit it with your file tools
+// added[].files holds the copy's full path and text: edit it with your file tools, or by its fields:
+{"tool":"editRecord","args":{"project":"IronSwordBuff","record":"IronSword","set":{"BasicStats.Damage":12}}}
 {"tool":"buildProject","args":{"project":"IronSwordBuff"}}     // checks every link, writes the plugin
 {"tool":"deployProject","args":{"project":"IronSwordBuff"}}    // into the mod manager, at the end of the load order
 ```

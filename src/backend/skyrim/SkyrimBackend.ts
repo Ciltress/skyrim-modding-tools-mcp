@@ -14,6 +14,8 @@ export interface SkyrimBackend extends Backend {
     newProject(request: NewProjectRequest): Promise<ProjectInfo>;
     /** Copies records into a project as overrides — creating the project first when it does not exist. */
     addPatch(request: AddPatchRequest): Promise<AddPatchResult>;
+    /** Changes fields of one record file of a project by their paths, with no text to match (docs/adr/0008). */
+    editRecord(request: EditRecordRequest): Promise<EditRecordResult>;
     buildProject(project: string): Promise<BuildResult>;
     deployProject(project: string): Promise<DeployResult>;
     pullProject(project: string): Promise<PullResult>;
@@ -204,6 +206,25 @@ export interface ProjectFile {
     text?: string;
 }
 
+export interface EditRecordRequest {
+    project: string;
+    /** The record file: its path in the plugin folder (`Weapons/FlameBlade.yaml`), its file name, or the record's EditorID. */
+    record: string;
+    /** Fields by path — `Data.Damage`, `Name`, `Effects[0].Data.Magnitude` — and the value each takes. */
+    set?: Record<string, unknown>;
+    /** Paths of fields, or of a list's items, to delete. */
+    remove?: string[];
+}
+
+export interface EditRecordResult {
+    /** The full path of the file changed. */
+    file: string;
+    /** Each change, as `set Data.Damage: 7 → 12`. */
+    changed: string[];
+    /** The file's text after the change. */
+    text: string;
+}
+
 export interface AddPatchResult {
     project: ProjectInfo;
     added: { formId: string; editorId: string | null; type: string; from: string; files: ProjectFile[] }[];
@@ -230,8 +251,9 @@ export interface BuildResult {
     /** New records that got their FormID in this build, each with the full path of its file. */
     assignedFormIds: { formId: string; editorId: string | null; file: string }[];
     /**
-     * Links written by editor ID that the build replaced in their files with the FormID they name —
-     * `from` as written, `to` the FormID — each with the full path of its file.
+     * Links written by editor ID and the FormID each names — `from` as written, `to` the FormID — each with the full
+     * path of its file. The files keep the editor IDs; links.lock.json beside the plugin folder keeps what each link to
+     * the load order named, and the next build keeps to it.
      */
     resolvedLinks: { file: string; field: string; from: string; to: string }[];
     scripts: { compiled: number };

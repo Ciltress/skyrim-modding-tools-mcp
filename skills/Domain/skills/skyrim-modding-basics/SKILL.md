@@ -29,8 +29,8 @@ is in [`REFERENCE.md`](REFERENCE.md).
 ## How a mod is authored here
 
 A mod is a **project**: text in git, one file per record, built into a plugin and deployed into the
-instance. Change a record by editing its text file with your standard file tools — read, edit, write
-— and leave the built plugin to the build. When a fix touches someone else's record, write the
+instance. Change a record by editing its text file — field by field with `editRecord`, or with your
+standard file tools: read, edit, write — and leave the built plugin to the build. When a fix touches someone else's record, write the
 override into your own project: a patch survives the other mod's next update, an edit to its plugin
 does not.
 
@@ -52,13 +52,16 @@ Every authoring task runs this loop.
      the project's plugin folder, in the type's group folder — mirroring a vanilla record of the same
      type read with `readRecord`: the same field names and nesting, other values. Leave out `FormKey`.
    - One of the project's own records: its file is already there.
-3. **Edit** with your file tools — only the fields the task names; the rest stays as copied. Take every
+3. **Edit** only the fields the task names; the rest stays as copied. `editRecord` changes fields by
+   their paths, with no old text to match — `{"record": "Weapons/FlameBlade.yaml", "set":
+   {"BasicStats.Damage": 12, "Name": "Flame Blade"}}` — and answers the file as it now reads; your
+   file tools do the rest. Take every
    link — FormID or editor ID — from a record you read or a `findRecords` answer. Scripts and files such as meshes have folders of their own
    ([`REFERENCE.md`](REFERENCE.md), *What a project looks like*).
 4. **Build.** `buildProject`. New records get their FormIDs here, answered in `assignedFormIds`. A
    link to a record — a new one of the project, or a vanilla one — may be written as its editor ID
-   (`ObjectEffect: MyEnchantment`): the build writes that record's FormID into the file and lists it
-   in `resolvedLinks`. A link it cannot resolve, or a broken one, fails the build with the list of
+   (`ObjectEffect: MyEnchantment`): the build builds it as that record's FormID, keeps the editor ID
+   in the file, and lists it in `resolvedLinks`. A link it cannot resolve, or a broken one, fails the build with the list of
    offenders: fix each and build again. Done when the build succeeds.
 5. **Deploy**, when the user wants the mod in the game: `deployProject`. Done when it succeeds and the
    user has heard its `modManager.nextStep`, if it has one.

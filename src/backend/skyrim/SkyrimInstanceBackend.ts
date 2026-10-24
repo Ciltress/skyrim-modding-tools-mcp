@@ -22,7 +22,8 @@ import {
 import type { SkyrimEngine } from './engine.js';
 import { NexusCatalogue, markDownloadInstalled, readDownloadMeta } from './nexus.js';
 import type {
-    AddPatchRequest, AddPatchResult, BuildResult, DeployResult, DisableModRequest, DisableModResult, InstallModQuestions, InstallModRequest,
+    AddPatchRequest, AddPatchResult, BuildResult, DeployResult, DisableModRequest, DisableModResult, EditRecordRequest, EditRecordResult,
+    InstallModQuestions, InstallModRequest,
     InstallModResult, GameVersionCheck, ModList, ModListQuery,
     NewProjectRequest, NexusAccount, NexusDownload, NexusMod, NexusSearchQuery, NexusSearchResult, ProjectFile, ProjectInfo,
     PullResult, RecordQuery, RecordRequest, RecordSearchResult, RecordVersion, RecordVersions, SkyrimBackend
@@ -216,6 +217,19 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
             `pass it to addPatch as \`from\`.`);
     }
 
+    async editRecord(request: EditRecordRequest): Promise<EditRecordResult> {
+        await this.engine.ensureFresh();
+        const paths = projectPaths(this.engine.projectsDir, request.project);
+        readProjectHeader(paths); // names a project that is not there
+        const edited = await this.engine.helper.call<EditRecordResult>('editRecord', {
+            projectPluginDir: paths.plugin,
+            record: request.record,
+            ...(request.set ? { set: request.set } : {}),
+            ...(request.remove ? { remove: request.remove } : {})
+        });
+        return { ...edited, file: path.resolve(paths.plugin, edited.file) };
+    }
+
     async addPatch(request: AddPatchRequest): Promise<AddPatchResult> {
         await this.engine.ensureFresh();
         const paths = projectPaths(this.engine.projectsDir, request.project);
@@ -367,7 +381,8 @@ export class SkyrimInstanceBackend implements SkyrimBackend {
         });
 
         const output = path.join(paths.build, plugin);
-        // The helper writes links named by editor ID into the files as FormIDs; a build that fails takes them back.
+        // A build that fails leaves the record files as they were before it. The helper writes the FormIDs that links
+        // named by editor ID stand for only into its own copy of them (eval round 47).
         const giveBack = keepRecordTexts(paths.plugin);
         let built: { records: number; masters: string[]; headerVersion: number; resolvedLinks: BuildResult['resolvedLinks']; notes?: string[] };
         try {

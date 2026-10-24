@@ -60,6 +60,7 @@ public sealed class Session : IDisposable
         "extractArchive" => Archives.Extract(p),
         "pluginHeaders" => PluginHeaders(p),
         "checkRecords" => CheckRecords(Required(p, "projectPluginDir")),
+        "editRecord" => RecordEdits.Edit(Required(p, "projectPluginDir"), Required(p, "record"), p["set"] as JsonObject, p["remove"] as JsonArray),
         "sksePlugins" => SksePlugins.Read(p),
         _ => throw new HelperException("unknownMethod", $"No method '{method}'.")
     };
@@ -408,7 +409,7 @@ public sealed class Session : IDisposable
         try
         {
             (records, leftOut) = RecordFiles.Require(dir, Index);
-            RecordLinks.Resolve(dir, Index, write: false);
+            RecordLinks.Resolve(dir, Index, LinkPins.Read(dir), out _);
         }
         catch (HelperException e) when (corrected.Count > 0)
         {
@@ -433,11 +434,12 @@ public sealed class Session : IDisposable
             throw new HelperException("notFound", $"No RecordData.yaml in '{dir}': this is not a project's plugin folder.");
 
         // What the reader would skip or fail on without saying why, named first (RecordFiles); then the
-        // links written by editor ID, made FormKeys the reader takes (RecordLinks).
+        // links written by editor ID, made FormKeys the reader takes (RecordLinks) — in its copy alone.
         RecordFiles.Require(dir, Index);
-        var resolvedLinks = RecordLinks.Resolve(dir, Index, write: true);
+        var pins = LinkPins.Read(dir);
+        var resolvedLinks = RecordLinks.Resolve(dir, Index, pins, out var rewrites);
         IModGetter deserialized;
-        var readable = WithoutEmptyFiles(dir);
+        var readable = Readable(dir, rewrites);
         try
         {
             deserialized = await MutagenYamlConverter.Instance.Deserialize(readable);
@@ -502,6 +504,8 @@ public sealed class Session : IDisposable
                 "there with a vanilla record of the same type (readRecord) and fix their fields.");
         }
 
+        // What the links named, kept for the next build, once a plugin was written from them.
+        LinkPins.Add(dir, pins, resolvedLinks, mod.ModKey);
         using var written = SkyrimMod.Create(release).FromPath(output).Construct();
         return new JsonObject
         {
@@ -603,15 +607,16 @@ public sealed class Session : IDisposable
     // ---------------------------------------------------------------- helpers
 
     /// <summary>
-    /// The plugin folder as the reader can take it: itself, or — where record files were written empty to
-    /// drop their records (RecordFiles.Check) — a copy without them, as the reader fails on an empty file.
-    /// The project's own files are never renamed or moved.
+    /// The plugin folder as the reader can take it: itself, or a copy — without the record files written empty to
+    /// drop their records (RecordFiles.Check), as the reader fails on an empty file, and with each link written by
+    /// editor ID as the FormID it names (<paramref name="rewrites"/>), as the reader takes FormIDs alone.
+    /// The project's own files are never renamed, moved or rewritten.
     /// </summary>
-    private static string WithoutEmptyFiles(string dir)
+    private static string Readable(string dir, List<(string Relative, string Text)> rewrites)
     {
         var files = Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).ToList();
         var empty = files.Where(f => f.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase) && RecordFiles.Empty(File.ReadAllText(f))).ToHashSet();
-        if (empty.Count == 0) return dir;
+        if (empty.Count == 0 && rewrites.Count == 0) return dir;
         var copy = Path.Combine(Path.GetTempPath(), $"skyrim-helper-build-{Guid.NewGuid():N}");
         foreach (var file in files)
         {
@@ -620,6 +625,7 @@ public sealed class Session : IDisposable
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             File.Copy(file, target);
         }
+        foreach (var (relative, text) in rewrites) File.WriteAllText(Path.Combine(copy, relative), text);
         return copy;
     }
 

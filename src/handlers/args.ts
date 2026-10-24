@@ -71,6 +71,19 @@ export function optionalString(args: any, name: string): string | undefined {
     return value.trim() || undefined;
 }
 
+/** An object argument — or its JSON text, as small models send one now and then. */
+export function optionalObject(args: any, name: string, example: string): Record<string, unknown> | undefined {
+    let value = args?.[name];
+    if (value === undefined || value === null) return undefined;
+    if (typeof value === 'string') {
+        try { value = JSON.parse(value); } catch { /* refused below, with the example */ }
+    }
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+        throw new McpError(ErrorCode.InvalidParams, `'${name}' must be an object, e.g. ${example}.`);
+    }
+    return value as Record<string, unknown>;
+}
+
 export function optionalStringList(args: any, name: string, example: string): string[] | undefined {
     const value = args?.[name];
     if (value === undefined || value === null) return undefined;

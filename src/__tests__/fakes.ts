@@ -7,7 +7,8 @@ import { ModError } from '../backend/skyrim/modList';
 import { NexusError } from '../backend/skyrim/nexus';
 import { ProjectError } from '../backend/skyrim/projects';
 import type {
-    AddPatchRequest, AddPatchResult, BuildResult, ProjectFile, DeployResult, DisableModRequest, DisableModResult, InstallModRequest, InstallModResult,
+    AddPatchRequest, AddPatchResult, BuildResult, ProjectFile, DeployResult, DisableModRequest, DisableModResult, EditRecordRequest, EditRecordResult,
+    InstallModRequest, InstallModResult,
     NewProjectRequest, NexusDownload, NexusMod, NexusModSummary,
     NexusSearchQuery, NexusSearchResult, ProjectInfo, PullResult, RecordQuery, RecordRequest, RecordSearchResult,
     RecordSummary, RecordVersions, ListedMod, ModList, ModListQuery, GameVersionCheck
@@ -146,6 +147,15 @@ export class InMemorySkyrimBackend implements AppBackend {
             }
         }
         return { project: this.info(request.project, created), ...result };
+    }
+
+    async editRecord(request: EditRecordRequest): Promise<EditRecordResult> {
+        if (!this.projects.has(request.project)) throw new ProjectError(`There is no project '${request.project}'. Create it with newProject or addPatch.`);
+        const changed = [
+            ...Object.entries(request.set ?? {}).map(([field, value]) => `set ${field}: ${JSON.stringify(value)}`),
+            ...(request.remove ?? []).map(field => `removed ${field}`)
+        ];
+        return { file: `/projects/${request.project}/plugin/${request.record}`, changed, text: '' };
     }
 
     private copiedFile(project: string, record: RecordSummary): ProjectFile {
@@ -298,7 +308,7 @@ export interface FakeBackendOptions {
 }
 
 const DOMAIN_METHODS = [
-    'findRecords', 'readRecord', 'newProject', 'addPatch', 'buildProject', 'deployProject', 'pullProject',
+    'findRecords', 'readRecord', 'newProject', 'addPatch', 'editRecord', 'buildProject', 'deployProject', 'pullProject',
     'searchNexus', 'readNexusMod', 'downloadNexusFile', 'installMod', 'disableMod', 'listMods', 'checkGameVersion'
 ] as const;
 

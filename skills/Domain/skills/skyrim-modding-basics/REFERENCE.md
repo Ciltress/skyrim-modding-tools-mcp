@@ -125,9 +125,11 @@ Spells/…   LeveledItems/…   Npcs/…
   its name. The build's `assignedFormIds` lists them, each with its file's path.
 - **A link may be written as an editor ID** — `ObjectEffect: MyEnchantment`, an effect's
   `BaseEffect: EnchFireDamageFFContact`, a keyword list's `- WeapTypeSword`. The build looks it up
-  among the project's records first, then the load order's, writes that record's FormID into the
-  file, and lists each in `resolvedLinks`; one that names no record of the type the field takes fails
-  the build with the closest editor IDs. A new record's `FormKey` line is never copied from another
+  among the project's records first, then the load order's, builds that record's FormID into the
+  plugin, and lists each in `resolvedLinks`; the file keeps the editor ID. `links.lock.json`, beside
+  the plugin folder, keeps what each link to the load order named, so a mod installed later whose
+  record has the same editor ID does not change it. A link that names no record of the type the field
+  takes fails the build with the closest editor IDs. A new record's `FormKey` line is never copied from another
   record: that makes the file an override of the record it names.
 - **The build numbers a light project's records `000800`–`000FFF`** under either header version —
   2,048 new records. Past that it stops and says so; removing `Small` from the header's `Flags` makes
