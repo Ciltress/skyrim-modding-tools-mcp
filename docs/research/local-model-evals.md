@@ -81,8 +81,8 @@ only undoes what mods loaded before it change there. Round 46's e4b half ran bef
 and is counted by replay. Replayed from each run's addPatch copies, writes and the edits that applied, 7 of
 e4b's passing runs of rounds 33–45 left one: the Iron Sword or a fire enchantment, copied with addPatch and
 built untouched beside the new sword. Counted so, with the sword check above, e4b would have had 40 of 45 in
-round 33 (42 recorded), 40 in round 35 (42), 39 in round 36 (42), 40 in round 42 (41), 40 in round 43 (41) and
-42 in round 45 (43). The rows keep the counts as recorded; Swift left no such copy.
+round 33 (42 recorded), 40 in round 35 (42), 39 in round 36 (42), 40 in round 42 (41), 40 in round 43 (41),
+42 in round 45 (43) and 41 in round 46 (43). The rows keep the counts as recorded; Swift left no such copy.
 
 The authoring tasks (from round 9) author new records by hand, following vanilla ones. A link — the sword's
 enchantment, a spell's effects — is followed into the project when the model wrote the record there,
@@ -208,6 +208,8 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-24 | Swift-1.5 27B IQ2_S | `all`, OpenClaw | 682d958 | 45/45 | 8.57 s | ~1,904 tokens/s | ~64 tokens/s | 100% |
 | 2026-10-24 | gemma4:e4b | `all`, OpenClaw | f8c3335 | 43/45 | 3.9 s | ~7,222 tokens/s | ~174 tokens/s | 100% |
 | 2026-10-24 | Swift-1.5 27B IQ2_S | `all`, OpenClaw | f8c3335 | 45/45 | 8.21 s | ~1,908 tokens/s | ~64 tokens/s | 100% |
+| 2026-10-24 | gemma4:e4b | `all`, OpenClaw | ac9ca5c | 43/45 | 3.47 s | ~7,192 tokens/s | ~163 tokens/s | 100% |
+| 2026-10-24 | Swift-1.5 27B IQ2_S | `all`, OpenClaw | 2f8b710 | 45/45 | 8.78 s | ~1,899 tokens/s | ~64 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -328,83 +330,6 @@ model's: four turns lost calling `skills_read` with `skill:` instead of `name:`,
 effect on the enchantment, refused by the build, and the turns ran out. (The seconds do not compare: the
 GPU ran the second half at ~184 tokens/s of prompt against ~891.)
 
-## Round 44 — a magic effect's Data to the item that names it; e4b and Swift-1.5 27B (2026-10-24)
-
-**Changed before it** (9b60110):
-
-- A magic effect's own `Data` goes to the one `Effects` item of the project that names it, taken out where the item has
-  the same; a magic effect's flags in a spell's `Flags` are named in one problem as the magic effect's; a load-order
-  weapon or armor copied with its name kept and given the project's new enchantment is warned of.
-- The eleventh round with AGENTS.md's "delivered" line. Nothing ran beside it.
-
-gemma4:e4b, `all`, OpenClaw, at 682d958 (prompt ~6,660 tokens/s, generation ~173 tokens/s; first prompt 9947 tokens (26 tools, 16 of them this server's), think high, num_ctx 131072, num_predict none, temperature the Modelfile's, first token after 1.778 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 1/1 | 3 | 2 | 0 | 0 | 11850 | 98.1 |
-| read | 1/1 | 3 | 2 | 0 | 0 | 11227 | 40.1 |
-| filter | 1/1 | 4 | 3 | 0 | 0 | 16506 | 40.9 |
-| patch | 1/1 | 4 | 3 | 0 | 0 | 13357 | 45.6 |
-| build | 1/1 | 6 | 5 | 0 | 0 | 13626 | 45.9 |
-| sword | 4/5 | 10.2 | 9.4 | 1 | 0 | 24554 | 73.2 |
-| sword+detailed | 5/5 | 9 | 8.6 | 1 | 1 | 23735 | 68.7 |
-| spell | 5/5 | 6.8 | 5.8 | 0 | 1 | 17475 | 50.7 |
-| spell+detailed | 5/5 | 6.6 | 5.6 | 1 | 0 | 17292 | 49.4 |
-| npc | 5/5 | 7.6 | 6.8 | 2 | 3 | 19009 | 53.2 |
-| npc+detailed | 5/5 | 8 | 7.6 | 0 | 1 | 31935 | 57.6 |
-| note | 5/5 | 6.6 | 5.6 | 1 | 0 | 18611 | 52.2 |
-| note+detailed | 5/5 | 6.2 | 5.2 | 0 | 0 | 18254 | 55.6 |
-
-Swift-1.5 27B IQ2_S, `all`, OpenClaw, at 682d958 (prompt ~1,904 tokens/s, generation ~64 tokens/s; first prompt 10397 tokens (26 tools, 16 of them this server's), think true, num_ctx 131072, num_predict none, temperature 1, first token after 0.911 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 1/1 | 2 | 1 | 0 | 0 | 10417 | 53.9 |
-| read | 1/1 | 3 | 2 | 0 | 0 | 11400 | 42.1 |
-| filter | 1/1 | 2 | 1 | 0 | 0 | 11071 | 40.9 |
-| patch | 1/1 | 5 | 5 | 0 | 0 | 19746 | 50.9 |
-| build | 1/1 | 6 | 6 | 0 | 0 | 20066 | 56 |
-| sword | 5/5 | 6.8 | 9 | 0 | 0 | 30879 | 91.7 |
-| sword+detailed | 5/5 | 6.4 | 10 | 0 | 0 | 30846 | 148.5 |
-| spell | 5/5 | 5.8 | 6.2 | 0 | 0 | 19836 | 64 |
-| spell+detailed | 5/5 | 6 | 6.4 | 0 | 0 | 22244 | 65.2 |
-| npc | 5/5 | 7 | 7.6 | 0 | 0 | 21990 | 69.9 |
-| npc+detailed | 5/5 | 6 | 6.4 | 0 | 0 | 19893 | 68.6 |
-| note | 5/5 | 6.2 | 7.2 | 0 | 0 | 21908 | 99.4 |
-| note+detailed | 5/5 | 5.8 | 6.4 | 0 | 0 | 18737 | 85.6 |
-
-**Seen.**
-
-- **e4b 44 of 45** (round 43: 41), as in round 41: sword 9 of 10, spell 10, NPC 10, note 10, and the five simple
-  tasks. The build took a copied `FormKey` out in 15 runs, copied escapes in 3 and moved fields in 3; none of those
-  runs failed. It refused 4 builds in 4 runs (round 43: 19 in 9). The edit tool refused 6 of e4b's 11 edits (10 of
-  32); a turn's median thinking was 1,016 characters (1,071).
-- **None of round 43's fixes came up:** no run wrote a magic effect's strength in the effect, a spell with an effect's
-  flags, or a copy of a load-order item given a new enchantment. The fixes that did: an `EditorID` from the file's
-  name in spell+detailed #4, a FormKey two files shared in sword+detailed #4, and the warning of no `Name` in spell
-  #4 and npc+detailed #4 — each run passed.
-- **e4b's miss, sword #1:** asked findRecords for one sword, it was answered the Bound Sword and copied it with its
-  `NonPlayable`, `BoundWeapon` and `CantDrop` flags, adding `- Weapon`; refused for that one, its next turn ended in a
-  broken tool call, which OpenClaw answered `error_payload`.
-- **What the checks did not see:** sword #3 copied the Bound Sword too, kept its flags, and passed. Replayed from their
-  writes and edits, 10 of e4b's new swords of rounds 31–44 were so flagged — a conjured weapon, kept out of the
-  player's inventory — and 9 of those runs passed; each had been answered the Bound Sword first for "sword", as it
-  had been since round 30. None of Swift's.
-- **The "delivered" line, eleven rounds:** the miss ended on the client's error, with no answer (round 43: two misses
-  answered with a file changed after their last build).
-- **Swift-1.5 27B 45 of 45:** no build refused, 2 edits, 64 minutes; a turn's median thinking 457 characters.
-
-**After the round (a749cdc):**
-
-- Among equal matches, findRecords puts a name with the text as a word of its own first — the Daedric Sword before
-  the Daedric Greatsword — and what the player can have before NonPlayable and bound weapons and NonPlayable armor:
-  "sword" now answers the Daedric Sword.
-- A new weapon flagged `BoundWeapon` is built with a warning, unless a magic effect of the project conjures it.
-  `NonPlayable` alone, an NPC's weapon the player cannot loot, is not warned of: 20 of the Creation Club's are so.
-
-**What it points at next:** the eval's sword check passes a sword flagged as a bound one; a line written twice the same
-inside a part is still refused.
-
 ## Round 45 — what the player can have first; e4b and Swift-1.5 27B (2026-10-24)
 
 **Changed before it** (a749cdc):
@@ -489,3 +414,80 @@ Swift-1.5 27B IQ2_S, `all`, OpenClaw, at f8c3335 (prompt ~1,908 tokens/s, genera
 
 **What it points at next:** the eval's checks pass a run that leaves an unchanged copy in its plugin beside the new
 record (6 runs of rounds 30–45); a line written twice the same inside a part is still refused.
+
+## Round 46 — a build's corrections said to be done; e4b and Swift-1.5 27B (2026-10-24)
+
+**Changed before it** (8907eb5):
+
+- A build that wrote corrections says first, in its `nextStep`, that each is done; an override that changes nothing is
+  built with a warning; a part a record cannot be without, written empty, is refused as empty.
+- The first round on the sword check of a sword the player can carry (80f2bcc). The check of a copy that changes
+  nothing (2f8b710) came between the halves: Swift's half ran with it, e4b's is counted by replay.
+- The thirteenth round with AGENTS.md's "delivered" line. Nothing ran beside it.
+
+gemma4:e4b, `all`, OpenClaw, at ac9ca5c (prompt ~7,192 tokens/s, generation ~163 tokens/s; first prompt 9947 tokens (26 tools, 16 of them this server's), think high, num_ctx 131072, num_predict none, temperature the Modelfile's, first token after 1.788 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 1/1 | 2 | 1 | 0 | 0 | 10096 | 157.2 |
+| read | 1/1 | 3 | 2 | 0 | 0 | 12692 | 41.7 |
+| filter | 1/1 | 2 | 1 | 0 | 0 | 10301 | 39.3 |
+| patch | 1/1 | 6 | 5 | 0 | 0 | 15164 | 52.1 |
+| build | 1/1 | 8 | 7 | 0 | 0 | 20923 | 50.2 |
+| sword | 4/5 | 11.2 | 10.2 | 0 | 4 | 25337 | 78.2 |
+| sword+detailed | 5/5 | 9.6 | 8.8 | 0 | 0 | 27005 | 68 |
+| spell | 5/5 | 8.2 | 7.2 | 1 | 2 | 18434 | 56.1 |
+| spell+detailed | 5/5 | 6 | 5 | 0 | 0 | 16658 | 48.9 |
+| npc | 5/5 | 9.2 | 8.4 | 4 | 2 | 19426 | 63.1 |
+| npc+detailed | 5/5 | 7 | 6 | 1 | 1 | 16379 | 52.8 |
+| note | 5/5 | 6.2 | 5.2 | 0 | 0 | 13951 | 55.4 |
+| note+detailed | 4/5 | 5.6 | 4.6 | 0 | 0 | 18560 | 53.9 |
+
+Swift-1.5 27B IQ2_S, `all`, OpenClaw, at 2f8b710 (prompt ~1,899 tokens/s, generation ~64 tokens/s; first prompt 10404 tokens (26 tools, 16 of them this server's), think true, num_ctx 131072, num_predict none, temperature 1, first token after 1.787 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 1/1 | 2 | 1 | 0 | 0 | 10427 | 55 |
+| read | 1/1 | 3 | 3 | 0 | 0 | 14617 | 45.4 |
+| filter | 1/1 | 2 | 1 | 0 | 0 | 11089 | 42 |
+| patch | 1/1 | 5 | 6 | 0 | 0 | 20759 | 64.7 |
+| build | 1/1 | 6 | 6 | 0 | 0 | 20011 | 56.3 |
+| sword | 5/5 | 6.2 | 8 | 0 | 0 | 24846 | 101.2 |
+| sword+detailed | 5/5 | 6.2 | 10 | 0 | 0 | 30976 | 147.2 |
+| spell | 5/5 | 6.2 | 7 | 1 | 0 | 21771 | 65.2 |
+| spell+detailed | 5/5 | 6.8 | 7.4 | 0 | 0 | 23624 | 69.3 |
+| npc | 5/5 | 6.6 | 7.4 | 1 | 0 | 22109 | 93.5 |
+| npc+detailed | 5/5 | 6.4 | 6.8 | 0 | 0 | 21665 | 117.5 |
+| note | 5/5 | 6.4 | 8 | 1 | 0 | 22875 | 72.4 |
+| note+detailed | 5/5 | 6.8 | 7 | 1 | 0 | 18688 | 74.9 |
+
+**Seen.**
+
+- **e4b 43 of 45** (round 45: 43, 42 by the check of a copy): sword 9 of 10, spell 10, NPC 10, note 9, and the five
+  simple tasks. Replayed against the check of a copy that changes nothing, sword #4 and note+detailed #2 fail it: 41.
+  No sword was flagged as a bound one. The build took a copied `FormKey` out in 11 runs, copied escapes in 4 and moved
+  fields in 3; none of those runs failed. It refused 6 builds in 5 runs (round 45: 10 in 7). The edit tool refused 8 of
+  e4b's 19 edits (21 of 33); a turn's median thinking was 914 characters (1,130).
+- **Round 45's fixes:** the `nextStep` that each correction is done came in 22 runs, and no run redid a correction
+  after it; the two edits that missed after it went to links the build had written as FormIDs, and spell #4 read its
+  file next. The warning of a copy that changes nothing came in sword #4 and note+detailed #2: each answered at once,
+  the copy left beside the new sword and the new note. No part was left empty.
+- **e4b's misses.** sword #5 wrote the enchantment alone, was warned that no record names it, and answered that the
+  sword carried it. note+detailed #3 searched "Note From Maven" among MISC records, was answered none, and asked the
+  user for the note's FormID; round 39's note+detailed #3 searched so too and failed. 18 of the 67 typed searches of
+  rounds 30–46 that found nothing would have found records of another type.
+- **The "delivered" line, thirteen rounds:** sword #5 answered as done; note+detailed #3 said what it could not find
+  (round 45: both misses answered as done).
+- **Swift-1.5 27B 45 of 45:** no build refused, 2 edits, 68 minutes; a turn's median thinking 470 characters. No copy
+  was left in its 42 runs that wrote record files.
+
+**After the round (e2e3ddb):**
+
+- A search whose `types` find nothing says what it finds of other types, with their types: "Note From Maven" among
+  MISC records names the Book.
+- The warning of an enchantment no record names says, too, when the project has no weapon or armor at all.
+- The warning of a copy that changes nothing, beside a new record of the project of its type, names that record and
+  calls the copy left over: write it empty.
+
+**What it points at next:** in 3 of round 46's runs e4b answered at once after a warning, though the `nextStep` says
+fixing it is part of the task; a line written twice the same inside a part is still refused.
