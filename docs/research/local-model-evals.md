@@ -214,6 +214,8 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-24 | Swift-1.5 27B IQ2_S | `all`, OpenClaw | 677778f | 45/45 | 8.25 s | ~1,916 tokens/s | ~64 tokens/s | 100% |
 | 2026-10-24 | gemma4:e4b | `all`, OpenClaw | 7f12f9c | 42/45 | 3.61 s | ~7,199 tokens/s | ~170 tokens/s | 100% |
 | 2026-10-24 | Swift-1.5 27B IQ2_S | `all`, OpenClaw | 7f12f9c | 45/45 | 7.9 s | ~1,913 tokens/s | ~64 tokens/s | 100% |
+| 2026-10-24 | gemma4:e4b | `all`, OpenClaw | 90c28e6 | 41/45 | 3.46 s | ~7,239 tokens/s | ~166 tokens/s | 100% |
+| 2026-10-24 | Swift-1.5 27B IQ2_S | `all`, OpenClaw | 90c28e6 | 45/45 | 8.17 s | ~1,904 tokens/s | ~61 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -334,83 +336,6 @@ model's: four turns lost calling `skills_read` with `skill:` instead of `name:`,
 effect on the enchantment, refused by the build, and the turns ran out. (The seconds do not compare: the
 GPU ran the second half at ~184 tokens/s of prompt against ~891.)
 
-## Round 47 — other types named where the types asked find nothing; e4b and Swift-1.5 27B (2026-10-24)
-
-**Changed before it** (e2e3ddb):
-
-- A search whose `types` find nothing names what it finds of other types; the warning of an enchantment no record
-  names says when the project has no weapon or armor; a copy that changes nothing, beside a new record of its type, is
-  called left over.
-- The first round with both halves on the checks of a sword the player can carry and of a copy that changes nothing.
-- The fourteenth round with AGENTS.md's "delivered" line. Nothing ran beside it.
-
-gemma4:e4b, `all`, OpenClaw, at 677778f (prompt ~7,095 tokens/s, generation ~173 tokens/s; first prompt 9942 tokens (26 tools, 16 of them this server's), think high, num_ctx 131072, num_predict none, temperature the Modelfile's, first token after 1.804 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 1 side requests):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 1/1 | 2 | 1 | 0 | 0 | 10084 | 98 |
-| read | 1/1 | 3 | 2 | 0 | 0 | 12711 | 40.6 |
-| filter | 1/1 | 2 | 1 | 0 | 0 | 10311 | 40.1 |
-| patch | 1/1 | 7 | 6 | 0 | 0 | 19222 | 46.9 |
-| build | 1/1 | 7 | 6 | 0 | 0 | 20020 | 47.1 |
-| sword | 4/5 | 15 | 14.2 | 3 | 13 | 26106 | 84.7 |
-| sword+detailed | 4/5 | 10 | 9.2 | 1 | 1 | 24891 | 77.2 |
-| spell | 5/5 | 8.2 | 7.4 | 4 | 0 | 18089 | 55.6 |
-| spell+detailed | 5/5 | 7 | 6 | 0 | 1 | 17281 | 55.3 |
-| npc | 5/5 | 7.8 | 7 | 2 | 0 | 16653 | 54.2 |
-| npc+detailed | 5/5 | 9.6 | 8.6 | 3 | 6 | 17221 | 71.4 |
-| note | 5/5 | 8.6 | 7.6 | 5 | 2 | 19463 | 69.1 |
-| note+detailed | 5/5 | 6.2 | 5.2 | 0 | 0 | 18476 | 56 |
-
-Swift-1.5 27B IQ2_S, `all`, OpenClaw, at 677778f (prompt ~1,916 tokens/s, generation ~64 tokens/s; first prompt 10404 tokens (26 tools, 16 of them this server's), think true, num_ctx 131072, num_predict none, temperature 1, first token after 0.881 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 1/1 | 2 | 1 | 0 | 0 | 10430 | 54.6 |
-| read | 1/1 | 2 | 1 | 0 | 0 | 11294 | 40 |
-| filter | 1/1 | 2 | 1 | 0 | 0 | 11088 | 40.5 |
-| patch | 1/1 | 5 | 5 | 0 | 0 | 19778 | 56.4 |
-| build | 1/1 | 5 | 5 | 0 | 0 | 18342 | 48.1 |
-| sword | 5/5 | 5.8 | 7.6 | 0 | 0 | 24119 | 99.5 |
-| sword+detailed | 5/5 | 6.8 | 10.2 | 0 | 0 | 31664 | 132.3 |
-| spell | 5/5 | 6.6 | 7.6 | 2 | 0 | 22009 | 70 |
-| spell+detailed | 5/5 | 6.4 | 7 | 0 | 0 | 19916 | 77.2 |
-| npc | 5/5 | 5.8 | 6.2 | 0 | 0 | 20666 | 64.9 |
-| npc+detailed | 5/5 | 6 | 6.8 | 1 | 0 | 21569 | 73 |
-| note | 5/5 | 6.2 | 6.6 | 0 | 0 | 18687 | 81.3 |
-| note+detailed | 5/5 | 6.2 | 6.8 | 0 | 0 | 18975 | 74.3 |
-
-**Seen.**
-
-- **e4b 43 of 45** (round 46: 43, 41 by the check of a copy): sword 8 of 10, spell 10, NPC 10, note 10, and the five
-  simple tasks. No run left a copy that changes nothing; no sword was flagged as a bound one. The build took a copied
-  `FormKey` out in 14 runs, copied escapes in 4 and moved fields in 3; one of those runs failed. It refused 15 builds in
-  12 runs (round 46: 6 in 5). The edit tool refused 23 of e4b's 43 edits (8 of 19); a turn's median thinking was 1,018
-  characters (914). One side request, in sword+detailed #5.
-- **Round 46's fixes:** the search naming other types came in sword #2 and npc #5 — npc #5 asked for the Nord race
-  among RACE records next — and both passed. With no copy left and no enchantment alone, the other two did not come up.
-- **e4b's misses.** sword #5 was refused three links no record has — FirstPersonModel, EquipSound and UnequipSound;
-  its edits, written two spaces in where the lines were at the margin, missed nine times, and the one that matched put
-  the three below `ImpactDataSet: WPNzBlade1HandImpactSet`, where the YAML broke; it ran out of turns. sword+detailed #5
-  copied the Iron Sword's fire enchantment with `BaseEnchantment` naming the magic effect its Effects name — of 194
-  enchantments of the official plugins read, none has one there, and 107 name another enchantment — wrote
-  `EnchWeaponFireDamageBase`, which is right, and answered that the mod was built, with no build after the refusal.
-  So did 10 of the 13 e4b runs of rounds 31–47 that ended on a refused build, all failed.
-- **The "delivered" line, fourteen rounds:** sword+detailed #5 answered as built after a refusal; sword #5 ran out of
-  turns (round 46: one answered as done, one asked the user).
-- **Swift-1.5 27B 45 of 45:** no build refused, 3 edits, 62 minutes; a turn's median thinking 420 characters.
-
-**After the round (193f015):**
-
-- Every refused build says first that it built nothing — "Not built:" — and last to build again: only a build that
-  answers success writes the plugin.
-- A record's fields indented below a field at the margin that has a value of its own are moved to the margin, and
-  said in `corrected`; where the lines are no fields of the record — a part's, its own line lost — the refusal names
-  the line above with its value.
-
-**What it points at next:** the edit tool refused more than half of e4b's edits, most of them an old text indented
-otherwise than the file; a line written twice the same inside a part is still refused.
-
 ## Round 48 — a refused build says it built nothing; e4b and Swift-1.5 27B (2026-10-24)
 
 **Changed before it** (193f015):
@@ -488,3 +413,93 @@ Swift-1.5 27B IQ2_S, `all`, OpenClaw, at 7f12f9c (prompt ~1,913 tokens/s, genera
 
 **What it points at next:** whether the models choose `editRecord` over their file tools; e4b still answers after a
 refused build, if no longer as built.
+
+## Round 49 — editRecord, and links kept as written; e4b and Swift-1.5 27B (2026-10-24)
+
+**Changed before it** (e846979):
+
+- `editRecord` changes fields by their paths, with no old text to match; the build keeps links written by editor
+  ID in the files and pins what each link to the load order named in `links.lock.json`. The first prompt grew by
+  about 400 tokens with the tool (e4b 9,941 → 10,342).
+- The sixteenth round with AGENTS.md's "delivered" line. Nothing ran beside it; both halves ran 90c28e6.
+
+gemma4:e4b, `all`, OpenClaw, at 90c28e6 (prompt ~7,239 tokens/s, generation ~166 tokens/s; first prompt 10342 tokens (27 tools, 17 of them this server's), think high, num_ctx 131072, num_predict none, temperature the Modelfile's, first token after 1.856 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 1/1 | 2 | 1 | 0 | 0 | 12072 | 131.1 |
+| read | 1/1 | 3 | 2 | 0 | 0 | 11542 | 41.2 |
+| filter | 1/1 | 2 | 1 | 0 | 0 | 10659 | 40.6 |
+| patch | 0/1 | 6 | 5 | 0 | 0 | 17451 | 52 |
+| build | 1/1 | 5 | 4 | 0 | 0 | 14918 | 45.7 |
+| sword | 4/5 | 10.2 | 9.2 | 1 | 0 | 24573 | 69.2 |
+| sword+detailed | 4/5 | 12.8 | 11.8 | 6 | 1 | 26967 | 87.1 |
+| spell | 5/5 | 6.8 | 5.8 | 0 | 0 | 17671 | 50.4 |
+| spell+detailed | 5/5 | 6.4 | 5.4 | 1 | 0 | 17637 | 49.9 |
+| npc | 5/5 | 6.2 | 5.2 | 0 | 0 | 19766 | 47.9 |
+| npc+detailed | 4/5 | 7.2 | 6.2 | 2 | 1 | 16292 | 52.5 |
+| note | 5/5 | 8.4 | 7.4 | 3 | 0 | 20117 | 70 |
+| note+detailed | 5/5 | 8.2 | 7.2 | 1 | 1 | 16213 | 60.9 |
+
+Swift-1.5 27B IQ2_S, `all`, OpenClaw, at 90c28e6 (prompt ~1,904 tokens/s, generation ~61 tokens/s; first prompt 10810 tokens (27 tools, 17 of them this server's), think true, num_ctx 131072, num_predict none, temperature 1, first token after 0.915 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 1/1 | 2 | 1 | 0 | 0 | 12378 | 53.1 |
+| read | 1/1 | 3 | 2 | 0 | 0 | 13346 | 43.4 |
+| filter | 1/1 | 2 | 1 | 0 | 0 | 11496 | 42.6 |
+| patch | 1/1 | 4 | 5 | 0 | 0 | 21107 | 58.1 |
+| build | 1/1 | 6 | 6 | 0 | 0 | 21401 | 54.9 |
+| sword | 5/5 | 6.4 | 8.8 | 0 | 0 | 25045 | 129 |
+| sword+detailed | 5/5 | 6.2 | 9.2 | 0 | 0 | 30345 | 141.1 |
+| spell | 5/5 | 6.6 | 7.6 | 0 | 0 | 22116 | 82.1 |
+| spell+detailed | 5/5 | 6 | 7.2 | 0 | 0 | 22131 | 72.1 |
+| npc | 5/5 | 6.8 | 7 | 1 | 0 | 21809 | 67.6 |
+| npc+detailed | 5/5 | 7 | 7.6 | 1 | 0 | 22368 | 76.2 |
+| note | 5/5 | 6.2 | 6.8 | 0 | 0 | 19134 | 77.2 |
+| note+detailed | 5/5 | 6.2 | 6.8 | 0 | 0 | 19276 | 71.7 |
+
+**Seen.**
+
+- **e4b 41 of 45** (round 48: 42): sword 8 of 10, spell 10, NPC 9, note 10, and four of the five simple tasks —
+  patch missed, its first miss in rounds 30–49. No run left a copy that changes nothing. The build took a copied
+  `FormKey` out in 7 runs, copied escapes in 1 and moved fields in 5; one of those runs failed. It refused 13 builds
+  in 10 runs (round 48: 17 in 12), and no run ended on a refused build (2). A turn's median thinking was 945
+  characters (1,062). No side request.
+- **Round 48's changes:** e4b called `editRecord` 4 times, in patch, build, sword+detailed #5 and note+detailed #5;
+  it refused 1. The edit tool refused 3 of e4b's 14 edits (10 of 28): copied escapes, a word found twice, a
+  `FormKey` line the build had taken out — none sent a line the build had rewritten. 7 of the 10 swords named
+  their enchantment by editor ID, and the checks read them through the project's records as the build does.
+- **e4b's misses.**
+  - patch #1 sent `{"BasicStats": {"Damage": 12}}`: `editRecord` wrote the part whole, and the Iron Sword lost its
+    value and weight — "set BasicStats: 3 field(s) → {"Damage":12}", which e4b built and answered as done.
+  - sword+detailed #5 sent `Name.Value`, as the file writes the name: refused, "Name has no field Value — its
+    fields: String, StringsKey" — Mutagen's fields, not the file's. Its next turn ended with no call and no answer,
+    and OpenClaw ended the run on an error payload.
+  - sword #2 wrote Mehrunes' Razor anew as Flame Blade, its enchantment `091AE7:Skyrim.esm  #
+    FireDamageEnchantment` — Mehrunes' Razor's own, under a name no record has. The build read the FormID, as it
+    should, and built it.
+  - npc+detailed #3 built Hilda — the build moved her level's fields under `Configuration` — then wrote her file
+    anew with that move made by hand and without the `FormKey` line the build had given her, and did not build
+    again. The file it left is no record of the plugin's, so the checks found no new NPC.
+- **The "delivered" line, sixteen rounds:** patch #1 and sword #2 answered as built, as they were, not knowing they
+  had built other than asked; npc+detailed #3 answered as built, its last write unbuilt.
+- **Swift-1.5 27B 45 of 45:** called `editRecord` in patch and build, 1 build refused, 1 edit, 66 minutes; a turn's
+  median thinking 420 characters (401).
+
+**After the round (7204928):**
+
+- `editRecord` merges an object into the part the file has, as a JSON merge patch does: `{"BasicStats":
+  {"Damage": 12}}` sets Damage and keeps Value and Weight; one naming another kind of the part is written whole.
+- `editRecord` takes a text's `Value` — `Name.Value` — as the file writes it, and says how a text is written when a
+  path names Mutagen's fields of it.
+- The build refuses a FormID whose comment names an editor ID no record has, naming the records closest to that
+  name and the line for the one the FormID names. The 15 such lines of rounds 32–49 were each a made-up name, never a word;
+  the FormIDs beside them named, among others, Bound Sword's enchantment (round 36) and Mehrunes' Razor's (round 49)
+  for a fire one. A comment that is a word is left alone.
+- addPatch copies a record named twice in one call once, and names it once.
+- **From round 50, e4b alone** — the user's call: Swift-1.5 27B passed 45 of 45 in 17 of the 18 rounds since round 32,
+  and 44 in round 40.
+
+**What it points at next:** whether e4b uses `editRecord` more now that its two traps are gone; npc+detailed #3's
+rewrite after a build, which no answer of the server's asked for.
