@@ -9,14 +9,17 @@ namespace SkyrimHelper;
 /// <summary>
 /// Moves a field written where its record's type has none to the one place it goes, before the files are checked:
 /// a part's field written at the margin, under that part — an NPC's level, under Configuration — and a field written
-/// a level too deep, up below the part it was written in. Refused, these were what failed runs had met most: 13 of the
-/// 27 runs e4b failed in eval rounds 23–32 had been told to move a field, and moved it back and forth — an NPC's level
-/// into Level, then to the margin, build after build (round 32). A field with no one place — one "in each item of
-/// Effects", or one the place has already — is left to the refusal.
+/// a level too deep, up below the part it was written in; a magic effect's strength, into the item of Effects that
+/// names it. Refused, these were what failed runs had met most: 13 of the 27 runs e4b failed in eval rounds 23–32 had
+/// been told to move a field, and moved it back and forth — an NPC's level into Level, then to the margin, build after
+/// build (round 32). A field with no one place — one "in each item of Effects", or one the place has already — is left
+/// to the refusal.
 /// </summary>
 public static class MisplacedFields
 {
     private const BindingFlags Public = BindingFlags.Public | BindingFlags.Instance;
+
+    private static readonly HashSet<string> Strength = new(StringComparer.Ordinal) { "Magnitude", "Area", "Duration" };
 
     /// <summary>Moves what has one place, in each record file of the plugin folder; answers each file and what was moved.</summary>
     public static List<(string File, string Change)> Move(string pluginDir)
@@ -37,10 +40,83 @@ public static class MisplacedFields
         return changes;
     }
 
-    private sealed record Moved(string Text, string Change);
+    /// <summary>
+    /// A magic effect's `Data` of Magnitude, Area and Duration, which a MagicEffect has nowhere, taken to the item of
+    /// Effects that names it, where one record of the project has one such item: taken out where the item has the
+    /// same already, moved in where it has none. 6 of the 8 runs e4b was refused one in eval rounds 30–43 had written
+    /// the spell's strength in its new effect as well, 40 in both, and 4 of those failed — round 43's spell+detailed
+    /// #5 took it out, wrote it back, and answered unbuilt. Named by no item or several, or by one whose Data
+    /// differs, it is left to the refusal.
+    /// </summary>
+    public static List<(string File, string Change)> MoveEffectData(string pluginDir)
+    {
+        var changes = new List<(string File, string Change)>();
+        var files = RecordFiles.FlatRecords(pluginDir)
+            .Select(f => (f.File, f.Relative, f.Type, Text: File.ReadAllText(f.File).Replace("\r\n", "\n"))).ToList();
+        foreach (var (file, relative, _, text) in files.Where(f => f.Type == typeof(Mutagen.Bethesda.Skyrim.MagicEffect)).ToList())
+        {
+            if (Root(text) is not { } root || root.Children.Keys.OfType<YamlScalarNode>().FirstOrDefault(k => k.Value == "Data") is not { } dataKey
+                || root.Children[dataKey] is not YamlMappingNode { Style: not MappingStyle.Flow, Children.Count: > 0 } data
+                || data.Children.Any(c => c.Key is not YamlScalarNode { Value: { } k } || !Strength.Contains(k)
+                    || c.Value is not YamlScalarNode { Value.Length: > 0 } || c.Value.End.Line != c.Key.Start.Line))
+                continue;
+            var (formKey, editorId) = RecordFiles.Identity(text);
+            var formId = formKey is { } key ? Session.FormKeyText(key) : null;
+            var name = editorId ?? formId ?? relative;
+            var naming = files.Where(f => f.Relative != relative)
+                .SelectMany(f => Root(f.Text) is { } other && At(other, "Effects") is YamlSequenceNode effects
+                    ? effects.Children.Select((entry, at) => (Namer: f, Item: entry as YamlMappingNode, Index: at)) : [])
+                .Where(n => n.Item is { } entry && At(entry, "BaseEffect") is YamlScalarNode { Value: { } named }
+                    && (named.Equals(editorId, StringComparison.OrdinalIgnoreCase) || named.Equals(formId, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+            if (naming is not [var (namer, item, index)] || item is null) continue;
+            var strength = data.Children.Select(c => (Key: ((YamlScalarNode)c.Key).Value!, Value: ((YamlScalarNode)c.Value).Value!)).ToList();
+            var shown = string.Join(", ", strength.Select(s => $"{s.Key}: {s.Value}"));
+            var place = $"`Effects[{index}]` of {RecordFiles.Identity(namer.Text).EditorId ?? namer.Relative}";
+            var lines = text.Split('\n').ToList();
+            var dataLine = (int)dataKey.Start.Line - 1;
+            string change;
+            if (At(item, "Data") is YamlMappingNode theirs)
+            {
+                if (!strength.All(s => At(theirs, s.Key) is YamlScalarNode { Value: { } had } && Same(had, s.Value))) continue;
+                change = $"removed `Data` ({shown}) — {place}, which names {name}, has it already, the same; a MagicEffect has no strength of its own";
+            }
+            else if (At(item, "Data") is null && item.Style != MappingStyle.Flow)
+            {
+                // Below the item's last line, as deep as its fields.
+                var namerLines = namer.Text.Split('\n').ToList();
+                var first = item.Children.Keys.First();
+                var column = (int)first.Start.Column - 1;
+                namerLines.InsertRange(BlockEnd(namerLines, (int)first.Start.Line - 1, column - 1),
+                    strength.Select(s => $"{new string(' ', column + 2)}{s.Key}: {s.Value}").Prepend($"{new string(' ', column)}Data:"));
+                var moved = string.Join('\n', namerLines);
+                Save(namer.File, moved);
+                files[files.FindIndex(f => f.Relative == namer.Relative)] = namer with { Text = moved };
+                change = $"moved `Data` ({shown}) into {place}, which names {name} — a MagicEffect has no strength of its own: " +
+                    "Magnitude, Area and Duration go under Data, in the Effects item that names it";
+            }
+            else continue;
+            lines.RemoveRange(dataLine, BlockEnd(lines, dataLine, 0) - dataLine);
+            Save(file, string.Join('\n', lines));
+            changes.Add((relative, change));
+        }
+        return changes;
+    }
 
-    /// <summary>The first move the file needs — fields at the margin first, then those a level too deep — or null.</summary>
-    private static Moved? NextMove(string text, Type type)
+    /// <summary>Whether two values written are the same: 40 and 40.0 are.</summary>
+    private static bool Same(string a, string b) =>
+        a == b || double.TryParse(a, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var x)
+            && double.TryParse(b, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var y) && x == y;
+
+    /// <summary>Writes <paramref name="text"/>, of \n line ends, with the line ends the file has.</summary>
+    private static void Save(string file, string text) =>
+        File.WriteAllText(file, File.ReadAllText(file).Contains("\r\n") ? text.Replace("\n", "\r\n") : text);
+
+    private static YamlNode? At(YamlMappingNode mapping, string key) =>
+        mapping.Children.TryGetValue(new YamlScalarNode(key), out var value) ? value : null;
+
+    /// <summary>The file's fields, or null where it reads as none — RecordLinks names a break.</summary>
+    private static YamlMappingNode? Root(string text)
     {
         var yaml = new YamlStream();
         try
@@ -49,9 +125,17 @@ public static class MisplacedFields
         }
         catch (YamlException)
         {
-            return null; // RecordLinks names the break.
+            return null;
         }
-        if (yaml.Documents.Count == 0 || yaml.Documents[0].RootNode is not YamlMappingNode root) return null;
+        return yaml.Documents.Count > 0 ? yaml.Documents[0].RootNode as YamlMappingNode : null;
+    }
+
+    private sealed record Moved(string Text, string Change);
+
+    /// <summary>The first move the file needs — fields at the margin first, then those a level too deep — or null.</summary>
+    private static Moved? NextMove(string text, Type type)
+    {
+        if (Root(text) is not { } root) return null;
         var lines = text.Split('\n').ToList();
         var known = RecordFiles.FieldsOf(type);
         var parts = new Dictionary<string, List<YamlScalarNode>>(StringComparer.Ordinal);

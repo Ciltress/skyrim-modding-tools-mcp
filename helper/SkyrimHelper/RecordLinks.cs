@@ -418,9 +418,24 @@ public static class RecordLinks
                 if (value is YamlScalarNode { Value: { Length: > 0 } one } && Unfit(propertyType, one) is { } expected)
                     problem($"{field} is {one} — {expected}");
                 else if (value is YamlSequenceNode many && propertyType.IsDefined(typeof(FlagsAttribute), false))
+                {
+                    // A magic effect's flags in a spell's, named where they go in one problem: e4b copied ShockDamageFFAimed's
+                    // Hostile, Detrimental and NoArea into its spell in 3 runs of eval rounds 35–43, all failed; told only the
+                    // flags a spell takes, round 43's spell+detailed #5 took them out of its magic effect too.
+                    var effects = new List<string>();
                     foreach (var item in many.Children.OfType<YamlScalarNode>())
                         if (item.Value is { Length: > 0 } flag && Unfit(propertyType, flag) is { } flagExpected)
-                            problem($"{field} has {flag} — {flagExpected}");
+                        {
+                            if (path.Length == 0 && record != typeof(MagicEffect) && record.GetProperties().Any(p => p.Name == "Effects")
+                                && Enum.GetNames<MagicEffect.Flag>().Contains(flag, StringComparer.Ordinal)) effects.Add(flag);
+                            else problem($"{field} has {flag} — {flagExpected}");
+                        }
+                    var them = effects.Count > 1 ? "them" : "it";
+                    if (effects.Count > 0)
+                        problem($"{field} has {string.Join(", ", effects)} — {(effects.Count > 1 ? "magic effects' flags" : "a magic effect's flag")}, " +
+                            $"which {RecordFiles.Article(record.Name)} takes from the MagicEffect each item of its Effects names: delete {them} here, " +
+                            $"and keep {them} in that MagicEffect's Flags");
+                }
             }
             else if (propertyType != typeof(string) && !typeof(System.Collections.IEnumerable).IsAssignableFrom(propertyType))
             {

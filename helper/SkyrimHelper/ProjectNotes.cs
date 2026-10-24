@@ -15,6 +15,7 @@ public static class ProjectNotes
     private static readonly Regex VoiceLine = new(@"^Voice:[ \t]*([^\s#]+)", RegexOptions.Multiline);
     private static readonly Regex FemaleFlag = new(@"^[ \t]+-[ \t]*Female[ \t]*\r?$|^[ \t]+Flags:[ \t]*\[[^\]\r\n]*\bFemale\b", RegexOptions.Multiline);
     private static readonly Regex TemplateLine = new(@"^Template:[ \t]*\S", RegexOptions.Multiline);
+    private static readonly Regex ObjectEffectLink = new(@"^ObjectEffect:[ \t]*([^\s#]+)", RegexOptions.Multiline);
     private static readonly Regex NameLine = new(@"^Name[ \t]*:", RegexOptions.Multiline);
     private static readonly Regex EffectsLine = new(@"^Effects[ \t]*:", RegexOptions.Multiline);
     private static readonly Regex DestructionLine = new(@"^MagicSkill:[ \t]*Destruction\b", RegexOptions.Multiline);
@@ -105,13 +106,28 @@ public static class ProjectNotes
                 notes.Add($"{relative}: no record of the project names {effect}, so the magic effect does nothing — a spell casts it " +
                     $"as `- BaseEffect: {effect}` among its `Effects`, as an enchantment, potion or scroll does");
         }
+        // The project's new enchantments, by the editor IDs and FormIDs a weapon's or armor's link may name them by.
+        var enchantments = newRecords.Where(r => r.Type == typeof(ObjectEffect))
+            .SelectMany(r => RecordFiles.Identity(r.Text) is var (key, id) ? new[] { id, key is { } k ? Session.FormKeyText(k) : null } : [])
+            .OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
         // A record copied whole and renamed, its FormKey and EditorID kept, builds as a change to that record, not as
         // a new one beside it: e4b's "new note" was Maven's own, renamed (eval probe 19). A patch renames now and then.
         foreach (var (relative, type, text) in records)
         {
             if (RecordFiles.Identity(text).FormKey is not { } key || key.ModKey == own) continue;
             if (!index.ByFormKey.TryGetValue(key, out var entry) || entry.Name is not { Length: > 0 } was) continue;
-            if (NameIn(text) is not { } now || now == was) continue;
+            // So too one left its name and given the project's new enchantment: e4b's Flame Blade was IronSword's copy,
+            // its stats and enchantment changed and its name not, built with no word and told the user as a new sword
+            // (eval round 43's sword+detailed #5) — 6 of the 11 sword runs of rounds 30–43 that made no new sword copied IronSword.
+            if (NameIn(text) is not { } now || now == was)
+            {
+                if (Things.Contains(type.Name) && ObjectEffectLink.Match(text) is { Success: true } link && enchantments.Contains(link.Groups[1].Value))
+                    notes.Add($"{relative}: overrides {entry.EditorId} of {key.ModKey.FileName} and gives it {link.Groups[1].Value}, the project's " +
+                        $"new enchantment: every {was} in the game — the player's, the merchants', the ones NPCs carry and leveled lists hand " +
+                        $"out — carries it, with all this file changes. If a new one was asked for, this copy is not it: delete this file's " +
+                        $"FormKey line and give it an EditorID of its own — it builds as a new record, and {was} stays as it is");
+                continue;
+            }
             // What it does in the game, and the one edit that makes the copy a new record: told the game shows that
             // record renamed wherever it is, e4b told the user its sword was "successfully overridden and renamed" (round 23).
             // Told what it does, e4b reasoned that the copy still gave the user a sword called Flame Blade (round 25):

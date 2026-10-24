@@ -382,6 +382,7 @@ public sealed class Session : IDisposable
         // Before the links are checked: a link may name the record by its file's name.
         corrected.AddRange(RecordFiles.NameFromFiles(dir, Index));
         corrected.AddRange(MisplacedFields.Move(dir));
+        corrected.AddRange(MisplacedFields.MoveEffectData(dir));
         int records;
         List<(string File, string Copy)> leftOut;
         try
