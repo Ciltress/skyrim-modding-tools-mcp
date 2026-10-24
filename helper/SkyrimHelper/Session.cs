@@ -176,6 +176,9 @@ public sealed class Session : IDisposable
                 // before the quest's FFRiften16HarraldSword, both named "Steel Sword".
                 .ThenBy(e => e.EditorId?.StartsWith(text.Replace(" ", ""), StringComparison.OrdinalIgnoreCase) == true ? 0 : 1)
                 .ThenBy(e => e.EditorId?.Contains(text.Replace(" ", ""), StringComparison.OrdinalIgnoreCase) == true ? 0 : 1)
+                // Then Skyrim.esm's own, as a copy's example is chosen: among the NPCs named Nord, the Creation Club's
+                // dead one came first by its editor ID, and e4b copied it for Hilda, twice (eval rounds 37 and 41).
+                .ThenBy(e => e.FormKey.ModKey == SkyrimMaster ? 0 : 1)
                 .ThenBy(e => e.EditorId, StringComparer.OrdinalIgnoreCase);
         }
         if (types is { Count: > 0 }) matches = matches.Where(e => types.Contains(e.Signature) || types.Contains(e.Type));
