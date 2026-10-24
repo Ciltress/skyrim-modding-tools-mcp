@@ -16,6 +16,7 @@ public static class ProjectNotes
     private static readonly Regex FemaleFlag = new(@"^[ \t]+-[ \t]*Female[ \t]*\r?$|^[ \t]+Flags:[ \t]*\[[^\]\r\n]*\bFemale\b", RegexOptions.Multiline);
     private static readonly Regex TemplateLine = new(@"^Template:[ \t]*\S", RegexOptions.Multiline);
     private static readonly Regex ObjectEffectLink = new(@"^ObjectEffect:[ \t]*([^\s#]+)", RegexOptions.Multiline);
+    private static readonly Regex BoundFlags = new(@"^[ \t]+-[ \t]*(NonPlayable|BoundWeapon)[ \t]*\r?$", RegexOptions.Multiline);
     private static readonly Regex NameLine = new(@"^Name[ \t]*:", RegexOptions.Multiline);
     private static readonly Regex EffectsLine = new(@"^Effects[ \t]*:", RegexOptions.Multiline);
     private static readonly Regex DestructionLine = new(@"^MagicSkill:[ \t]*Destruction\b", RegexOptions.Multiline);
@@ -84,6 +85,17 @@ public static class ProjectNotes
                 notes.Add($"{relative}: {RecordFiles.Identity(text).EditorId ?? RecordFiles.Article(type.Name)} changes {changed.Groups[1].Value} " +
                     "without the Detrimental flag, so it restores it — a damage effect has `- Detrimental` and `- Hostile` among its Flags, " +
                     "as readRecord {\"record\": \"ShockDamageFFAimed\"} shows; one meant to restore can go without");
+            // A new weapon flagged as a conjured one: copied from the Bound Sword, the search's first sword in rounds 30–44,
+            // 10 of e4b's new swords of eval rounds 31–44 were NonPlayable bound weapons, and 9 of those runs passed the
+            // eval's checks. One the project's magic effect conjures keeps them; NonPlayable alone is an NPC's that the
+            // player cannot loot, as 20 weapons of the Creation Club's are.
+            if (type == typeof(Weapon) && BoundFlags.Matches(text).Select(m => m.Groups[1].Value).Distinct().ToList() is { } bound
+                && bound.Contains("BoundWeapon")
+                && !records.Any(r => r.Type == typeof(MagicEffect) && RecordFiles.NamedElsewhere([(r.Relative, r.Type, r.Text)], relative, text)))
+                notes.Add($"{relative}: {RecordFiles.Identity(text).EditorId ?? "the weapon"} is flagged {string.Join(" and ", bound)}, as the " +
+                    "Bound Sword a spell conjures is: a conjured weapon" + (bound.Contains("NonPlayable") ? ", kept out of the player's inventory" : "") +
+                    " — a weapon to carry has neither among the Flags under Data, as readRecord {\"record\": \"IronSword\"} shows; one a magic " +
+                    "effect of the project conjures keeps them");
             if (type == typeof(Npc) && Voice(text, index, cache) is { } voice
                 && !(TemplateLine.IsMatch(text) && text.Contains("Traits", StringComparison.Ordinal)))
             {

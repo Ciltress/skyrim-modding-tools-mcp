@@ -159,6 +159,7 @@ public sealed class Session : IDisposable
         else
         {
             var text = p["text"]?.GetValue<string>()?.Trim() ?? "";
+            var word = new Regex($@"(?<![A-Za-z0-9]){Regex.Escape(text)}(?![A-Za-z0-9])", RegexOptions.IgnoreCase);
             matches = idx.ByFormKey.Values
                 .Where(e => text.Length == 0
                     || e.EditorId?.Contains(text, StringComparison.OrdinalIgnoreCase) == true
@@ -175,7 +176,13 @@ public sealed class Session : IDisposable
                 // Among equals, the editor ID beginning with the text, then the one spelling it out: SteelSword
                 // before the quest's FFRiften16HarraldSword, both named "Steel Sword".
                 .ThenBy(e => e.EditorId?.StartsWith(text.Replace(" ", ""), StringComparison.OrdinalIgnoreCase) == true ? 0 : 1)
+                // Then a name with the text as a word of its own: "sword" finds the Daedric Sword before the Daedric
+                // Greatsword, a two-handed one.
+                .ThenBy(e => e.Name is { } name && word.IsMatch(name) ? 0 : 1)
                 .ThenBy(e => e.EditorId?.Contains(text.Replace(" ", ""), StringComparison.OrdinalIgnoreCase) == true ? 0 : 1)
+                // Then what the player can have: "sword" answered the Bound Sword first, NonPlayable and a bound weapon,
+                // and 10 of e4b's new swords of eval rounds 31–44 were copied from it so (round 44's sword #1 and #3).
+                .ThenBy(e => e.Unplayable ? 1 : 0)
                 // Then, with a plugin named, the records it adds before those it changes: put Skyrim.esm's first, the
                 // search answered Dawnguard's armor with the Falmer armor Dawnguard changes, which e4b gave as Dawnguard's
                 // (eval round 42's filter). Else Skyrim.esm's own, as a copy's example is chosen: among the NPCs named

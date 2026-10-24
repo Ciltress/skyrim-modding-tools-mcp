@@ -24,6 +24,8 @@ public sealed class RecordIndex
         public string Signature { get; set; } = "";
         /// <summary>The getter interface, so a lookup builds the link cache for this type only.</summary>
         public Type GetterType { get; set; } = typeof(IMajorRecordGetter);
+        /// <summary>A weapon or armor the player cannot have: NonPlayable, or a bound weapon a spell conjures.</summary>
+        public bool Unplayable { get; set; }
         /// <summary>In load order; the last one wins.</summary>
         public List<ModKey> Plugins { get; } = [];
 
@@ -77,6 +79,10 @@ public sealed class RecordIndex
                 // The winner's identity is the one that counts, so later plugins overwrite.
                 if (record.EditorID is { Length: > 0 } editorId) entry.EditorId = editorId;
                 if (record is INamedGetter { Name: { Length: > 0 } name }) entry.Name = name;
+                if (record is IWeaponGetter weapon)
+                    entry.Unplayable = weapon.Data is { } data && (data.Flags.HasFlag(WeaponData.Flag.NonPlayable) || data.Flags.HasFlag(WeaponData.Flag.BoundWeapon));
+                else if (record is IArmorGetter armor)
+                    entry.Unplayable = armor.MajorFlags.HasFlag(Armor.MajorFlag.NonPlayable);
             }
         }
         foreach (var entry in index.ByFormKey.Values)
