@@ -176,9 +176,12 @@ public sealed class Session : IDisposable
                 // before the quest's FFRiften16HarraldSword, both named "Steel Sword".
                 .ThenBy(e => e.EditorId?.StartsWith(text.Replace(" ", ""), StringComparison.OrdinalIgnoreCase) == true ? 0 : 1)
                 .ThenBy(e => e.EditorId?.Contains(text.Replace(" ", ""), StringComparison.OrdinalIgnoreCase) == true ? 0 : 1)
-                // Then Skyrim.esm's own, as a copy's example is chosen: among the NPCs named Nord, the Creation Club's
-                // dead one came first by its editor ID, and e4b copied it for Hilda, twice (eval rounds 37 and 41).
-                .ThenBy(e => e.FormKey.ModKey == SkyrimMaster ? 0 : 1)
+                // Then, with a plugin named, the records it adds before those it changes: put Skyrim.esm's first, the
+                // search answered Dawnguard's armor with the Falmer armor Dawnguard changes, which e4b gave as Dawnguard's
+                // (eval round 42's filter). Else Skyrim.esm's own, as a copy's example is chosen: among the NPCs named
+                // Nord, the Creation Club's dead one came first by its editor ID, and e4b copied it, twice (rounds 37, 41).
+                .ThenBy(e => plugin is not null ? e.FormKey.ModKey.FileName.String.Equals(plugin, StringComparison.OrdinalIgnoreCase) ? 0 : 1
+                    : e.FormKey.ModKey == SkyrimMaster ? 0 : 1)
                 .ThenBy(e => e.EditorId, StringComparer.OrdinalIgnoreCase);
         }
         if (types is { Count: > 0 }) matches = matches.Where(e => types.Contains(e.Signature) || types.Contains(e.Type));
