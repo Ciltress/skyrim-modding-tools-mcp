@@ -29,11 +29,7 @@ public static class RecordEdits
         var written = File.ReadAllText(file);
         var text = written.Replace("\r\n", "\n");
         var changes = new List<string>();
-        foreach (var (path, value) in set ?? [])
-        {
-            var steps = Parse(path);
-            text = Set(text, steps, Types(type, steps, path), value, path, changes);
-        }
+        foreach (var (path, value) in set ?? []) text = SetPath(text, type, path, value, changes);
         foreach (var path in (remove ?? []).Select(r => r?.GetValue<string>() ?? ""))
         {
             var steps = Parse(path);
@@ -86,6 +82,14 @@ public static class RecordEdits
             var step = steps[i];
             var where = i == 0 ? RecordFiles.Article(record.Name) : string.Join('.', steps.Take(i).Select(s => s.Index is { } n ? $"{s.Key}[{n}]" : s.Key));
             if (step.Key == "MutagenObjectType") { types.Add(typeof(string)); break; }
+            // A text as the file writes it — `Name:`, then `TargetLanguage: English` and `Value: Iron Sword` — not as
+            // Mutagen holds it: `Name.Value` was refused e4b for no field Value, "its fields: String, StringsKey" (eval round 49).
+            if (Translated(current))
+            {
+                if (step.Key is "Value" or "TargetLanguage" && i == steps.Count - 1) { types.Add(typeof(string)); break; }
+                throw new HelperException("badRequest", $"{path}: {where} is a text, written as its Value and TargetLanguage — set " +
+                    $"{where} to its words, or {where}.Value. Nothing was written.");
+            }
             var property = Property(current, step.Key)
                 ?? throw new HelperException("badRequest", $"{path}: {where} has no field {step.Key}" +
                     (RecordFiles.HintFor(current, step.Key) is { Length: > 0 } hint ? hint : "") +
@@ -113,6 +117,41 @@ public static class RecordEdits
     private static bool Translated(Type type) => typeof(ITranslatedStringGetter).IsAssignableFrom(type);
 
     // ---------------------------------------------------------------- set and remove
+
+    /// <summary>
+    /// One entry of `set`. An object for a part the file has sets the fields it names and keeps the others, as a JSON
+    /// merge patch does: {"BasicStats": {"Damage": 12}}, written whole, took the Iron Sword's Value and Weight with it
+    /// (e4b, eval round 49's patch #1). One naming another kind of the part is written whole. A text's Value is the text.
+    /// </summary>
+    private static string SetPath(string text, Type type, string path, JsonNode? value, List<string> changes)
+    {
+        var steps = Parse(path);
+        var types = Types(type, steps, path);
+        if (value is JsonObject { Count: > 0 } fields && At(text, steps) is YamlMappingNode there
+            && (fields["MutagenObjectType"] is not JsonValue kind || kind.GetValue<object>().ToString() == Field(there, "MutagenObjectType")))
+            return fields.Where(f => f.Key != "MutagenObjectType")
+                .Aggregate(text, (merged, f) => SetPath(merged, type, $"{path}.{f.Key}", f.Value?.DeepClone(), changes));
+        if (steps.Count > 1 && steps[^1] is { Key: "Value", Index: null } && Translated(types[^2]) && value is JsonValue)
+            return Set(text, steps.SkipLast(1).ToList(), types.SkipLast(1).ToList(), value, path, changes);
+        return Set(text, steps, types, value, path, changes);
+    }
+
+    /// <summary>The node a path names in the file, or null where the file has none.</summary>
+    private static YamlNode? At(string text, List<Step> steps)
+    {
+        YamlNode? node = Root(text);
+        foreach (var step in steps)
+        {
+            if (node is not YamlMappingNode mapping || mapping.Children.Keys.OfType<YamlScalarNode>().FirstOrDefault(k => k.Value == step.Key) is not { } key)
+                return null;
+            node = mapping.Children[key];
+            if (step.Index is int n) node = node is YamlSequenceNode list && n < list.Children.Count ? list.Children[n] : null;
+        }
+        return node;
+    }
+
+    private static string? Field(YamlMappingNode mapping, string key) =>
+        mapping.Children.FirstOrDefault(f => f.Key is YamlScalarNode k && k.Value == key).Value is YamlScalarNode value ? value.Value : null;
 
     private static string Set(string text, List<Step> steps, List<Type> types, JsonNode? value, string path, List<string> changes)
     {

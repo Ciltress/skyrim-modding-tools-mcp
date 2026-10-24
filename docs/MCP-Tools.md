@@ -73,7 +73,10 @@ arguments, see [`Tool-Reference.md`](./Tool-Reference.md), which is generated fr
      write the YAML files in a project's `plugin/` folder — or field by field with `editRecord`,
      which needs no old text to match: `{"set": {"BasicStats.Damage": 12}, "remove": ["Critical"]}`.
      It changes only those fields' lines, refuses a field the record's type does not have, and answers
-     the file's new text (docs/adr/0008, since eval round 48).
+     the file's new text (docs/adr/0008, since eval round 48). An object for a part the file has sets
+     the fields it names and keeps the others, as a JSON merge patch does — `{"BasicStats": {"Damage":
+     12}}` — and a text is set by its words or by its `Value` (`Name.Value`), as the file writes it
+     (since eval round 49).
    - **A `path` in an answer is a full path**, ready for your file tools; `addPatch` adds the file's
      text, so you can edit it at once. A path relative to something says so in its name:
      `readRecord`'s `pathInPluginFolder`.
@@ -491,6 +494,7 @@ Start with `healthcheck`.
 | `checkGameVersion` → `log.used: false` | SKSE's log is another game folder's, or from before a game update | Start the game once through SKSE, then check again |
 | `buildProject` → "field(s) cannot be built as written: … names X, and no record has that editor ID" | A link written as an editor ID that no record of the field's type has (`Race: Nord`), or a record of the project without an `EditorID` line | Use one of the editor IDs the message offers, give the project's record the `EditorID` line it names, or write the FormID from `findRecords` |
 | `buildProject` → "field(s) cannot be built as written: Race is 02C65A:Skyrim.esm, which is RedguardRaceChild, but the comment after it names NordRace" | A FormID written from memory beside the editor ID of the record meant: the build reads the FormID and skips the comment | Write the link by the editor ID of the one meant — the message offers both lines |
+| `buildProject` → "field(s) cannot be built as written: ObjectEffect is 091AE7:Skyrim.esm, which is DA07MehrunesRazorEnchantment, but the comment after it names FireDamageEnchantment, which no record has" | A FormID beside an editor ID no record has — a name made up for the record meant. Refused since eval round 49: e4b's Flame Blade built Mehrunes' Razor's enchantment so (round 49), and 15 such lines in rounds 32–49 were each a made-up name. A comment that is a word, as `# fire`, is left alone | Write the one meant by its editor ID — the message names the records closest to the comment's — or the line it gives for the record the FormID names |
 | `buildProject` → "field(s) cannot be built as written: … Name is written as one value" | A text written as `Name: Hilda` | Write it on two indented lines below `Name:` — `TargetLanguage: English` and `Value: Hilda` |
 | `buildProject` → "field(s) cannot be built as written: … has no field X" / "is a field of several kinds" / "takes a list" / "takes fields of its own" / "the YAML breaks at line N" | A record's shape below its top level: a field one level off, a `Level:` without its `MutagenObjectType:`, a list where fields belong or the reverse, broken indentation | Read a vanilla record of the type (the message names one) and write the field with its nesting |
 | `buildProject` → "Data has no field ObjectEffect, EnchantmentAmount (move them up, keeping both: …)" | Fields of the record written a level too deep, inside one of its parts. Since eval round 33 the build moves them itself (`corrected`), unless the level above has them already | Keep the lines and move them as the message says: the spaces taken out in front, where they are the part's last lines; else deleted there and written again at the margin below it |

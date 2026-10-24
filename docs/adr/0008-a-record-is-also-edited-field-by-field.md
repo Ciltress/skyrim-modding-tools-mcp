@@ -25,7 +25,10 @@ installed later whose record has the same editor ID does not change the link.
 - One more tool in every session's prompt (ADR 0001). It is in the `core` profile too, which is for the
   small models it helps most.
 - A path names fields as Mutagen does, as `readRecord` shows them; a text field (`Name`, `Description`)
-  takes its words, and a part of several kinds that the edit creates gets its `MutagenObjectType` where
-  only one kind has the field.
+  takes its words, or its `Value` as the file writes it, and a part of several kinds that the edit creates
+  gets its `MutagenObjectType` where only one kind has the field.
+- An object for a part the file has is merged into it, as a JSON merge patch is, rather than written whole:
+  e4b's first `{"BasicStats": {"Damage": 12}}` took the Iron Sword's value and weight with it (eval round
+  49). One that names another kind of the part is written whole.
 - Whether models choose it over their file tools is for the eval to show. It does not replace them.
 - A project's files can hold editor IDs where a pull or `addPatch` writes FormIDs; both read alike.

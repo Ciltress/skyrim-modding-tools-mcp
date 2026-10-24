@@ -91,11 +91,20 @@ public static class RecordLinks
                     {
                         var leaf = field[(field.LastIndexOf('.') + 1)..];
                         string Line(string id) => leaf.EndsWith(']') ? $"- {id}" : $"{leaf}: {id}";
-                        problems.Add($"{relative}: {field} is {raw}, {(other.Linked is { } was ? $"which is {was}" : "which no record has")}, but the " +
-                            $"comment after it names {other.Meant.EditorId}" +
-                            (other.Meant.FormKey is { } meant ? $" ({Session.FormKeyText(meant)})" : ", a new record of this project") +
-                            $" — the build reads the FormID and skips the comment. Write the one meant by its editor ID: `{Line(other.Meant.EditorId)}`" +
-                            (other.Linked is { } linkedId ? $" or `{Line(linkedId)}`" : ""));
+                        var was = other.Linked is { } linkedEditorId ? $"which is {linkedEditorId}" : "which no record has";
+                        if (other.Meant is { } meant)
+                            problems.Add($"{relative}: {field} is {raw}, {was}, but the comment after it names {meant.EditorId}" +
+                                (meant.FormKey is { } meantKey ? $" ({Session.FormKeyText(meantKey)})" : ", a new record of this project") +
+                                $" — the build reads the FormID and skips the comment. Write the one meant by its editor ID: `{Line(meant.EditorId)}`" +
+                                (other.Linked is { } linkedId ? $" or `{Line(linkedId)}`" : ""));
+                        else
+                        {
+                            var near = Near(other.Named, takes, own, index);
+                            problems.Add($"{relative}: {field} is {raw}, {was}, but the comment after it names {other.Named}, which no record has " +
+                                "— the build reads the FormID and skips the comment. Write the one meant by its editor ID" +
+                                (near.Count > 0 ? $" — the {wanted} records closest to {other.Named}: {string.Join(", ", near)}" : $" — find the {wanted} with findRecords") +
+                                (other.Linked is { } linkedId ? $"; or `{Line(linkedId)}`, the one the FormID names" : ""));
+                        }
                         return;
                     }
                     // A FormID written from memory names another record, or none: Race: 011F7B:Skyrim.esm
@@ -568,12 +577,18 @@ public static class RecordLinks
     /// <summary>A comment after a value that names one record — `# NordRace`, as readRecord writes one — not words.</summary>
     private static readonly Regex CommentName = new(@"^[ \t]+#[ \t]*(?<id>[A-Za-z0-9_]+)[ \t]*\r?$", RegexOptions.None, TimeSpan.FromSeconds(5));
 
+    /// <summary>An editor ID as a model makes one up — `FireDamageEnchantment`, `1stPersonFlameBlade`: a capital inside the word, or a digit.</summary>
+    private static readonly Regex MadeUpEditorId = new(@"^(?=.*(?:[a-z0-9][A-Z]|[0-9]))[A-Za-z0-9_]{6,}$", RegexOptions.None, TimeSpan.FromSeconds(5));
+
     /// <summary>
     /// The record the comment after a link names, when it is another than the one the link's FormID names —
-    /// with that one's editor ID, null for no record — or null when the comment names that one, no record, or
-    /// one of a type the field does not take: such a comment is a word, and says nothing of the link.
+    /// with that one's editor ID, null for no record — or null when the comment names that one, or one of a type
+    /// the field does not take: such a comment is a word, and says nothing of the link. A comment written as an
+    /// editor ID that no record has is answered with <c>Meant</c> null: `ObjectEffect: 091AE7:Skyrim.esm  #
+    /// FireDamageEnchantment` built Mehrunes' Razor's enchantment into e4b's Flame Blade (eval round 49's sword #2) —
+    /// 15 such lines in rounds 32–49, each a made-up name, three of them built so.
     /// </summary>
-    private static (string? Linked, Target Meant)? CommentedOther(string text, YamlScalarNode value, FormKey linked, Type takes,
+    private static (string? Linked, Target? Meant, string Named)? CommentedOther(string text, YamlScalarNode value, FormKey linked, Type takes,
         Dictionary<string, Target> own, RecordIndex index)
     {
         var end = (int)value.End.Index;
@@ -587,8 +602,12 @@ public static class RecordLinks
             : index.ByEditorId.TryGetValue(named, out var key) && index.ByFormKey.TryGetValue(key, out var found)
                 ? new Target(key, found.EditorId ?? named, found.GetterType)
                 : null;
-        if (meant is null || meant.FormKey == linked || !takes.IsAssignableFrom(meant.Type)) return null;
-        return (linkedId, meant);
+        // A record the index leaves out may be the one it names; a FormID of none is answered by the check after this.
+        if (meant is null)
+            return linkedId is not null && MadeUpEditorId.IsMatch(named) && !RecordIndex.SkippedTypes.Any(takes.IsAssignableFrom)
+                ? (linkedId, null, named) : null;
+        if (meant.FormKey == linked || !takes.IsAssignableFrom(meant.Type)) return null;
+        return (linkedId, meant, named);
     }
 
     /// <summary>

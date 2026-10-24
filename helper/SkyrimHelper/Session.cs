@@ -330,9 +330,9 @@ public sealed class Session : IDisposable
 
         var added = new JsonArray();
         var already = new JsonArray();
-        foreach (var raw in requested)
+        // A record named twice — e4b's ["012EB7:Skyrim.esm", "IronSword"] — is copied once, not reported in the project as well.
+        foreach (var formKey in requested.Select(raw => Resolve(raw)).Distinct())
         {
-            var formKey = Resolve(raw);
             if (ProjectFileFor(projectDir, formKey) is { } existing)
             {
                 already.Add(new JsonObject { ["formId"] = FormKeyText(formKey), ["file"] = existing });

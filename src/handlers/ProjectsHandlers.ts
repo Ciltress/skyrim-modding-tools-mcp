@@ -162,7 +162,8 @@ export class ProjectsHandlers extends BaseHandler {
                         'Change fields of one record file of a project by their paths — no old text to match. `set` takes ' +
                         'each field\'s path and its value: {"Data.Damage": 12, "Name": "Flame Blade", ' +
                         '"Effects[0].Data.Magnitude": 40, "Keywords": ["WeapTypeSword"]} — a text field (Name, Description) ' +
-                        'takes its words, a link a FormID or an editor ID, a list or a part a list or an object, written whole. ' +
+                        'takes its words, a link a FormID or an editor ID, a list a list, written whole; an object sets the ' +
+                        'fields it names inside that part and keeps its others, as {"BasicStats": {"Damage": 12}} does. ' +
                         '`remove` takes paths to delete: ["Critical", "Effects[1]"]. Changes only those lines, refuses a field ' +
                         'the record\'s type does not have, and answers the file\'s new text. Then run buildProject.',
                     inputSchema: {
