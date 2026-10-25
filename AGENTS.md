@@ -71,8 +71,12 @@ scripts/eval-ollama.mjs          runs fixed modding tasks with a local model thr
 scripts/eval-openclaw.mjs        the same tasks through OpenClaw on the user's own configuration (--client openclaw)
 ```
 
-The core is `node_modules/skyrim-modding-tools-core`: while it is developed on one machine a link to
-`../skyrim-modding-tools-core` (package.json's `file:` dependency), built there.
+The core is `node_modules/skyrim-modding-tools-core`, installed from a tag of its GitHub repository and
+built there by its `prepare` script (allowed in package.json's `allowScripts`). A new core release is a new
+tag: `npm install "skyrim-modding-tools-core@git+https://github.com/Ciltress/skyrim-modding-tools-core.git#vX.Y.Z"`
+and `npm approve-scripts skyrim-modding-tools-core`, then drop the old pin from `allowScripts`. To try a core
+change here before it is tagged, `npm install ../skyrim-modding-tools-core` links the checkout beside this
+one — put the tag back before you commit.
 
 ## Conventions that matter
 
@@ -112,11 +116,11 @@ npm run smoke          # drive the built server over stdio
 npm run check:helper   # start the core's built helper once
 ```
 
-Until the core is on GitHub, build it in its own folder first (`npm install` there builds it).
+`npm install` replaces the core's folder, and the helper built in it with it: build the helper again after.
 
 Before you call something done: `npx tsc --noEmit` clean, `npm test` green, `npm run build &&
-npm run docs:tools` leaving the reference unchanged, and `npm run smoke` passing. CI checks the core out beside
-this repository and runs all of it on Windows and Linux.
+npm run docs:tools` leaving the reference unchanged, and `npm run smoke` passing. CI runs all of it on Windows
+and Linux.
 
 ## Testing against a live MCP client
 
