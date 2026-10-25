@@ -109,7 +109,7 @@ _writes · idempotent_
 
 `project`**\*** string · `plugin` string · `light` boolean
 
-**`addPatch`** — Start or extend a patch — no newProject first: this creates the project when it does not exist. Copies existing records into the project as overrides, to change them without touching the plugins they come from: each from its current winning version — so other mods' changes are kept — or from `from`. Answers each copied file's full path and text (`added[].files`): edit it with your file tools, then run buildProject. Past about ten records the text is left out (`textLeftOut`) — read those files first. A record already in the project is reported under `alreadyInProject` and left alone. An override changes the record itself, everywhere: for a new record like a vanilla one, write a new file with newProject instead.
+**`addPatch`** — Start or extend a patch — no newProject first: this creates the project when it does not exist. Copies existing records into the project as overrides, to change them without touching the plugins they come from: each from its current winning version — so other mods' changes are kept — or from `from`. Answers each copied file's full path and text (`added[].files`): change its fields with editRecord, which needs no old text to match, or with your file tools, then run buildProject. Past about ten records the text is left out (`textLeftOut`) — read those files first. A record already in the project is reported under `alreadyInProject` and left alone. An override changes the record itself, everywhere: for a new record like a vanilla one, write a new file with newProject instead.
 
 _writes · idempotent_
 

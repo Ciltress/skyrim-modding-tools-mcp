@@ -149,6 +149,9 @@ describe('routing', () => {
         // A client without a delete tool cannot delete the copy; written empty, the build leaves it out (eval round 26).
         expect(payload.note).toMatch(/write a new file instead, mirroring it without the FormKey line.*and write the copy empty — the build leaves an empty record file out/);
         expect(payload.note).not.toMatch(/delete the copy/);
+        // Edited with the edit tool, 32 of 82 such edits of eval rounds 49–57 were refused; 3 of 42 editRecord calls.
+        expect(Object.keys(payload)[2]).toBe('nextStep');
+        expect(payload.nextStep).toMatch(/^Change a copy's fields with editRecord, which needs no old text to match — \{"record": "sample", "set": \[\{"path": /);
     });
 
     it('takes editRecord\'s fields as a list of paths and values, and as the object it took first', async () => {

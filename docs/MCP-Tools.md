@@ -79,7 +79,9 @@ arguments, see [`Tool-Reference.md`](./Tool-Reference.md), which is generated fr
      its `Value` (`Name.Value`), as the file writes it (since eval round 49). `set` is a list of paths
      and values since eval round 55, the path never a key of the call: Ollama's gemma4 parser dropped
      e4b's calls with a dotted key and words for its value, as `{"Name.Value": "Mavens Warning"}`.
-     The object of paths and values it took first is still read.
+     The object of paths and values it took first is still read. `addPatch`'s answer names it as
+     the next step, with a field of the copy's kind (since eval round 57: in runs with addPatch of
+     rounds 49–57, the edit tool refused 32 of e4b's 82 edits, editRecord 3 of its 42 calls).
    - **A `path` in an answer is a full path**, ready for your file tools; `addPatch` adds the file's
      text, so you can edit it at once. A path relative to something says so in its name:
      `readRecord`'s `pathInPluginFolder`.

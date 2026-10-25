@@ -83,8 +83,9 @@ export class ProjectsHandlers extends BaseHandler {
                         'Start or extend a patch — no newProject first: this creates the project when it does not ' +
                         'exist. Copies existing records into the project as overrides, to change them without touching ' +
                         'the plugins they come from: each from its current winning version — so other mods\' changes ' +
-                        'are kept — or from `from`. Answers each copied file\'s full path and text (`added[].files`): edit it ' +
-                        'with your file tools, then run buildProject. Past about ten records the text is left out ' +
+                        'are kept — or from `from`. Answers each copied file\'s full path and text (`added[].files`): change ' +
+                        'its fields with editRecord, which needs no old text to match, or with your file tools, then run ' +
+                        'buildProject. Past about ten records the text is left out ' +
                         '(`textLeftOut`) — read those files first. A record already in the project is reported under ' +
                         '`alreadyInProject` and left alone. An override changes the record itself, everywhere: for a new ' +
                         'record like a vanilla one, write a new file with newProject instead.',
@@ -133,6 +134,16 @@ export class ProjectsHandlers extends BaseHandler {
                             ...result.alreadyInProject.map(record => record.formId)
                         ];
                         const one = copies.length === 1;
+                        // The copy's fields changed with the edit tool, its old text from memory: 32 of e4b's 82 such edits in runs
+                        // with addPatch of eval rounds 49–57 were refused, 3 of its 42 editRecord calls — and round 57's
+                        // sword+detailed #5 ran out of turns on fifteen refused edits of addPatch's Iron Sword.
+                        const first = result.added[0];
+                        const example = first?.editorId ?? first?.formId ?? 'IronSword';
+                        // A field of the copy's own kind; a name would rename the record everywhere, as the note says.
+                        const field = ({
+                            Weapon: '{"path": "BasicStats.Damage", "value": 12}', Armor: '{"path": "ArmorRating", "value": 30}',
+                            Spell: '{"path": "BaseCost", "value": 60}', Npc: '{"path": "AIData.Aggression", "value": "Unaggressive"}'
+                        } as Record<string, string>)[first?.type ?? 'Weapon'] ?? '{"path": "<the field>", "value": <its new value>}';
                         return {
                             note: `${copies.join(', ')} ${one ? 'is' : 'are'} copied as ${one ? 'an override' : 'overrides'}: ` +
                                 `${one ? 'it changes that record' : 'each changes its record'} itself, everywhere the game uses ` +
@@ -140,6 +151,8 @@ export class ProjectsHandlers extends BaseHandler {
                                 'like it was meant, write a new file instead, mirroring it without the FormKey line and with an ' +
                                 'EditorID of its own, where newProject\'s writeRecordsTo says — and write the copy empty — the build ' +
                                 'leaves an empty record file out.',
+                            nextStep: `Change a copy's fields with editRecord, which needs no old text to match — {"record": ` +
+                                `"${example}", "set": [${field}]} — then run buildProject.`,
                             ...result
                         };
                     });
