@@ -32,9 +32,9 @@ public static class RecordEdits
         foreach (var (path, value) in set ?? []) text = SetPath(text, type, path, value, changes);
         foreach (var path in (remove ?? []).Select(r => r?.GetValue<string>() ?? ""))
         {
-            var steps = Parse(path);
-            Types(type, steps, path);
-            text = Remove(text, steps, path, changes);
+            var (steps, label) = Placed(type, path);
+            Types(type, steps, label);
+            text = Remove(text, steps, label, changes);
         }
         // A change that left no YAML is this tool's fault, never written.
         if (Root(text) is null)
@@ -72,6 +72,57 @@ public static class RecordEdits
         return steps.Select(m => new Step(m.Groups["key"].Value, m.Groups["index"].Success ? int.Parse(m.Groups["index"].Value) : null)).ToList();
     }
 
+    /// <summary>
+    /// A path, and its words for answers: where it was placed otherwise, as placed and as sent —
+    /// "Configuration.CalcMinLevel (sent as Level.CalcMinLevel)".
+    /// </summary>
+    private static (List<Step> Steps, string Label) Placed(Type record, string path)
+    {
+        var sent = Parse(path);
+        var steps = Place(record, sent);
+        return (steps, steps.SequenceEqual(sent) ? path : $"{Upto(steps, steps.Count)} (sent as {path})");
+    }
+
+    /// <summary>
+    /// The path to where the record has the field, where it was sent to a place without it and the place is plain: a
+    /// field of the part above, sent below one of that part's fields — Configuration.Level.CalcMinLevel is
+    /// Configuration.CalcMinLevel — and a field the top level lacks, of the one part RecordFiles names — an NPC's Level
+    /// is Configuration's, a weapon's Damage BasicStats'. Sent Level.CalcMinLevel and told an NPC's level is "three lines
+    /// under Configuration", e4b sent Configuration.Level.CalcMinLevel, then the level whole with a brace too many,
+    /// which Ollama dropped, and the run ended (eval round 60's npc+detailed #3).
+    /// </summary>
+    private static List<Step> Place(Type record, List<Step> sent)
+    {
+        var steps = sent.ToList();
+        while (FirstUnknown(record, steps) is var (at, above) && at >= 0)
+        {
+            if (at == 0 && RecordFiles.PartFor(record, steps[0].Key, "") is { } part && Property(record, part) is not null)
+                steps.Insert(0, new Step(part, null));
+            else if (at > 0 && steps[at - 1].Index is null && above is not null && Property(above, steps[at].Key) is not null)
+                steps.RemoveAt(at - 1);
+            else break;
+        }
+        return steps;
+    }
+
+    /// <summary>The first step of a path whose part has no field for it, and the part holding the step before it; -1 for none.</summary>
+    private static (int At, Type? Above) FirstUnknown(Type record, List<Step> steps)
+    {
+        var current = record;
+        Type? above = null;
+        for (var i = 0; i < steps.Count; i++)
+        {
+            if (steps[i].Key == "MutagenObjectType" || Translated(current)) break;
+            if (Property(current, steps[i].Key) is not { } property) return (i, above);
+            above = current;
+            current = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+            if (steps[i].Index is null) continue;
+            if (RecordLinks.ElementType(current) is not { } item) break;
+            current = item;
+        }
+        return (-1, null);
+    }
+
     /// <summary>The type each step of the path holds, checked against the record's type: a field it has not is refused.</summary>
     private static List<Type> Types(Type record, List<Step> steps, string path)
     {
@@ -90,9 +141,12 @@ public static class RecordEdits
                 throw new HelperException("badRequest", $"{path}: {where} is a text, written as its Value and TargetLanguage — set " +
                     $"{where} to its words, or {where}.Value. Nothing was written.");
             }
+            // A magic effect's Data, found by name, was a condition's: "move it in each item of Conditions", as the build said
+            // until round 24.
             var property = Property(current, step.Key)
                 ?? throw new HelperException("badRequest", $"{path}: {where} has no field {step.Key}" +
-                    (RecordFiles.HintFor(current, step.Key) is { Length: > 0 } hint ? hint : "") +
+                    (i == 0 && record.Name == "MagicEffect" && step.Key == "Data" ? $" ({RecordFiles.EffectStrength})"
+                        : RecordFiles.HintFor(current, step.Key) is { Length: > 0 } hint ? hint.Replace(RecordFiles.NpcLevel, NpcLevel) : "") +
                     $" — its fields: {string.Join(", ", Fields(current).Take(40))}. Nothing was written.");
             var type = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
             if (step.Index is not null)
@@ -116,6 +170,11 @@ public static class RecordEdits
 
     private static bool Translated(Type type) => typeof(ITranslatedStringGetter).IsAssignableFrom(type);
 
+    /// <summary>An NPC's level in paths: told it is "three lines under Configuration", as a file is, e4b sent Configuration.Level.CalcMinLevel (eval round 60).</summary>
+    private const string NpcLevel = "an NPC's level is Configuration.Level, {\"MutagenObjectType\": \"PcLevelMult\", \"LevelMult\": 1}, " +
+        "with Configuration.CalcMinLevel and Configuration.CalcMaxLevel — the level follows the player's between those two; " +
+        "or, for a fixed level, Configuration.Level alone, {\"MutagenObjectType\": \"NpcLevel\", \"Level\": 10}";
+
     // ---------------------------------------------------------------- set and remove
 
     /// <summary>
@@ -125,15 +184,45 @@ public static class RecordEdits
     /// </summary>
     private static string SetPath(string text, Type type, string path, JsonNode? value, List<string> changes)
     {
-        var steps = Parse(path);
-        var types = Types(type, steps, path);
+        var (steps, label) = Placed(type, path);
+        var types = Types(type, steps, label);
+        // Fields of the part above, sent inside a part: an NPC's {"Level": {…, "CalcMinLevel": 5}} — set as Configuration's.
+        if (value is JsonObject sent && sent.Where(f => f.Key != "MutagenObjectType" && Segment.IsMatch(f.Key)
+                && Place(type, Parse($"{path}.{f.Key}")) is var placed && !(placed.Count > steps.Count && placed.Take(steps.Count).SequenceEqual(steps)))
+                .Select(f => f.Key).ToList() is { Count: > 0 } outside)
+        {
+            var rest = (JsonObject)sent.DeepClone();
+            foreach (var key in outside)
+            {
+                text = SetPath(text, type, $"{path}.{key}", sent[key]?.DeepClone(), changes);
+                rest.Remove(key);
+            }
+            if (rest.Count == 0) return text;
+            value = rest;
+        }
         if (value is JsonObject { Count: > 0 } fields && At(text, steps) is YamlMappingNode there
             && (fields["MutagenObjectType"] is not JsonValue kind || kind.GetValue<object>().ToString() == Field(there, "MutagenObjectType")))
             return fields.Where(f => f.Key != "MutagenObjectType")
                 .Aggregate(text, (merged, f) => SetPath(merged, type, $"{path}.{f.Key}", f.Value?.DeepClone(), changes));
         if (steps.Count > 1 && steps[^1] is { Key: "Value", Index: null } && Translated(types[^2]) && value is JsonValue)
-            return Set(text, steps.SkipLast(1).ToList(), types.SkipLast(1).ToList(), value, path, changes);
-        return Set(text, steps, types, value, path, changes);
+            return Set(text, steps.SkipLast(1).ToList(), types.SkipLast(1).ToList(), value, label, changes);
+        text = Set(text, steps, types, value, label, changes);
+        return steps.Count > 1 && steps[^1] is { Key: "MutagenObjectType", Index: null } ? Rekinded(text, steps.SkipLast(1).ToList(), types[^2], changes) : text;
+    }
+
+    /// <summary>
+    /// A part given another kind, without the fields of the kind it was that this one has not: an NpcLevel's `Level: 1`,
+    /// left under a PcLevelMult, is refused by the build.
+    /// </summary>
+    private static string Rekinded(string text, List<Step> part, Type group, List<string> changes)
+    {
+        if (!group.IsAbstract || At(text, part) is not YamlMappingNode there || Field(there, "MutagenObjectType") is not { } named
+            || RecordFiles.KindOf(group, named) is not { } kind)
+            return text;
+        var lacking = there.Children.Keys.OfType<YamlScalarNode>().Select(k => k.Value ?? "")
+            .Where(k => k != "MutagenObjectType" && !kind.GetProperties(Public).Any(p => p.Name == k)).ToList();
+        return lacking.Aggregate(text, (left, key) =>
+            Remove(left, [.. part, new Step(key, null)], $"{Upto(part, part.Count)}.{key} ({RecordFiles.Article(kind.Name)} has no {key})", changes));
     }
 
     /// <summary>The node a path names in the file, or null where the file has none.</summary>

@@ -34,5 +34,11 @@ installed later whose record has the same editor ID does not change the link.
   path, a dotted key with words for its value — `{"Name.Value": "Mavens Warning"}` — was dropped by Ollama's
   gemma4 parser, 22 times in 56 asked for, and turns that planned one ended six runs of eval rounds 49–55 with
   no call. The object it took first is still read, for clients that send one.
+- A field sent to a place without it is set where it is when that place is plain, and the answer says so —
+  `Configuration.CalcMinLevel (sent as Level.CalcMinLevel)`: a field of the part above, sent below one of its
+  fields, and one the top level lacks of the one part it belongs to, as an NPC's level is Configuration's. Told
+  an NPC's level is "three lines under Configuration", as the build tells a file, e4b sent four calls that were
+  refused, then a fifth that Ollama dropped (eval round 60). A part given another kind loses the fields that
+  kind has not.
 - Whether models choose it over their file tools is for the eval to show. It does not replace them.
 - A project's files can hold editor IDs where a pull or `addPatch` writes FormIDs; both read alike.
