@@ -334,6 +334,18 @@ public static class MisplacedFields
             var property = type.GetProperties(Public).Where(p => p.Name == key).OrderBy(p => p.DeclaringType == type ? 0 : 1).FirstOrDefault();
             if (property is null) continue;
             var propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+            // A field of the part written inside one of its texts: e4b's edit wrote `ObjectEffect: …` where Description's
+            // Value was, the reader kept the text's own lines and skipped it without a word, and Flame Blade built with no
+            // enchantment (eval round 53's sword #2). A text holds its TargetLanguage and its Value, or Values.
+            if (typeof(ITranslatedStringGetter).IsAssignableFrom(propertyType) && value is YamlMappingNode { Style: not MappingStyle.Flow } words)
+            {
+                var up = words.Children.Keys.OfType<YamlScalarNode>()
+                    .Where(k => k.Value is { } name && !RecordLinks.TextFields.Contains(name) && Has(type, name)).ToList();
+                if (up.Count > 0 && !mapping.Children.Keys.OfType<YamlScalarNode>().Any(k => up.Any(u => u.Value == k.Value))
+                    && UpFrom(lines, text, words, field, up, path.Length == 0 ? key : $"{path}.{key}") is { } lifted)
+                    return lifted;
+                continue;
+            }
             if (propertyType == typeof(string) || typeof(ITranslatedStringGetter).IsAssignableFrom(propertyType)
                 || RecordLinks.LinkTarget(propertyType) is not null) continue;
             var fieldPath = path.Length == 0 ? key : $"{path}.{key}";

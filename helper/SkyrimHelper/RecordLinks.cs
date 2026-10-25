@@ -156,7 +156,14 @@ public static class RecordLinks
                 }
                 if (!takes.IsAssignableFrom(found.Type))
                 {
-                    problems.Add($"{relative}: {field} names {found.EditorId}, which is {RecordFiles.Article(Kind(found.Type))}; {field} takes {RecordFiles.Article(wanted)}");
+                    // A weapon's enchantment named as the magic effect it was to cast: all 3 runs of eval rounds 40–53 that
+                    // were refused so failed — round 53's sword+detailed #5 rewrote its magic effect until the turns ran out.
+                    problems.Add($"{relative}: {field} names {found.EditorId}, which is {RecordFiles.Article(Kind(found.Type))}; {field} takes {RecordFiles.Article(wanted)}" +
+                        (wanted == "ObjectEffect" && Kind(found.Type) == "MagicEffect"
+                            ? $" — an enchantment, whose Effects name the magic effects it casts: name one, such as {RecordFiles.ExampleName("ObjectEffect")}, " +
+                                $"or write one in ObjectEffects with `- BaseEffect: {found.EditorId}` among its Effects, as readRecord {{\"record\": " +
+                                $"\"{RecordFiles.ExampleName("ObjectEffect")}\"}} shows them, and name it here"
+                            : ""));
                     return;
                 }
                 if (found.FormKey is not { } target) return; // A new record, numbered after this check.
@@ -416,6 +423,12 @@ public static class RecordLinks
                 if (value is YamlScalarNode { Value.Length: > 0 } or YamlSequenceNode)
                     problem($"{field} is written as {(value is YamlSequenceNode ? "a list" : "one value")} — a text takes two lines indented " +
                         $"below `{field}:`, `TargetLanguage: English` and `Value: {(value as YamlScalarNode)?.Value ?? "…"}`");
+                // Any other line in a text the reader skips without a word (eval round 53's sword #2); one of the part's
+                // own fields is moved out of it before this (MisplacedFields).
+                else if (value is YamlMappingNode words)
+                    foreach (var other in words.Children.Keys.OfType<YamlScalarNode>().Select(k => k.Value).Where(k => k is not null && !TextFields.Contains(k)))
+                        problem($"{field}.{other}: a text holds `TargetLanguage` and `Value` alone — " +
+                            (RecordFiles.WhereIn(record, other!) is { } at ? $"{RecordFiles.Article(record.Name)}'s {other} is {at}" : $"delete `{other}`"));
             }
             else if (typeof(System.Collections.IList).IsAssignableFrom(propertyType) && ElementType(propertyType) is { } element)
             {
@@ -574,6 +587,9 @@ public static class RecordLinks
         if (formKey.ModKey == Session.SkyrimMaster && formKey.ID < 0x800 || RecordIndex.SkippedTypes.Any(takes.IsAssignableFrom)) return null;
         return "which no record of the load order has";
     }
+
+    /// <summary>A text's own lines, as Spriggit writes one: its language and its words — or, in a localized plugin, each language's.</summary>
+    internal static readonly HashSet<string> TextFields = new(["TargetLanguage", "Value", "Values"], StringComparer.Ordinal);
 
     /// <summary>A comment after a value that names one record — `# NordRace`, as readRecord writes one — not words.</summary>
     private static readonly Regex CommentName = new(@"^[ \t]+#[ \t]*(?<id>[A-Za-z0-9_]+)[ \t]*\r?$", RegexOptions.None, TimeSpan.FromSeconds(5));
