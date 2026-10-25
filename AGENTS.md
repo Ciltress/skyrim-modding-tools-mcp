@@ -67,8 +67,6 @@ src/
 projects/                  the user's projects (mods as text); created on first use
 scripts/generate-tool-docs.mjs   writes docs/Tool-Reference.md; run after changing any getTools()
 scripts/smoke.mjs                drives the built server over stdio; fails on anything but frames on stdout
-scripts/eval-ollama.mjs          runs fixed modding tasks with a local model through Ollama and scores them
-scripts/eval-openclaw.mjs        the same tasks through OpenClaw on the user's own configuration (--client openclaw)
 ```
 
 The core is `node_modules/skyrim-modding-tools-core`, installed from a tag of its GitHub repository and
@@ -129,9 +127,11 @@ A registered client runs `dist/index.js`, so a change is only visible there afte
 
 ## Measuring with a local model
 
-`npm run eval:ollama` runs fixed modding tasks with a model served by Ollama through the built server and
-scores them. Rounds 1–63 are recorded in the eval record, `docs/research/local-model-evals.md` in the skyrim-modding-tools folder beside this repository.
-From round 64 the eval moves to the OpenClaw plugin's repository, which records its rounds there.
+The eval — fixed modding tasks with a model served by Ollama, scored — is the OpenClaw plugin's
+(skyrim-modding-tools-openclaw-plugin, `npm run eval`) from round 64; rounds 1–63 ran this server inside OpenClaw,
+with `scripts/eval-ollama.mjs`, which is in git history. Every round is in the eval record,
+`docs/research/local-model-evals.md` in the skyrim-modding-tools folder beside this repository. The tools are the
+core's, so what a round points at is fixed there, for this server too.
 
 ## Care with a real backend
 

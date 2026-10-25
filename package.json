@@ -25,8 +25,7 @@
     "docs:tools": "node scripts/generate-tool-docs.mjs",
     "smoke": "node scripts/smoke.mjs",
     "build:helper": "npm --prefix node_modules/skyrim-modding-tools-core run build:helper",
-    "check:helper": "npm --prefix node_modules/skyrim-modding-tools-core run check:helper",
-    "eval:ollama": "node scripts/eval-ollama.mjs"
+    "check:helper": "npm --prefix node_modules/skyrim-modding-tools-core run check:helper"
   },
   "keywords": [
     "mcp",

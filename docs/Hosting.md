@@ -252,11 +252,11 @@ too small for any agent: set `OLLAMA_CONTEXT_LENGTH` (131072 for 128k), or the c
 setting. Claude Code pointed at Ollama loads every tool up front; `MCP_PROFILE=core` lists fewer.
 
 - **The model has to make real tool calls.** gemma4:26b and gemma4:e4b do: each passed every task
-  of `npm run eval:ollama` — find, read, filter, patch, patch and build — with no failed call. e4b
+  of the eval — find, read, filter, patch, patch and build — with no failed call. e4b
   fits a 16 GB card whole and answers about twice as fast; 26b took the shortest route more often.
   Code-completion models such as qwen2.5-coder:3b do not: they write the call into the answer as
-  text, which no client acts on. Measure a model before relying on it —
-  `npm run eval:ollama -- --model <name>` — and see
+  text, which no client acts on. Measure a model before relying on it — the OpenClaw plugin's
+  `npm run eval -- --model <name> --openclaw-agent <agent>` — and see
   the eval record, `docs/research/local-model-evals.md` in the skyrim-modding-tools folder beside this repository, for every model measured so far.
 - **Records are edited with the client's file tools.** Claude Code has its own. A client that only
   connects Ollama to MCP servers — ollmcp, oterm — needs a filesystem server beside this one, allowed
