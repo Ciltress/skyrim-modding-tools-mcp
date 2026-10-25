@@ -172,6 +172,18 @@ describe('routing', () => {
         expect(refused.error).toMatch(/'set' takes items of a field's path and its value, e\.g\. \[\{"path": "BasicStats\.Damage", "value": 12\}\]/);
     });
 
+    it('tells after editRecord to build again', async () => {
+        // A build refused, its field then set with editRecord, e4b answered "Build Status: Success" with no build since
+        // (eval round 61's npc+detailed #5): the plugin was the one before.
+        const { client } = await connect();
+        await call(client, 'newProject', { project: 'FlameBlade' });
+        const edited = payloadOf(await call(client, 'editRecord', {
+            project: 'FlameBlade', record: 'FlameBlade', set: [{ path: 'BasicStats.Damage', value: 12 }]
+        }));
+        expect(Object.keys(edited).slice(0, 2)).toEqual(['status', 'nextStep']);
+        expect(edited.nextStep).toBe('Run buildProject next — the plugin has this change only once a build answers success.');
+    });
+
     it('names in newProject\'s answer the skill of each record family, every one a skill the server serves', async () => {
         // 26b skipped the family skill in three of nine authoring runs; every run that read it passed (eval round 12).
         const { client } = await connect();

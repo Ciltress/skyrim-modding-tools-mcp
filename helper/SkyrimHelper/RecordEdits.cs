@@ -117,7 +117,7 @@ public static class RecordEdits
             above = current;
             current = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
             if (steps[i].Index is null) continue;
-            if (RecordLinks.ElementType(current) is not { } item) break;
+            if (Items(current) is not { } item) break;
             current = item;
         }
         return (-1, null);
@@ -150,7 +150,7 @@ public static class RecordEdits
                     $" — its fields: {string.Join(", ", Fields(current).Take(40))}. Nothing was written.");
             var type = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
             if (step.Index is not null)
-                type = RecordLinks.ElementType(type) ?? throw new HelperException("badRequest", $"{path}: {step.Key} is no list. Nothing was written.");
+                type = Items(type) ?? throw new HelperException("badRequest", $"{path}: {step.Key} is no list. Nothing was written.");
             types.Add(type);
             current = type;
         }
@@ -169,6 +169,14 @@ public static class RecordEdits
         Kinds(type).SelectMany(t => t.GetProperties(Public)).Where(p => p.CanWrite).Select(p => p.Name).Distinct().Order(StringComparer.Ordinal);
 
     private static bool Translated(Type type) => typeof(ITranslatedStringGetter).IsAssignableFrom(type);
+
+    /// <summary>
+    /// The item type of a list field, a flags field's its names, as the file writes them — `Flags:`, `- Female` below it.
+    /// Told "TemplateFlags is no list" for TemplateFlags[5], e4b edited the file by hand and broke its YAML twice (eval
+    /// round 61's npc #1).
+    /// </summary>
+    private static Type? Items(Type type) =>
+        type.IsEnum && type.IsDefined(typeof(FlagsAttribute), false) ? type : RecordLinks.ElementType(type);
 
     /// <summary>An NPC's level in paths: told it is "three lines under Configuration", as a file is, e4b sent Configuration.Level.CalcMinLevel (eval round 60).</summary>
     private const string NpcLevel = "an NPC's level is Configuration.Level, {\"MutagenObjectType\": \"PcLevelMult\", \"LevelMult\": 1}, " +
@@ -206,9 +214,37 @@ public static class RecordEdits
                 .Aggregate(text, (merged, f) => SetPath(merged, type, $"{path}.{f.Key}", f.Value?.DeepClone(), changes));
         if (steps.Count > 1 && steps[^1] is { Key: "Value", Index: null } && Translated(types[^2]) && value is JsonValue)
             return Set(text, steps.SkipLast(1).ToList(), types.SkipLast(1).ToList(), value, label, changes);
+        // A list of names sent as a text: "- AutoCalcStats\n- Unique\n- Female", its line ends written `\n`, was set as one
+        // text, which the build refused, then "AutoCalcStats\nUnique\nFemale", and e4b answered as built (eval round 61's
+        // npc+detailed #5).
+        if (steps[^1].Index is null && value is JsonValue words && words.TryGetValue<string>(out var said)
+            && Items(types[^1]) is { } item && (item.IsEnum || RecordLinks.LinkTarget(item) is not null))
+        {
+            value = Listed(text, steps, label, said);
+            label += " (a list, sent as a text)";
+        }
         text = Set(text, steps, types, value, label, changes);
         return steps.Count > 1 && steps[^1] is { Key: "MutagenObjectType", Index: null } ? Rekinded(text, steps.SkipLast(1).ToList(), types[^2], changes) : text;
     }
+
+    /// <summary>
+    /// A text for a list of names, as the list of them: split at its line ends, written or as `\n`, and at its commas,
+    /// each name without its `- `. One name alone for a list that holds others is refused, the whole list given: a list
+    /// is set whole, and "Female" for an NPC's Flags would have taken its AutoCalcStats and Unique with it.
+    /// </summary>
+    private static JsonArray Listed(string text, List<Step> steps, string label, string said)
+    {
+        var names = Regex.Split(said.Trim().TrimStart('[').TrimEnd(']'), @"\\n|\r?\n|,")
+            .Select(n => n.Trim().TrimStart('-').Trim().Trim('"', '\'')).Where(n => n.Length > 0).ToList();
+        var held = At(text, steps) is YamlSequenceNode list ? list.Children.OfType<YamlScalarNode>().Select(s => s.Value ?? "").ToList() : [];
+        if (names.Count == 1 && held.Count > 0 && !held.SequenceEqual(names))
+            throw new HelperException("badRequest", held.Contains(names[0])
+                ? $"{label}: a list, set whole, and {names[0]} is among its items already: {Json(held)}. Nothing was written."
+                : $"{label}: a list, set whole — to add {names[0]}, set it to {Json([.. held, names[0]])}. Nothing was written.");
+        return new JsonArray(names.Select(n => (JsonNode?)JsonValue.Create(n)).ToArray());
+    }
+
+    private static string Json(IEnumerable<string> names) => new JsonArray(names.Select(n => (JsonNode?)JsonValue.Create(n)).ToArray()).ToJsonString();
 
     /// <summary>
     /// A part given another kind, without the fields of the kind it was that this one has not: an NpcLevel's `Level: 1`,

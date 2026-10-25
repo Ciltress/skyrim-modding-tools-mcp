@@ -215,12 +215,17 @@ export class ProjectsHandlers extends BaseHandler {
                     }
                 },
                 onFailure: 'Failed to edit the record',
+                // A build refused, its field then set here, e4b answered "Build Status: Success" with no build since
+                // (eval round 61's npc+detailed #5): the plugin was the one before.
                 run: args => asRequestError(this.backend.editRecord({
                     project: requireString(args, 'project'),
                     record: requireString(args, 'record', 'The record file, like "Weapons/FlameBlade.yaml", or its EditorID.'),
                     set: optionalFieldValues(args, 'set', '[{"path": "BasicStats.Damage", "value": 12}]'),
                     remove: optionalStringList(args, 'remove', '["Critical"]')
-                }))
+                }).then(result => ({
+                    nextStep: 'Run buildProject next — the plugin has this change only once a build answers success.',
+                    ...result
+                })))
             },
             {
                 definition: {

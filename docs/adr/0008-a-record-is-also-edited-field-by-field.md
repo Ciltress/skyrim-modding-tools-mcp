@@ -40,5 +40,10 @@ installed later whose record has the same editor ID does not change the link.
   an NPC's level is "three lines under Configuration", as the build tells a file, e4b sent four calls that were
   refused, then a fifth that Ollama dropped (eval round 60). A part given another kind loses the fields that
   kind has not.
+- A flags field, such as an NPC's `Flags`, is the list the file writes it as. Its items are named by number, and
+  a text of several names is set as the list of them. One name alone, for a list that holds others, is refused
+  with the whole list to set. Told that TemplateFlags was no list, e4b broke its file by hand. Its Flags, set as
+  one text, were refused by the build, and it answered as built (eval round 61). The answer now says to build
+  again.
 - Whether models choose it over their file tools is for the eval to show. It does not replace them.
 - A project's files can hold editor IDs where a pull or `addPatch` writes FormIDs; both read alike.
