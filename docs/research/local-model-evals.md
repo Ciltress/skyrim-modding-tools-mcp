@@ -226,6 +226,7 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-25 | gemma4:e4b | `all`, OpenClaw | 411f138 | 44/45 | 3.85 s | ~7,210 tokens/s | ~181 tokens/s | 100% |
 | 2026-10-25 | gemma4:e4b | `all`, OpenClaw | 756d169 | 44/45 | 3.5 s | ~7,409 tokens/s | ~177 tokens/s | 100% |
 | 2026-10-25 | gemma4:e4b | `all`, OpenClaw | 8a30cdb | 44/45 | 3.48 s | ~7,185 tokens/s | ~182 tokens/s | 100% |
+| 2026-10-25 | gemma4:e4b | `all`, OpenClaw | eefde62 + uncommitted changes | 43/45 | 3.81 s | ~7,275 tokens/s | ~179 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -346,68 +347,6 @@ model's: four turns lost calling `skills_read` with `skill:` instead of `name:`,
 effect on the enchantment, refused by the build, and the turns ran out. (The seconds do not compare: the
 GPU ran the second half at ~184 tokens/s of prompt against ~891.)
 
-## Round 58 — addPatch's answer names editRecord; e4b alone (2026-10-25)
-
-**Changed before it:** addPatch's answer names `editRecord` as the next step, with the copied record and a field of its
-kind (94a6023). The twenty-fifth round with AGENTS.md's "delivered" line. Nothing ran beside it.
-
-gemma4:e4b, `all`, OpenClaw, at 756d169 (prompt ~7,409 tokens/s, generation ~177 tokens/s; first prompt 10490 tokens (27 tools, 17 of them this server's), think high, num_ctx 131072, num_predict none, temperature the Modelfile's, first token after 1.845 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 1/1 | 2 | 1 | 0 | 0 | 10711 | 95.8 |
-| read | 1/1 | 3 | 2 | 0 | 0 | 13244 | 42.5 |
-| filter | 1/1 | 2 | 1 | 0 | 0 | 10836 | 39.9 |
-| patch | 1/1 | 6 | 5 | 0 | 0 | 20155 | 45.9 |
-| build | 1/1 | 7 | 6 | 0 | 0 | 21468 | 47.5 |
-| sword | 5/5 | 10.8 | 10 | 0 | 0 | 27637 | 78.3 |
-| sword+detailed | 4/5 | 10.8 | 10 | 3 | 0 | 26077 | 78.2 |
-| spell | 5/5 | 6.2 | 5.2 | 0 | 0 | 17320 | 48.5 |
-| spell+detailed | 5/5 | 10.4 | 9.4 | 8 | 1 | 21961 | 72.8 |
-| npc | 5/5 | 7.4 | 6.6 | 1 | 0 | 21249 | 47 |
-| npc+detailed | 5/5 | 8.2 | 7.2 | 3 | 0 | 17387 | 51.8 |
-| note | 5/5 | 7.2 | 6.2 | 2 | 0 | 19504 | 54.5 |
-| note+detailed | 5/5 | 6.6 | 5.6 | 0 | 0 | 19725 | 54.6 |
-
-**Seen.**
-
-- **e4b 44 of 45** (round 57: 44): sword 9 of 10, spell 10, NPC 10, note 10, and the five simple tasks, in 46 minutes.
-  No run left a copy that changes nothing. The build took a copied `FormKey` out in 11 runs, copied escapes in 1 and
-  moved fields in 5. It refused 15 builds in 8 runs (round 57: 9 in 8). A turn's median thinking was 994 characters
-  (1,053). No side request.
-- **Round 57's change:** each of the 4 runs that copied a record with addPatch changed it with `editRecord`, none
-  refused — sword #4 after writing the copy anew once (rounds 55–57: 14 of 17). The edit tool refused 1 of e4b's 17
-  edits (16 of 23): text a build had changed since, in spell+detailed #3's magic effect.
-- **Round 50's wording:** two refused builds named corrections where the record keeps them, and one edit after them
-  found nothing — that one. In rounds 51–58, after 9 of the 26 such refusals.
-- **Round 55's change, third round:** one turn came back with neither a call nor text, the miss's last.
-- **e4b's miss.** sword+detailed #5 wrote its enchantment, Flame Blade Burn, after the Iron Sword: sixteen of the
-  sword's fields beside its `Effects`. Told to delete them — "an ObjectEffect has them nowhere" — and to move the
-  sword's `Value` under BasicStats, it planned an edit of the enchantment, and its turn came back with 1,810 tokens,
-  4,317 characters of thinking and no call: about 1,100 characters of arguments, by rounds 56–58's turns with one
-  call, not passed on. Round 40's sword+detailed #4 ended so too, after two refused edits of an enchantment told to
-  delete eighteen fields of a magic effect's. Of the 18 refusals of fields a type has nowhere in rounds 40–58, 9 were
-  of a file written after a record of another type, and 2 of those runs failed. Behind them, replayed: the sword's `Data` had been told to go "in each item of
-  Effects", and its Critical `Unused2: 0` (0x000000 in the Iron Sword) was refused as "not a valid hex string",
-  naming no line.
-- **The "delivered" line, twenty-five rounds:** sword+detailed #5 gave no answer; every run that builds answered as
-  built, as it was.
-
-**After the round (c97416f):**
-
-- The build deletes another record type's fields from a file written after one — two or more, all of one type, beside
-  a field of its own type that one lacks: "deleted `Model`, …, `DetectionSoundLevel` — a Weapon's fields, which an
-  ObjectEffect has nowhere". A file of the other type's fields alone is still sent to that type's folder, and one
-  such field is still refused.
-- A field written with fields below it is sent only where most of them are its: the sword's `Data` is one to delete,
-  and a spell's `Data:` of Magnitude still goes in each item of Effects.
-- "Not a valid hex string" comes with the lines that write a field of bytes otherwise: "line 48, `Unused2: 0`".
-- Replayed, the miss's two files build after three refusals of one thing each — the `Value`, `Unused2`, and the
-  enchantment's casting — where the first named seventeen.
-
-**What it points at next:** whether e4b's enchantments written after a weapon build without the long edit, and
-whether a turn still comes back with no call.
-
 ## Round 59 — another type's fields deleted; e4b alone (2026-10-25)
 
 **Changed before it:** the build deletes another record type's fields copied into a file, sends a field with fields
@@ -470,3 +409,95 @@ ollama/ollama#19273.
 
 **What it points at next:** whether e4b's whole-file rewrites move from `edit` to `write`, and whether Ollama 0.40.11
 changes e4b's speed or results.
+
+## Round 60 — a Name of its own, and Ollama 0.40.11; e4b alone (2026-10-25)
+
+**Changed before it, all at once, so the result cannot be split between them:** the warning for a copy made new with
+its name kept says to give it a Name of its own (6ac308e); AGENTS.md — the user's, and the one setup writes — says
+"A whole record, or a file changed in many places, you `write` anew; `edit` is for a few lines."; and Ollama went from
+0.40.6 to 0.40.11, the user's call. The row's uncommitted changes were the npm package `gh` in package.json and
+package-lock.json, added outside this work and removed after the round; no server code. The twenty-seventh round
+with AGENTS.md's "delivered" line. Nothing ran beside it.
+
+gemma4:e4b, `all`, OpenClaw, at eefde62 + uncommitted changes (the npm `gh` alone) (prompt ~7,275 tokens/s, generation ~179 tokens/s; first prompt 10525 tokens (27 tools, 17 of them this server's), think high, num_ctx 131072, num_predict none, temperature the Modelfile's, first token after 1.872 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 1 side requests):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 1/1 | 2 | 1 | 0 | 0 | 12145 | 133.9 |
+| read | 1/1 | 3 | 2 | 0 | 0 | 11789 | 38.3 |
+| filter | 1/1 | 2 | 1 | 0 | 0 | 10900 | 37.2 |
+| patch | 1/1 | 6 | 5 | 0 | 0 | 20125 | 43.8 |
+| build | 1/1 | 7 | 6 | 0 | 0 | 21577 | 44.5 |
+| sword | 5/5 | 10 | 9.4 | 0 | 1 | 26872 | 73.4 |
+| sword+detailed | 5/5 | 16.2 | 15.2 | 7 | 8 | 30829 | 104.5 |
+| spell | 5/5 | 7.4 | 6.6 | 1 | 0 | 19715 | 56.1 |
+| spell+detailed | 4/5 | 6.6 | 5.8 | 0 | 0 | 18496 | 56 |
+| npc | 5/5 | 9.2 | 8.2 | 1 | 0 | 25382 | 61.9 |
+| npc+detailed | 4/5 | 10.2 | 9.2 | 8 | 1 | 27347 | 73 |
+| note | 5/5 | 6.8 | 5.8 | 1 | 0 | 19353 | 58.2 |
+| note+detailed | 5/5 | 6.8 | 5.8 | 1 | 0 | 19060 | 55.7 |
+
+**Seen.**
+
+- **e4b 43 of 45** (round 59: 44): sword 10 of 10, spell 9, NPC 9, note 10, and the five simple tasks, in 52 minutes.
+  No run left a copy that changes nothing. The build took a copied `FormKey` out in 11 runs, moved fields in 3 and
+  undid copied escapes in 1. It refused 12 builds in 9 runs (round 59: 7 in 5). A turn's median thinking was 1,115
+  characters (1,047).
+- **Round 59's changes.** The Name warning did not come up: no run made a copy new and kept its name. Whether
+  whole-file rewrites moved from `edit` to `write` does not show in one round: 24 edit calls (23), none with a
+  newText of 800 characters or more (none in rounds 58 and 59 either), and 6 `write` calls over a file the run
+  already had (6; round 58: 7). No `edit` call was dropped (round 58: 1).
+- **Ollama 0.40.11** ran as 0.40.6 did: prompt ~7,275 and generation ~179 tokens/s (round 59: ~7,185 and ~182).
+- **Two turns came back with neither a call nor text.** Each was a call Ollama's gemma4 parser dropped, and each
+  ended a failed run — the two misses below. Rounds 31–60: 25 such runs.
+- **addPatch and `editRecord`:** each of the 7 runs that copied a record changed it with `editRecord` (round 59: 10 of
+  10) — 17 calls in 8 runs, 7 refused (2): 5 in npc+detailed #3; npc #2 named its copy by the EditorID it had just
+  changed, and was given the file; npc+detailed #5 called `editRecord` without OpenClaw's `skyrim__`. The edit tool
+  refused 10 of e4b's 24 edits (9 of 23): 4 sent text a build had changed since, 1 text never in the file, 2 sent no
+  path — one with `editRecord`'s arguments — and 3, in sword+detailed #2, a file's path in the plugin folder as
+  readRecord gives it, `Weapons/IronSword - 012EB7_Skyrim.esm.yaml`, taken from the workspace (once in rounds 50–59);
+  that run wrote the file whole and passed.
+- **Round 50's wording:** three refused builds named corrections where the record keeps them, and an edit after two of
+  them found nothing. In rounds 51–60, after 12 of the 33 such refusals.
+- **The "delivered" line, twenty-seven rounds:** each of the 39 runs whose last build passed answered as built.
+
+**e4b's two misses.**
+
+- **spell+detailed #2** read Shock Rune and its magic effect, wrote Storm Bolt with an Effects item naming
+  `StormBoltDamage`, and then wrote that magic effect whole. The `write` closed its text with a plain `"`, not
+  gemma4's `<|"|>`, so the parser read the path into the text and dropped the call ("invalid character 'M' after
+  object key:value pair"). The run ended unbuilt. No answer of the server's before it was a refusal.
+- **npc+detailed #3** copied NordFemalePreset01 with addPatch — as npc #2 and #3 did, and passed — and set its name,
+  class, voice and outfit with `editRecord`, and its level as following the player's, 5 to 30. The preset's level is
+  fixed, `Level: {MutagenObjectType: NpcLevel, Level: 1}`, with `CalcMaxLevel: 100`. Four calls were refused for the
+  level. `Level.CalcMinLevel` and then `Level.MutagenObjectType`, twice, were told that "an NPC's level is three lines
+  under Configuration, each indented as its Flags line is" — the build's words for a file, not the paths `editRecord`
+  takes. `Configuration.Level.CalcMinLevel` was told "Configuration.Level has no field CalcMinLevel — its fields:
+  Level, LevelMult". The fifth sent the level whole with its bounds inside, `{"path": "Level", "value":
+  {"MutagenObjectType": "PcLevelMult", …, "CalcMaxLevel": 30}}`, with one `}` too many, and Ollama dropped it.
+
+**After the round (d67c02f):**
+
+- `editRecord` sets a field sent to a place without it where that place is plain, and its answer says so —
+  "added Configuration.CalcMinLevel (sent as Level.CalcMinLevel): 5": a field of the part above, sent below one of
+  its fields, as `Configuration.Level.CalcMinLevel` is Configuration's; and a field the top level lacks, of the one part
+  it belongs to, as an NPC's `Level` is Configuration's and a weapon's `Damage` BasicStats'. The same goes for such
+  a field inside a part's value, `{"Level": {…, "CalcMinLevel": 5}}`. A part given another kind loses the fields the
+  kind has not: the preset's `Level: 1` under a PcLevelMult. Replayed, npc+detailed #3's third and fifth calls, and
+  its dropped one as meant, are set and build.
+- A field of an NPC's level that no path places, such as `LevelMult` at the top, is refused with the level in paths:
+  "an NPC's level is Configuration.Level, {"MutagenObjectType": "PcLevelMult", "LevelMult": 1}, with
+  Configuration.CalcMinLevel and Configuration.CalcMaxLevel".
+- A magic effect's `Data` sent to `editRecord` is told what the build says, that a magic effect has no strength of
+  its own, rather than "move it in each item of Conditions", a condition's Data found by name. The live check found
+  that; no run sent one.
+- Ollama is now our own build, `0.40.11-ciltress.2`, the user's call: the fork's branch of ollama/ollama#19274 on
+  upstream main d44c258, running on 0.40.11's runners. It closes the lists a finished gemma4 call leaves open
+  (ba73894), which every one of the 30 `edit` calls dropped in rounds 31–58 did, and passes a call that still fails
+  on as text (37740df). The official ollama.exe is kept beside it.
+- On the user's go, the same branch, and with it the pull request, drops a brace too many before a list's end
+  (5cfc699): npc+detailed #3's dropped call parses. spell+detailed #2's `write`, its text closed with a plain `"`,
+  still fails; our build passes it on as text.
+
+**What it points at next:** whether our Ollama turns e4b's unclosed `edit` calls into calls, and whether
+`editRecord`'s placed paths come up.
