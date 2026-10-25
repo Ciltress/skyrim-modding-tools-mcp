@@ -6,11 +6,7 @@ import { parse } from 'dotenv';
 import { checksumMatches, PAPYRUS_COMPILER } from '../setup/compiler';
 import { envValue, setEnvValues } from '../setup/envFile';
 import { skyrimInstances } from '../setup/mo2Instances';
-import { createHandlers, discoverSkills, FAMILY_SKILLS, type AppBackend } from 'skyrim-modding-tools-core';
-import { PRODUCT } from '../lib/serverInfo';
-import {
-    claudeCodeArgs, desktopConfigWithServer, OPENCLAW_AGENT, OPENCLAW_AGENT_TOOLS, openClawPatch, openClawWorkspaceFiles, SERVER_NAME, vsCodeArgs
-} from '../setup/registration';
+import { claudeCodeArgs, desktopConfigWithServer, openClawAdvice, SERVER_NAME, vsCodeArgs } from '../setup/registration';
 import { helperHolders, installCommand, windowsCommandLine } from '../setup/system';
 
 /**
@@ -95,137 +91,20 @@ describe('registering the server', () => {
     });
 });
 
-describe('registering the server with OpenClaw', () => {
-    const root = path.join('C:\\Tools', 'skyrim-modding-tools-mcp');
-    const place = {
-        entry: path.join(root, 'dist', 'index.js'),
-        skillsDir: path.join(root, 'skills', 'Domain'),
-        skills: ['skyrim-modding-basics', 'skyrim-modding-magic'],
-        projectsDir: path.join(root, 'projects'),
-        workspace: path.join('C:\\Users\\me', '.openclaw', 'workspace'),
-        agentWorkspace: path.join('C:\\Users\\me', '.openclaw', 'workspace-skyrim')
-    };
-    type Patch = { mcp: unknown; skills: { load: { extraDirs: string[] } }; agents: { entries: Record<string, unknown> } };
-    const patchFor = (current: Parameters<typeof openClawPatch>[0]) => openClawPatch(current, place) as Patch;
+describe('OpenClaw', () => {
+    const envFile = path.join('C:\\Tools', 'skyrim-modding-tools-mcp', '.env');
 
-    it('adds the server, its skills folder, and an agent for modding with the skills, only the tools it needs, and a workspace of its own', () => {
-        const patch = patchFor({ agents: { entries: { main: { workspace: 'D:\\claw' } } }, skills: { entries: { weather: { enabled: true } } } });
-        expect(patch.mcp).toEqual({ servers: { skyrim: { command: 'node', args: [place.entry] } } });
-        expect(patch.skills).toEqual({ load: { extraDirs: [place.skillsDir] } });
-        expect(patch.agents.entries).toEqual({
-            [OPENCLAW_AGENT]: {
-                name: 'Skyrim Modding',
-                workspace: place.agentWorkspace,
-                cwd: place.projectsDir,
-                skills: place.skills,
-                thinkingDefault: 'max',
-                tools: { allow: ['read', 'write', 'edit', 'apply_patch', 'ls', 'skills_read', 'skyrim__*'] }
-            }
-        });
+    it('is pointed to the OpenClaw plugin, which can share this server\'s .env', () => {
+        // The user, 2026-10-25: OpenClaw uses the plugin only; it carries the instructions, the skills and the tools
+        // under their own names, which OpenClaw drops, loads apart and prefixes for an MCP server.
+        const advice = openClawAdvice(envFile, false);
+        expect(advice).toHaveLength(1);
+        expect(advice[0]).toContain('https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin');
+        expect(advice[0]).toContain(envFile);
     });
 
-    it('keeps the skill folders OpenClaw already loads, and adds its own once', () => {
-        expect(patchFor({ skills: { load: { extraDirs: ['~/my-skills'] } } }).skills.load.extraDirs).toEqual(['~/my-skills', place.skillsDir]);
-        expect(patchFor({ skills: { load: { extraDirs: [place.skillsDir.toUpperCase(), '~/my-skills'] } } }).skills.load.extraDirs)
-            .toEqual([place.skillsDir.toUpperCase(), '~/my-skills']);
-    });
-
-    it('leaves an agent of that name as the user has made it, and registers the server again', () => {
-        const patch = patchFor({ agents: { entries: { main: { workspace: 'D:\\claw' }, skyrim: { tools: { allow: ['read', 'skyrim__*', 'web_search'] } } } } });
-        expect(patch.agents.entries).toEqual({});
-        expect(patch.mcp).toEqual({ servers: { skyrim: { command: 'node', args: [place.entry] } } });
-    });
-
-    it('keeps the one agent there was in its workspace, which a second agent would move into a subfolder', () => {
-        expect(patchFor({ agents: { entries: { main: { name: 'Main' } } } }).agents.entries.main).toEqual({ workspace: place.workspace });
-        expect(patchFor({ agents: { defaults: { workspace: 'D:\\claw' }, entries: { main: {} } } }).agents.entries.main).toEqual({ workspace: 'D:\\claw' });
-        // No agent configured: OpenClaw's implicit one is `main`.
-        expect(patchFor({}).agents.entries.main).toEqual({ workspace: place.workspace });
-        expect(patchFor({ agents: { entries: { a: {}, b: {} } } }).agents.entries).not.toHaveProperty('a');
-    });
-});
-
-describe('the modding agent\'s workspace files', () => {
-    const files = openClawWorkspaceFiles('the Mod Organizer instance at G:\\Modding\\SkyrimSE-Test', '2026-10-18');
-    const all = Object.values(files).join('\n');
-
-    it('are the four OpenClaw puts into an agent\'s prompt, each short', () => {
-        expect(Object.keys(files)).toEqual(['AGENTS.md', 'SOUL.md', 'USER.md', 'IDENTITY.md']);
-        for (const text of Object.values(files)) expect(text.length).toBeLessThan(4000);
-    });
-
-    it('name only tools the agent has: the server\'s, under OpenClaw\'s prefix, and those setup allows it', () => {
-        const served = new Set([...createHandlers(undefined as unknown as AppBackend, PRODUCT).flatMap(h => h.getTools()).map(t => t.name), 'healthcheck']);
-        const named = [...all.matchAll(/`skyrim__(\w+)`/g)].map(m => m[1]);
-        expect(named.length).toBeGreaterThan(8);
-        for (const name of named) expect(served, name).toContain(name);
-        for (const [, name] of all.matchAll(/`(read|write|edit|ls|apply_patch|skills_read)`/g)) expect(OPENCLAW_AGENT_TOOLS).toContain(name);
-    });
-
-    it('show each call with the arguments its own tool takes', () => {
-        // skills_read takes only a name (OpenClaw 2026.10.4); given readSkill's `skill` and `file`, 26b called
-        // it with those ten times in round 21.
-        const schemas = new Map<string, { properties: Record<string, unknown>; required?: string[] }>([
-            ['skills_read', { properties: { name: {} }, required: ['name'] }],
-            ...createHandlers(undefined as unknown as AppBackend, PRODUCT).flatMap(h => h.getTools())
-                .map(t => [`skyrim__${t.name}`, t.inputSchema] as [string, { properties: Record<string, unknown>; required?: string[] }])
-        ]);
-        const examples = [...all.matchAll(/`(\w+)` with `(\{[^`]*\})`/g)];
-        expect(examples.length).toBeGreaterThanOrEqual(3);
-        for (const [, tool, json] of examples) {
-            const schema = schemas.get(tool);
-            expect(schema, tool).toBeDefined();
-            const args = Object.keys(JSON.parse(json));
-            for (const arg of args) expect(Object.keys(schema!.properties), `${tool} ${arg}`).toContain(arg);
-            for (const arg of schema!.required ?? []) expect(args, `${tool} ${arg}`).toContain(arg);
-        }
-    });
-
-    it('name only skills there are, and the server\'s families of records', () => {
-        const skills = new Set(discoverSkills().filter(s => s.collection === 'domain').map(s => s.name));
-        for (const [name] of all.matchAll(/skyrim-modding-[a-z-]+/g)) expect(skills, name).toContain(name);
-        for (const family of FAMILY_SKILLS) expect(files['AGENTS.md']).toContain(family.skill);
-    });
-
-    it('tell the agent that an edit\'s old text holds real line breaks, and to read the file when an edit is refused', () => {
-        // Round 29: e4b sent `oldText: "FormKey: 012EB7:Skyrim.esm\\n"` six times, the edit tool's "escaping differs"
-        // hint notwithstanding, and spent the run's last turns on edits of lines it had changed already.
-        expect(files['AGENTS.md']).toContain('real line breaks — never `\\n` typed');
-        expect(files['AGENTS.md']).toMatch(/`edit` refused: `read` the file/);
-    });
-
-    it('tell the agent to write a whole record anew, and to edit only a few lines', () => {
-        // Rounds 31–58: 16 of e4b's failed runs ended on an `edit` call that Ollama dropped unparsed — its `edits` list
-        // never closed, its texts mostly whole record files (ollama/ollama#19273). Its writes were dropped once.
-        expect(files['AGENTS.md']).toContain('- A whole record, or a file changed in many places, you `write` anew; `edit` is for a few lines.');
-    });
-
-    it('name editRecord as the agent calls it, and send a copy\'s changes to it', () => {
-        // AGENTS.md named every other tool as `skyrim__…` and editRecord nowhere: e4b called it `editRecord`, as the
-        // server's answers name it, and OpenClaw answered "Tool editRecord not found" seven times (eval round 62's
-        // npc+detailed #2). "Edit the copy" read as the edit tool.
-        expect(files['AGENTS.md']).toContain('- `skyrim__editRecord` changes a record file\'s fields by their paths, with no old text to match:\n' +
-            '  `{"record": "Weapons/FlameBlade.yaml", "set": [{"path": "BasicStats.Damage", "value": 12}]}`.');
-        expect(files['AGENTS.md']).toContain('in the game. Change the copy with `skyrim__editRecord`; never edit another mod\'s plugin.');
-        expect(files['AGENTS.md']).not.toContain('Edit the copy');
-    });
-
-    it('tell the agent not to overthink', () => {
-        // The user, 2026-10-22: bonsai-2:27b likes to overthink, so its prompt should say not to and to deliver the task.
-        expect(files['AGENTS.md']).toContain('Don\'t overthink: decide, then deliver the task.');
-    });
-
-    it('say when a mod is delivered, beside the line that asks for it, and nowhere else', () => {
-        // Rounds 23–33: 10 of e4b's 30 failed runs answered as done after a refusal or an edit, with no build after it.
-        const agents = files['AGENTS.md'];
-        expect(agents).toMatch(/deliver the task\. A mod is delivered when the `skyrim__buildProject` after your\s+last change answers `success`: after each edit or refusal, build again, and answer with what that build said\./);
-        expect(agents).not.toContain('A mod is done when');
-    });
-
-    it('tell the agent the instance it works on, in OpenClaw\'s directive form, and do without one not configured yet', () => {
-        expect(files['USER.md']).toContain('<!-- observed: 2026-10-18 | status: active -->\n\n- Always work on the instance the Skyrim server is bound to ' +
-            '(the Mod Organizer instance at G:\\Modding\\SkyrimSE-Test)');
-        expect(openClawWorkspaceFiles(undefined, '2026-10-18')['USER.md']).toContain('bound to; never change another instance');
+    it('is told to remove this server where an earlier setup registered it, as every tool would be listed twice', () => {
+        expect(openClawAdvice(envFile, true)[1]).toContain('openclaw config unset mcp.servers.skyrim');
     });
 });
 

@@ -24,8 +24,8 @@ What is this server's own:
 - `PRODUCT` ([`src/lib/serverInfo.ts`](src/lib/serverInfo.ts)): what the core needs to know of this server —
   its name (the resources' URI scheme), its version (told to Nexus), its folder (`projects/`, `.env`, `tools/`)
   and the guides it serves, in their order;
-- `npm run setup`, which installs, builds, writes `.env`, registers the server with the MCP clients — OpenClaw
-  among them — and runs a healthcheck;
+- `npm run setup`, which installs, builds, writes `.env`, registers the server with the MCP clients, points
+  OpenClaw users to the plugin (OpenClaw uses only the plugin, the user's call), and runs a healthcheck;
 - its tool reference, its two guides (`hosting`, `agents`), and its research notes.
 
 The vocabulary is in the core's `CONTEXT.md`; use its words — *mod*, *plugin*, *record*, *FormID*,

@@ -70,10 +70,12 @@ npm run setup
 `npm run setup` installs the .NET 10 SDK if it is missing, builds the server and its
 plugin helper, and finds your mod manager — it asks for the Mod Organizer instance only when it finds
 none, and for your Nexus Mods API key if you want the Nexus tools. It registers the server with
-Claude Code, Claude Desktop, VS Code and OpenClaw — in OpenClaw with a "Skyrim Modding" agent that has
-the modding skills and a workspace telling it how to use the server — and ends with a healthcheck: the
-instance, profile and game version it found. Everything it installs, downloads or registers, it asks
-about first.
+Claude Code, Claude Desktop and VS Code, and ends with a healthcheck: the instance, profile and game
+version it found. Everything it installs, downloads or registers, it asks about first.
+
+**OpenClaw** gets the same tools from the
+[OpenClaw plugin](https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin) instead, which can read
+this server's `.env`; setup says so when it finds OpenClaw.
 
 **Updating:** `git pull && npm run setup`, then restart your client. A client still running the server
 keeps the plugin helper in use; setup then names what to close.

@@ -12,7 +12,8 @@
  *      into `.env`, keeping what is there;
  *   4. on Linux, a Papyrus compiler, downloaded after a yes;
  *   5. the vanilla script sources, unpacked after a yes where that is safe;
- *   6. the server registered with Claude Code, VS Code, Claude Desktop and OpenClaw, each after a yes;
+ *   6. the server registered with Claude Code, VS Code and Claude Desktop, each after a yes; OpenClaw
+ *      pointed to the OpenClaw plugin, which serves it the same tools;
  *   7. a healthcheck through the built server, as a client starts it.
  *
  * Run where no one can answer — an agent running it for the user — it asks nothing, skips what needs a
@@ -27,14 +28,14 @@ import { parse } from 'dotenv';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import {
-    chooseModManager, CORE_ROOT, currentPlatform, defaultProjectsDir, discoverSkills, findCaseInsensitive, InstanceConfigError,
-    pathSetting, readConfiguration, SOURCE_FOLDERS
+    chooseModManager, CORE_ROOT, currentPlatform, findCaseInsensitive, InstanceConfigError, pathSetting, readConfiguration,
+    SOURCE_FOLDERS
 } from 'skyrim-modding-tools-core';
 import { PROJECT_ROOT, SERVER_INFO } from '../lib/serverInfo.js';
 import { downloadCompiler } from './compiler.js';
 import { setEnvValues } from './envFile.js';
 import { skyrimInstances } from './mo2Instances.js';
-import { claudeCodeArgs, desktopConfigWithServer, OPENCLAW_AGENT, openClawPatch, openClawWorkspaceFiles, SERVER_NAME, vsCodeArgs, type OpenClawSections } from './registration.js';
+import { claudeCodeArgs, desktopConfigWithServer, openClawAdvice, SERVER_NAME, vsCodeArgs } from './registration.js';
 import { helperHolders, installCommand, setupSystem, type RunningProgram, type SetupSystem } from './system.js';
 
 const ENTRY = path.join(PROJECT_ROOT, 'dist', 'index.js');
@@ -338,112 +339,9 @@ async function register(run: Run): Promise<void> {
     }
 
     if (await system.has('openclaw')) {
-        if (await ui.yes(`Register the server with OpenClaw, with an agent '${OPENCLAW_AGENT}' for modding that has the modding skills?`)) {
-            await registerOpenClaw(run);
-        } else if (!ui.interactive) {
-            left.push('To register with OpenClaw: run npm run setup in a terminal and answer yes for OpenClaw.');
-        }
+        const registered = await system.run('openclaw', ['config', 'get', `mcp.servers.${SERVER_NAME}`, '--json'], { capture: true });
+        left.push(...openClawAdvice(ENV_FILE, registered.code === 0));
     }
-}
-
-/**
- * OpenClaw: the server, the modding skills and an agent for modding (registration.ts says what and why),
- * written with OpenClaw's own `config patch`, which validates the whole configuration before it writes.
- */
-async function registerOpenClaw(run: Run): Promise<void> {
-    const { ui, system, left } = run;
-    /** A section of OpenClaw's configuration; undefined when it is not set. */
-    const section = async (name: string): Promise<unknown> => {
-        const got = await system.run('openclaw', ['config', 'get', name, '--json'], { capture: true });
-        let value: unknown;
-        let parsed = false;
-        try {
-            value = JSON.parse(got.stdout);
-            parsed = true;
-        } catch { /* said below */ }
-        if (got.code === 0 && parsed) return value;
-        const failure = value as { ok?: boolean; error?: { message?: string } } | undefined;
-        if (failure?.ok === false && /unset/i.test(failure.error?.message ?? '')) return undefined;
-        throw new Error(failure?.error?.message ?? (got.stderr.trim().split('\n')[0] || `openclaw config get ${name} failed`));
-    };
-    let current: OpenClawSections;
-    try {
-        current = { agents: await section('agents') as OpenClawSections['agents'], skills: await section('skills') as OpenClawSections['skills'] };
-    } catch (error) {
-        left.push(`OpenClaw's configuration could not be read (${(error as Error).message}): run openclaw doctor, then npm run setup again.`);
-        return;
-    }
-    const stateDir = process.env.OPENCLAW_STATE_DIR || path.join(os.homedir(), '.openclaw');
-    const projectsDir = pathSetting(currentEnv(), 'SKYRIM_PROJECTS_DIR', { platform: currentPlatform(), home: os.homedir(), base: PROJECT_ROOT })
-        ?? defaultProjectsDir(PROJECT_ROOT);
-    // Where OpenClaw puts an agent's workspace when it names none — named all the same, so that a default
-    // workspace set later does not move it.
-    const agentWorkspace = path.join(stateDir, `workspace-${OPENCLAW_AGENT}`);
-    const patch = openClawPatch(current, {
-        entry: ENTRY,
-        skillsDir: path.join(CORE_ROOT, 'skills', 'Domain'),
-        skills: discoverSkills().filter(skill => skill.collection === 'domain').map(skill => skill.name),
-        projectsDir,
-        workspace: process.env.OPENCLAW_WORKSPACE_DIR || path.join(stateDir, 'workspace'),
-        agentWorkspace
-    });
-    const file = path.join(os.tmpdir(), `skyrim-openclaw-${process.pid}.json`);
-    fs.writeFileSync(file, JSON.stringify(patch, null, 2));
-    try {
-        const applied = await system.run('openclaw', ['config', 'patch', '--file', file], { capture: true });
-        if (applied.code !== 0) {
-            left.push(`Registering with OpenClaw failed: ${(applied.stderr || applied.stdout).trim().split('\n')[0]}`);
-            return;
-        }
-    } finally {
-        fs.rmSync(file, { force: true });
-    }
-    const agentAdded = OPENCLAW_AGENT in (patch.agents as { entries: object }).entries;
-    ui.say(`Registered with OpenClaw: the server and the modding skills, ` + (agentAdded
-        ? `and the agent '${OPENCLAW_AGENT}' (Skyrim Modding), working in ${projectsDir} — choose it for modding.`
-        : `for the agent '${OPENCLAW_AGENT}' that was there already, left as it is.`));
-    // Also into the workspace an earlier run gave the agent, so a run that could not write them can.
-    const given = current.agents?.entries?.[OPENCLAW_AGENT]?.workspace;
-    if (agentAdded || (given && path.resolve(given).toLowerCase() === path.resolve(agentWorkspace).toLowerCase())) {
-        writeWorkspaceFiles(run, agentWorkspace);
-    }
-    // With a local model, OpenClaw puts an MCP server's tools behind its Tool Search: the modding agent took two
-    // to three times the turns, and once never used the server (the eval record, local-model-evals.md). The
-    // setting is OpenClaw's, for every agent, so it is asked apart.
-    if (await section('tools.toolSearch').catch(() => undefined) !== false &&
-        await ui.yes('With a local model, OpenClaw hides the server\'s tools behind its Tool Search, which costs the modding agent ' +
-            'turns. Turn Tool Search off (for all of OpenClaw)?')) {
-        const off = await system.run('openclaw', ['config', 'set', 'tools.toolSearch', 'false', '--strict-json'], { capture: true });
-        if (off.code === 0) ui.say('OpenClaw\'s Tool Search is off.');
-        else left.push('Turning off OpenClaw\'s Tool Search failed: openclaw config set tools.toolSearch false --strict-json');
-    }
-    // The gateway takes a new agent only when it starts.
-    left.push('Restart OpenClaw\'s gateway so it knows the server and the agent: openclaw gateway restart');
-}
-
-/**
- * The modding agent's workspace files (registration.ts says what each holds): OpenClaw reads none of the
- * server's `instructions`, so these carry them. One the folder has already is the user's, and kept.
- */
-function writeWorkspaceFiles(run: Run, dir: string): void {
-    const { ui, left } = run;
-    let boundTo: string | undefined;
-    try {
-        const { modManager } = readConfiguration(currentEnv(), { root: PROJECT_ROOT });
-        modManager.readInstance();
-        boundTo = modManager.describe();
-    } catch { /* No instance yet: said in the settings step. */ }
-    const files = openClawWorkspaceFiles(boundTo, new Date().toISOString().slice(0, 10));
-    const kept = Object.keys(files).filter(name => fs.existsSync(path.join(dir, name)));
-    try {
-        fs.mkdirSync(dir, { recursive: true });
-        for (const [name, text] of Object.entries(files)) if (!kept.includes(name)) fs.writeFileSync(path.join(dir, name), text);
-    } catch (error) {
-        left.push(`The modding agent's workspace files could not be written into ${dir} (${(error as Error).message}): run npm run setup again.`);
-        return;
-    }
-    ui.say(`The modding agent's workspace files are in ${dir}` +
-        (kept.length ? `, where your own ${kept.join(', ')} ${kept.length === 1 ? 'is' : 'are'} kept.` : '.'));
 }
 
 /**
