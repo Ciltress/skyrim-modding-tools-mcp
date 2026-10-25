@@ -141,9 +141,9 @@ public static class ProjectNotes
                 if (Things.Contains(type.Name) && ObjectEffectLink.Match(text) is { Success: true } link && enchantments.Contains(link.Groups[1].Value))
                     notes.Add($"{relative}: overrides {entry.EditorId} of {key.ModKey.FileName} and gives it {link.Groups[1].Value}, the project's " +
                         $"new enchantment: every {was} in the game — the player's, the merchants', the ones NPCs carry and leveled lists hand " +
-                        $"out — carries it, with all this file changes. If a new one was asked for, this copy is not it: delete this file's " +
-                        $"FormKey line and give it an EditorID and a Name of its own — it builds as a new record, named '{was}' until its " +
-                        $"Name says otherwise, and {was} stays as it is");
+                        $"out — carries it, with all this file changes. {Unless(was)}: delete this file's FormKey line and give it an " +
+                        $"EditorID and a Name of its own — it builds as a new record, named '{was}' until its Name says otherwise, and " +
+                        $"{was} stays as it is");
                 continue;
             }
             // What it does in the game, and the one edit that makes the copy a new record: told the game shows that
@@ -159,11 +159,18 @@ public static class ProjectNotes
                 _ => $"the game shows that record as '{now}' wherever it is"
             };
             notes.Add($"{relative}: overrides {entry.EditorId} of {key.ModKey.FileName} and renames it from '{was}' to '{now}': {becomes}, " +
-                $"with all this file changes. If a new one was asked for, this copy is not it: delete this file's FormKey line and give " +
-                $"it an EditorID of its own — it builds as a new record, and {was} stays as it is");
+                $"with all this file changes. {Unless(was)}: delete this file's FormKey line and give it an EditorID of its own — it " +
+                $"builds as a new record, and {was} stays as it is");
         }
         return notes;
     }
+
+    /// <summary>
+    /// A new record, unless the copied one itself was to change. "If a new one was asked for" left it to the model: e4b
+    /// judged a new mod named FlameBlade to be the request, kept the renamed Iron Sword and answered (eval round 62's
+    /// sword+detailed #4) — 4 runs of rounds 50–62 kept such a copy and failed.
+    /// </summary>
+    private static string Unless(string was) => $"Unless the user asked for {was} itself to change, make it a new record";
 
     /// <summary>A record's in-game name as its file writes it — `Name:` with its `Value:` below — unquoted; null for none.</summary>
     internal static string? NameIn(string text)
