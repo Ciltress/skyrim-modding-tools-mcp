@@ -6,9 +6,8 @@ import { parse } from 'dotenv';
 import { checksumMatches, PAPYRUS_COMPILER } from '../setup/compiler';
 import { envValue, setEnvValues } from '../setup/envFile';
 import { skyrimInstances } from '../setup/mo2Instances';
-import type { AppBackend } from '../backend';
-import { createHandlers } from '../handlers';
-import { discoverSkills, FAMILY_SKILLS } from '../lib/skills';
+import { createHandlers, discoverSkills, FAMILY_SKILLS, type AppBackend } from 'skyrim-modding-tools-core';
+import { PRODUCT } from '../lib/serverInfo';
 import {
     claudeCodeArgs, desktopConfigWithServer, OPENCLAW_AGENT, OPENCLAW_AGENT_TOOLS, openClawPatch, openClawWorkspaceFiles, SERVER_NAME, vsCodeArgs
 } from '../setup/registration';
@@ -156,7 +155,7 @@ describe('the modding agent\'s workspace files', () => {
     });
 
     it('name only tools the agent has: the server\'s, under OpenClaw\'s prefix, and those setup allows it', () => {
-        const served = new Set([...createHandlers(undefined as unknown as AppBackend).flatMap(h => h.getTools()).map(t => t.name), 'healthcheck']);
+        const served = new Set([...createHandlers(undefined as unknown as AppBackend, PRODUCT).flatMap(h => h.getTools()).map(t => t.name), 'healthcheck']);
         const named = [...all.matchAll(/`skyrim__(\w+)`/g)].map(m => m[1]);
         expect(named.length).toBeGreaterThan(8);
         for (const name of named) expect(served, name).toContain(name);
@@ -168,7 +167,7 @@ describe('the modding agent\'s workspace files', () => {
         // it with those ten times in round 21.
         const schemas = new Map<string, { properties: Record<string, unknown>; required?: string[] }>([
             ['skills_read', { properties: { name: {} }, required: ['name'] }],
-            ...createHandlers(undefined as unknown as AppBackend).flatMap(h => h.getTools())
+            ...createHandlers(undefined as unknown as AppBackend, PRODUCT).flatMap(h => h.getTools())
                 .map(t => [`skyrim__${t.name}`, t.inputSchema] as [string, { properties: Record<string, unknown>; required?: string[] }])
         ]);
         const examples = [...all.matchAll(/`(\w+)` with `(\{[^`]*\})`/g)];

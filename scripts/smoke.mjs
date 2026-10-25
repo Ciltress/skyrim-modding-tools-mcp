@@ -102,7 +102,7 @@ try {
     }
 
     const { resources } = await request('resources/list');
-    check(resources.length > 0, 'resources/list is empty — are docs/ and skills/ beside dist/?');
+    check(resources.length > 0, 'resources/list is empty — are docs/ beside dist/, and the core with its skills/ installed?');
 
     const health = await request('tools/call', { name: 'healthcheck', arguments: {} });
     check(!health.isError, `healthcheck failed: ${health.content?.[0]?.text}`);

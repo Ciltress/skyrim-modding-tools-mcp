@@ -1,6 +1,6 @@
 name: CI
 
-# Every push and pull request, on Windows and Linux (docs/adr/0007). Markdown changes run too: the
+# Every push and pull request, on Windows and Linux (the core's ADR-0007). Markdown changes run too: the
 # guides and skills are served at runtime, and their tests read the real files.
 on:
   workflow_dispatch:
@@ -15,9 +15,12 @@ permissions: {}
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request_target' && github.head_ref || github.ref }}
   cancel-in-progress: true
+# This repository is checked out beside the core, where package.json's file: link points (the core's
+# ADR-0009), so every step runs in its own folder.
 defaults:
   run:
     shell: bash
+    working-directory: skyrim-modding-tools-mcp
 
 jobs:
   test:
@@ -31,12 +34,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          path: skyrim-modding-tools-mcp
+
+      - name: Checkout the core
+        uses: actions/checkout@v7
+        with:
+          repository: Ciltress/skyrim-modding-tools-core
+          path: skyrim-modding-tools-core
 
       - name: Setup node
         uses: actions/setup-node@v7
         with:
           node-version: 24.18.0
           cache: "npm"
+          cache-dependency-path: "*/package-lock.json"
+
+      # npm ci there also builds it (its prepare script).
+      - name: Install the core
+        run: npm ci
+        working-directory: skyrim-modding-tools-core
 
       - name: Install dependencies
         run: npm ci
@@ -58,17 +75,30 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          path: skyrim-modding-tools-mcp
+
+      - name: Checkout the core
+        uses: actions/checkout@v7
+        with:
+          repository: Ciltress/skyrim-modding-tools-core
+          path: skyrim-modding-tools-core
 
       - name: Setup node
         uses: actions/setup-node@v7
         with:
           node-version: 24.18.0
           cache: "npm"
+          cache-dependency-path: "*/package-lock.json"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
+
+      - name: Install the core
+        run: npm ci
+        working-directory: skyrim-modding-tools-core
 
       - name: Install dependencies
         run: npm ci
@@ -85,8 +115,8 @@ jobs:
           # that does not exist: it starts, and healthcheck reports the instance unreadable.
           SKYRIM_MO2_INSTANCE: ${{ runner.temp }}/no-instance
 
-      # The plugin helper, built for this system and started once: its protocol, and a
-      # version read from a version resource, which on Linux is the helper's own parser.
+      # The plugin helper, built for this system in the core's folder and started once: its
+      # protocol, and a version read from a version resource, which on Linux is the helper's own parser.
       - name: Build Helper
         run: npm run build:helper
 

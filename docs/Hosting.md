@@ -91,7 +91,7 @@ hand, in `~/.openclaw/openclaw.json`:
 ```json5
 {
   mcp: { servers: { skyrim: { command: "node", args: ["C:/Users/you/skyrim-modding-tools-mcp/dist/index.js"] } } },
-  skills: { load: { extraDirs: ["C:/Users/you/skyrim-modding-tools-mcp/skills/Domain"] } },
+  skills: { load: { extraDirs: ["C:/Users/you/skyrim-modding-tools-core/skills/Domain"] } },
   agents: {
     entries: {
       skyrim: {
@@ -118,7 +118,7 @@ agent only when it starts.
 reads every setting that names a file or folder — `SKYRIM_MO2_INSTANCE`, `SKYRIM_AMETHYST_DIR`,
 `SKYRIM_WINE_PREFIX`, `SKYRIM_PROJECTS_DIR`, `SKYRIM_CK_DIR`, `SKYRIM_PAPYRUS_COMPILER`,
 `SKYRIM_HELPER_PATH` — the way a POSIX shell would, on Windows too
-([`pathSettings.ts`](../src/backend/skyrim/pathSettings.ts)):
+(the core's [`pathSettings.ts`](https://github.com/Ciltress/skyrim-modding-tools-core/blob/main/src/backend/skyrim/pathSettings.ts)):
 
 | Written | Read as |
 | --- | --- |

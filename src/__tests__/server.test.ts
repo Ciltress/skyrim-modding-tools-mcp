@@ -2,15 +2,13 @@ import { vi, type MockInstance } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { AppServer } from '../server';
-import { PermanentBackendError, SessionExpiredError } from '../backend/Backend';
-import { createHandlers } from '../handlers/index';
-import type { AppBackend } from '../backend/index';
-import { GUIDES, guideUri } from '../lib/guides';
-import { PROFILES } from '../lib/profiles';
-import { SERVER_INFO } from '../lib/serverInfo';
-import { FAMILY_SKILLS, findSkill } from '../lib/skills';
-import { fakeBackend } from './fakes';
-import type { FakeBackendOptions } from './fakes';
+import { PermanentBackendError, SessionExpiredError, createHandlers, FAMILY_SKILLS, findSkill, guideUri, PROFILES } from 'skyrim-modding-tools-core';
+import type { AppBackend } from 'skyrim-modding-tools-core';
+import { fakeBackend } from 'skyrim-modding-tools-core/testing';
+import type { FakeBackendOptions } from 'skyrim-modding-tools-core/testing';
+import { PRODUCT, SERVER_INFO } from '../lib/serverInfo';
+
+const GUIDES = PRODUCT.guides;
 
 /**
  * The server itself: initialize, routing, profiles, the capability gate, the
@@ -23,14 +21,14 @@ import type { FakeBackendOptions } from './fakes';
 const BASE_ENV: NodeJS.ProcessEnv = { MCP_GATE: 'off', SKYRIM_MO2_INSTANCE: 'test-instance' };
 
 /** Every tool the handlers offer, plus healthcheck. */
-const TOTAL_TOOLS = createHandlers(undefined as unknown as AppBackend)
+const TOTAL_TOOLS = createHandlers(undefined as unknown as AppBackend, PRODUCT)
     .reduce((n, h) => n + h.getTools().length, 0) + 1;
 
 /**
  * The first tool that needs a backend feature. The gate's end-to-end tests run against it, and are
  * skipped while no tool needs one — they come back by themselves with the first gated tool.
  */
-const GATED = createHandlers(undefined as unknown as AppBackend)
+const GATED = createHandlers(undefined as unknown as AppBackend, PRODUCT)
     .flatMap(h => h.getTools())
     .find(t => t.needsFeature);
 const gatedIt = GATED ? it : it.skip;
@@ -105,13 +103,13 @@ describe('resources', () => {
         const { client } = await connect();
         const uris = (await client.listResources()).resources.map(r => r.uri);
 
-        for (const guide of GUIDES) expect(uris).toContain(guideUri(guide.id));
+        for (const guide of GUIDES) expect(uris).toContain(guideUri(PRODUCT, guide.id));
         expect(uris.some(uri => uri.endsWith('/skills/domain/skyrim-modding-basics'))).toBe(true);
     });
 
     it('reads a guide as markdown', async () => {
         const { client } = await connect();
-        const read = await client.readResource({ uri: guideUri('router') });
+        const read = await client.readResource({ uri: guideUri(PRODUCT, 'router') });
         expect(read.contents[0].mimeType).toBe('text/markdown');
         expect(String((read.contents[0] as any).text)).toMatch(/^# Tool router/);
     });

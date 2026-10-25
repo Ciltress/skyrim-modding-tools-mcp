@@ -1,14 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import {
-    collectToolFamilies,
-    renderToolReference,
-    TOOL_REFERENCE_FILE
-} from '../lib/toolDocs';
-import { PROJECT_ROOT } from '../lib/serverInfo';
-import { createHandlers } from '../handlers/index';
-import type { AppBackend } from '../backend/index';
-import type { ToolDefinition } from '../types/tools';
+import { collectToolFamilies, createHandlers, renderToolReference, TOOL_REFERENCE_FILE } from 'skyrim-modding-tools-core';
+import type { AppBackend, ToolDefinition } from 'skyrim-modding-tools-core';
+import { PRODUCT, PROJECT_ROOT } from '../lib/serverInfo';
 
 const tool = (name: string, over: Partial<ToolDefinition> = {}): ToolDefinition => ({
     name,
@@ -18,10 +12,10 @@ const tool = (name: string, over: Partial<ToolDefinition> = {}): ToolDefinition 
 });
 
 describe('collectToolFamilies', () => {
-    const families = collectToolFamilies();
+    const families = collectToolFamilies(PRODUCT);
 
     it('documents exactly the handlers the server serves', () => {
-        const served = createHandlers(undefined as unknown as AppBackend)
+        const served = createHandlers(undefined as unknown as AppBackend, PRODUCT)
             .filter(h => h.getTools().length)
             .map(h => h.constructor.name)
             .sort();
@@ -37,7 +31,7 @@ describe('collectToolFamilies', () => {
     });
 
     it('is deterministic, so the generated file diffs cleanly', () => {
-        expect(collectToolFamilies().map(f => f.handler)).toEqual(families.map(f => f.handler));
+        expect(collectToolFamilies(PRODUCT).map(f => f.handler)).toEqual(families.map(f => f.handler));
         expect(families.map(f => f.label)).toEqual([...families.map(f => f.label)].sort());
     });
 
@@ -111,7 +105,7 @@ describe('renderToolReference', () => {
     });
 
     it('says it is generated, and how to regenerate it', () => {
-        const rendered = renderToolReference();
+        const rendered = renderToolReference(collectToolFamilies(PRODUCT));
         expect(rendered).toMatch(/GENERATED FILE/);
         expect(rendered).toMatch(/npm run docs:tools/);
     });
@@ -134,12 +128,12 @@ describe('the committed reference', () => {
         // checks the file out with CRLF on Windows while the generator always
         // emits LF.
         const lf = (text: string) => text.replace(/\r\n/g, '\n');
-        expect(lf(fs.readFileSync(file, 'utf8'))).toBe(lf(renderToolReference()));
+        expect(lf(fs.readFileSync(file, 'utf8'))).toBe(lf(renderToolReference(collectToolFamilies(PRODUCT))));
     });
 
     it('names every tool the handlers offer', () => {
         const onDisk = fs.readFileSync(file, 'utf8');
-        for (const family of collectToolFamilies()) {
+        for (const family of collectToolFamilies(PRODUCT)) {
             for (const t of family.tools) {
                 expect(`${t.name}: ${onDisk.includes(`\`${t.name}\``)}`).toBe(`${t.name}: true`);
             }

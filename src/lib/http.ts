@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { parseList } from './env.js';
+import { parseList } from 'skyrim-modding-tools-core';
 
 /**
  * The raw-HTTP side of Streamable HTTP hosting: everything that has to happen

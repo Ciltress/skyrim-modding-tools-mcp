@@ -4,7 +4,7 @@ import path from 'node:path';
 
 /**
  * What differs by operating system for setup — its own seam beside the server's Platform
- * (docs/adr/0007), picked once by setupSystem(): how a program is started, which package manager
+ * (the core's ADR-0007), picked once by setupSystem(): how a program is started, which package manager
  * installs what is missing, where Claude Desktop and Mod Organizer keep their files, which programs run.
  */
 export interface SetupSystem {

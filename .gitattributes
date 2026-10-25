@@ -6,3 +6,7 @@
 # container then fails with "no such file or directory" naming a file that is
 # plainly there.
 *.sh text eol=lf
+
+# The guides are served whole, as they are on disk: checked out with CRLF on Windows, every one reaches a
+# model with `\r\n` in it. LF everywhere, as the core's are, so what is served does not depend on the system.
+*.md text eol=lf

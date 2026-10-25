@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseIni } from '../backend/skyrim/mo2.js';
+import { parseIni } from 'skyrim-modding-tools-core';
 
 /**
  * Mod Organizer's global instances that manage Skyrim Special Edition: each a folder of its own under

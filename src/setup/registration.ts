@@ -5,7 +5,7 @@
  */
 
 import path from 'node:path';
-import { FAMILY_SKILLS } from '../lib/skills.js';
+import { FAMILY_SKILLS } from 'skyrim-modding-tools-core';
 
 export const SERVER_NAME = 'skyrim';
 

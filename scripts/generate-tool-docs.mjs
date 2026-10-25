@@ -14,20 +14,21 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-let toolDocs;
+let serverInfo;
 try {
     // An ESM build, so this is a dynamic import rather than a require — and the
     // specifier has to be a file:// URL for it to work on Windows.
-    toolDocs = await import(pathToFileURL(path.join(root, 'dist', 'lib', 'toolDocs.js')).href);
+    serverInfo = await import(pathToFileURL(path.join(root, 'dist', 'lib', 'serverInfo.js')).href);
 } catch (error) {
-    console.error('Could not load dist/lib/toolDocs.js — run `npm run build` first.');
+    console.error('Could not load dist/lib/serverInfo.js — run `npm run build` first.');
     console.error(String(error?.message ?? error));
     process.exit(1);
 }
 
-const { renderToolReference, TOOL_REFERENCE_FILE } = toolDocs;
+// The renderer is the core's; what it renders is the tools as this server serves them.
+const { collectToolFamilies, renderToolReference, TOOL_REFERENCE_FILE } = await import('skyrim-modding-tools-core');
 const target = path.join(root, TOOL_REFERENCE_FILE);
-const rendered = renderToolReference();
+const rendered = renderToolReference(collectToolFamilies(serverInfo.PRODUCT));
 const previous = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : '';
 
 fs.writeFileSync(target, rendered);

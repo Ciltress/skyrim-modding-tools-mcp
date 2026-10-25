@@ -9,9 +9,9 @@ Every tool this server can expose: **17 tools across 6 families**, rendered from
 listed, and the server withholds anything the connected backend does not support.
 `tools/list` is always the truth; `healthcheck` reports the profile and what was withheld.
 
-Looking for the tool that does a particular job? Start with
-[`Tool-Router.md`](./Tool-Router.md), which maps intent to tool. For workflows and the error
-model, see [`MCP-Tools.md`](./MCP-Tools.md).
+Looking for the tool that does a particular job? Start with the guide `router`
+(`readServerGuide {"guide":"router"}`), which maps intent to tool. For workflows and the error
+model, see the guide `tools`.
 
 An argument marked **\*** is required. Argument *descriptions* are not repeated here: they
 reach you in the `inputSchema` of every tool you can call.
@@ -35,7 +35,7 @@ what needs a human, not a permission system: nothing here is enforced.
 
 ## Bundled skills
 
-From `src/handlers/SkillsHandlers.ts`.
+From `src/handlers/SkillsHandlers.ts` of skyrim-modding-tools-core.
 
 **`readSkill`** — Bundled agent skills — how Skyrim modding works and how to approach it here: the basics (plugins, FormIDs, load order, conflicts, the tool landscape) and one skill per record family (items and crafting, magic, NPCs, leveled lists). Call with no arguments to see which exist, then pass `collection` for their descriptions and `skill` to read one. Consult a skill's SKILL.md before starting a task it covers: they carry the conventions and checklists the tool descriptions alone do not.
 
@@ -45,7 +45,7 @@ _read-only_
 
 ## Installing mods
 
-From `src/handlers/ModsHandlers.ts`.
+From `src/handlers/ModsHandlers.ts` of skyrim-modding-tools-core.
 
 **`listMods`** — The mods installed in the mod manager's selected profile, lowest priority first as Mod Organizer shows them, one short row each: enabled or not, its priority and separator, its Nexus Mods modId (for readNexusMod), and `skse` when it carries SKSE plugins. With `details`, also its plugins — whether the game loads that copy — and the file and version installed. `total` counts every mod matched; past 150, `next` says how to get the rest. Read from the files, at once.
 
@@ -73,7 +73,7 @@ _writes · destructive · idempotent_
 
 ## Nexus Mods
 
-From `src/handlers/NexusHandlers.ts`.
+From `src/handlers/NexusHandlers.ts` of skyrim-modding-tools-core.
 
 **`searchNexus`** — Search Nexus Mods for Skyrim Special Edition mods by words in their name, matched in any order — most endorsed first; without `text`, the catalogue in `sort` order. Each row has the mod's number (`modId`), version, author, summary and page. Read one with readNexusMod. `total` counts matches before the limit.
 
@@ -101,7 +101,7 @@ Needs the backend feature `nexus-premium`; withheld where it is missing.
 
 ## Projects: authoring and patching
 
-From `src/handlers/ProjectsHandlers.ts`.
+From `src/handlers/ProjectsHandlers.ts` of skyrim-modding-tools-core.
 
 **`newProject`** — Create an empty project for a new mod. Add records by writing YAML files into its plugin folder — one file per record, in its type's group folder there; the answer's `writeRecordsTo` gives the full path, so never write into the project folder itself, and its `readFirst` the skill to read for each family of records. Write each record the way readRecord shows a vanilla one of its type, and leave out FormKey: the build assigns one. To change records other mods already have, use addPatch instead.
 
@@ -141,7 +141,7 @@ _writes · destructive · idempotent_
 
 ## Records in the load order
 
-From `src/handlers/RecordsHandlers.ts`.
+From `src/handlers/RecordsHandlers.ts` of skyrim-modding-tools-core.
 
 **`findRecords`** — Find records in the active load order — by text in the editor ID or name, or by exact FormIDs and editor IDs. Each row says which plugin defines the record, which one wins, and how many override it. Use `records` to turn the FormIDs in project text into names (and back) before reasoning about them. Placed references, landscape and navmesh are not searched. `total` counts matches before the limit.
 
@@ -157,7 +157,7 @@ _read-only_
 
 ## This server's own guides
 
-From `src/handlers/DocsHandlers.ts`.
+From `src/handlers/DocsHandlers.ts` of skyrim-modding-tools-core.
 
 **`readServerGuide`** — This server's own documentation. Call with no arguments for an index of the available guides and their sections, then request one section by number or title. Use it when you are unsure which tool to use, what an argument means, how a workflow fits together, or why a call is failing.
 

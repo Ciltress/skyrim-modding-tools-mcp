@@ -99,7 +99,7 @@
         },
         {
           "name": "SKYRIM_HELPER_PATH",
-          "description": "The built plugin helper (SkyrimHelper.exe on Windows, SkyrimHelper on Linux). Defaults to helper/bin beside the server, where npm run build:helper puts it."
+          "description": "The built plugin helper (SkyrimHelper.exe on Windows, SkyrimHelper on Linux). Defaults to the core's helper/bin (node_modules/skyrim-modding-tools-core), where npm run build:helper puts it."
         },
         {
           "name": "NEXUS_API_KEY",

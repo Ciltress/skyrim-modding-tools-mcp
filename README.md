@@ -101,7 +101,7 @@ in a shell, on every system; a relative one is taken from the server's folder
 | `SKYRIM_PROJECTS_DIR` | `./projects` | Where projects live |
 | `SKYRIM_CK_DIR` | the instance's game folder | The Creation Kit, for its Papyrus compiler and vanilla script sources |
 | `SKYRIM_PAPYRUS_COMPILER` | the Creation Kit's (Windows); on Linux `papyrus-compiler` on `PATH`, else `tools/papyrus-compiler/papyrus` beside the server or in your home folder | `PapyrusCompiler.exe`, or russo-2025's `papyrus-compiler`, which runs on Linux |
-| `SKYRIM_HELPER_PATH` | `helper/bin/SkyrimHelper(.exe)` | The built plugin helper |
+| `SKYRIM_HELPER_PATH` | the core's `helper/bin/SkyrimHelper(.exe)` | The built plugin helper |
 | `MCP_PROFILE` | `all` | `core`, `readonly` or `all` — which tools are listed and callable |
 | `MCP_MAX_RESPONSE_BYTES` | per profile | Ceiling on one answer; `0` removes it |
 | `MCP_TRANSPORT` | `stdio` | `http` for Streamable HTTP at `/mcp` — see [`docs/Hosting.md`](docs/Hosting.md) |
@@ -109,13 +109,17 @@ in a shell, on every system; a relative one is taken from the server's folder
 
 ## Documentation
 
+The tools themselves — and their router, behaviour guide, skills, vocabulary and design decisions — are
+[skyrim-modding-tools-core](https://github.com/Ciltress/skyrim-modding-tools-core), which this server and
+its OpenClaw plugin both serve.
+
 | Document | For |
 | --- | --- |
-| [`docs/Tool-Router.md`](docs/Tool-Router.md) | Which tool does what, in the words people use |
-| [`docs/MCP-Tools.md`](docs/MCP-Tools.md) | How the server behaves: rules, architecture, workflows, errors, troubleshooting |
+| The core's [`docs/Tool-Router.md`](https://github.com/Ciltress/skyrim-modding-tools-core/blob/main/docs/Tool-Router.md) | Which tool does what, in the words people use |
+| The core's [`docs/MCP-Tools.md`](https://github.com/Ciltress/skyrim-modding-tools-core/blob/main/docs/MCP-Tools.md) | How the server behaves: rules, architecture, workflows, errors, troubleshooting |
 | [`docs/Tool-Reference.md`](docs/Tool-Reference.md) | Every tool and argument — generated, never edited by hand |
-| [`skills/`](skills) | The modding knowledge the server serves to agents |
-| [`CONTEXT.md`](CONTEXT.md), [`docs/adr`](docs/adr) | Vocabulary and design decisions |
+| The core's [`skills/`](https://github.com/Ciltress/skyrim-modding-tools-core/tree/main/skills) | The modding knowledge the server serves to agents |
+| The core's [`CONTEXT.md`](https://github.com/Ciltress/skyrim-modding-tools-core/blob/main/CONTEXT.md) and [`docs/adr`](https://github.com/Ciltress/skyrim-modding-tools-core/tree/main/docs/adr) | Vocabulary and design decisions |
 | [`docs/research`](docs/research) | The research the design rests on |
 | [`AGENTS.md`](AGENTS.md) | Working on this code |
 | [`docs/Hosting.md`](docs/Hosting.md) | stdio, Streamable HTTP, Docker |
@@ -125,7 +129,7 @@ The guides are served to clients too: ask the running server with `readServerGui
 ## Development
 
 ```bash
-npm run build:helper   # dotnet publish helper/SkyrimHelper -> helper/bin
+npm run build:helper   # the core's plugin helper, built in its folder
 npm run build          # tsc -> dist/
 npm test               # vitest, fully offline: no game, no helper needed
 npx tsc --noEmit       # type check only
@@ -135,6 +139,7 @@ npm run smoke          # the built server over real stdio
 
 ## License
 
-GPL-3.0 — see [`LICENSE`](LICENSE). The plugin engine, Mutagen, is GPL-3.0; [ADR-0006](docs/adr/0006-gpl-3.md)
-explains why the whole project follows it. Copyright © 2026 Andreas Breit; co-authored with Claude
+GPL-3.0 — see [`LICENSE`](LICENSE). The plugin engine, Mutagen, is GPL-3.0; the core's
+[ADR-0006](https://github.com/Ciltress/skyrim-modding-tools-core/blob/main/docs/adr/0006-gpl-3.md) explains why
+the whole project follows it. Copyright © 2026 Andreas Breit; co-authored with Claude
 (Anthropic).

@@ -11,10 +11,7 @@
   "files": [
     "dist",
     "docs",
-    "skills",
-    "helper/bin",
-    "AGENTS.md",
-    "CONTEXT.md"
+    "AGENTS.md"
   ],
   "scripts": {
     "test": "vitest run",
@@ -27,8 +24,8 @@
     "build": "tsc",
     "docs:tools": "node scripts/generate-tool-docs.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "build:helper": "dotnet publish helper/SkyrimHelper -c Release -o helper/bin -nologo",
-    "check:helper": "node scripts/check-helper.mjs",
+    "build:helper": "npm --prefix node_modules/skyrim-modding-tools-core run build:helper",
+    "check:helper": "npm --prefix node_modules/skyrim-modding-tools-core run check:helper",
     "eval:ollama": "node scripts/eval-ollama.mjs"
   },
   "keywords": [
@@ -48,7 +45,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "dotenv": "^18.0.7"
+    "dotenv": "^18.0.7",
+    "skyrim-modding-tools-core": "file:../skyrim-modding-tools-core"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

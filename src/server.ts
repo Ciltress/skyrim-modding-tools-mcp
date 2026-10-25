@@ -16,19 +16,37 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from 'node:http';
-import { createBackend, explainMissingEnv, isPermanent, missingEnv } from './backend/index.js';
-import type { AppBackend, HealthReport } from './backend/index.js';
-import { createHandlers } from './handlers/index.js';
-import type { BaseHandler } from './handlers/index.js';
-import { GUIDES, guideByUri, guideUri, readGuideFile } from './lib/guides.js';
-import { discoverSkills, readSkillFile, skillByUri, skillUri } from './lib/skills.js';
-import { applyProfile, resolveProfile } from './lib/profiles.js';
-import type { ProfileName } from './lib/profiles.js';
-import { capToolResult, resolveResponseBudget } from './lib/responseBudget.js';
-import { evaluateGate, gatingEnabled } from './lib/capabilityGate.js';
-import type { GateResult } from './lib/capabilityGate.js';
-import { serverInstructions } from './lib/instructions.js';
-import { SERVER_INFO } from './lib/serverInfo.js';
+import {
+  ToolError,
+  applyProfile,
+  capToolResult,
+  createBackend,
+  createHandlers,
+  discoverSkills,
+  evaluateGate,
+  explainMissingEnv,
+  gatingEnabled,
+  guideByUri,
+  guideUri,
+  isPermanent,
+  missingEnv,
+  readGuideFile,
+  readSkillFile,
+  resolveProfile,
+  resolveResponseBudget,
+  serverInstructions,
+  skillByUri,
+  skillUri,
+} from 'skyrim-modding-tools-core';
+import type {
+  AppBackend,
+  BaseHandler,
+  GateResult,
+  HealthReport,
+  ProfileName,
+  ToolDefinition,
+} from 'skyrim-modding-tools-core';
+import { PRODUCT, SERVER_INFO } from './lib/serverInfo.js';
 import {
   CORS_EXPOSED_HEADERS,
   CORS_REQUEST_HEADERS,
@@ -43,7 +61,6 @@ import {
   resolveTransportMode,
   writeJsonRpcError,
 } from './lib/http.js';
-import type { ToolDefinition } from './types/tools.js';
 
 /**
  * How long to wait for the backend's capabilities before giving up on gating.
@@ -89,7 +106,7 @@ const credentialDigest = (credential: string) =>
 export interface ServerDependencies {
   /** Defaults to process.env. */
   env?: NodeJS.ProcessEnv;
-  /** Defaults to createBackend(env). */
+  /** Defaults to createBackend(env) for this server's PRODUCT. */
   backend?: AppBackend;
 }
 
@@ -137,7 +154,7 @@ export class AppServer extends Server {
     }
     const profile = resolveProfile(env);
     const responseBudget = resolveResponseBudget(profile, env);
-    const backend = dependencies.backend ?? createBackend(env);
+    const backend = dependencies.backend ?? createBackend(env, { product: PRODUCT });
 
     super(
       { name: SERVER_INFO.name, version: SERVER_INFO.version },
@@ -158,7 +175,7 @@ export class AppServer extends Server {
     this.profile = profile;
     this.responseBudget = responseBudget;
 
-    this.handlers = createHandlers(this.backend);
+    this.handlers = createHandlers(this.backend, PRODUCT);
     this.buildToolRoutes();
     this.setupToolHandlers();
     this.setupResourceHandlers();
@@ -262,7 +279,7 @@ export class AppServer extends Server {
 
   /**
    * Asks the backend about the error and everything it wraps. BaseHandler turns
-   * a backend failure into an McpError for the client, keeping the original as
+   * a backend failure into a ToolError for the client, keeping the original as
    * `cause` — and the original is what the backend can recognise.
    */
   private isSessionExpired(error: unknown): boolean {
@@ -327,6 +344,11 @@ export class AppServer extends Server {
   private handleError(error: unknown) {
     if (!(error instanceof Error)) {
       error = new Error(String(error));
+    }
+    // The core's tools fail with ToolError, whose codes are MCP's: as an McpError
+    // it reads to a client exactly as it did when the tools threw one themselves.
+    if (error instanceof ToolError) {
+      error = new McpError(error.code, error.message);
     }
     if (error instanceof McpError) {
       return {
@@ -449,16 +471,16 @@ export class AppServer extends Server {
   private setupResourceHandlers() {
     this.setRequestHandler(ListResourcesRequestSchema, async () => ({
       resources: [
-        ...GUIDES.map((guide) => ({
-          uri: guideUri(guide.id),
+        ...PRODUCT.guides.map((guide) => ({
+          uri: guideUri(PRODUCT, guide.id),
           name: guide.title,
           description: guide.description,
           mimeType: 'text/markdown',
         })),
-        // Discovered from skills/, so a collection added on disk is reflected
+        // Discovered from the core's skills/, so a collection added on disk is reflected
         // after a restart without a rebuild.
         ...discoverSkills().map((skill) => ({
-          uri: skillUri(skill),
+          uri: skillUri(PRODUCT, skill),
           name: `${skill.collection}: ${skill.name}`,
           description: skill.description,
           mimeType: 'text/markdown',
@@ -469,19 +491,19 @@ export class AppServer extends Server {
     this.setRequestHandler(ReadResourceRequestSchema, async (request) => {
       const uri = request.params.uri;
 
-      const guide = guideByUri(uri);
+      const guide = guideByUri(PRODUCT, uri);
       if (guide) {
         return { contents: [{ uri, mimeType: 'text/markdown', text: readGuideFile(guide) }] };
       }
 
-      const skill = skillByUri(uri);
+      const skill = skillByUri(PRODUCT, uri);
       if (skill) {
         return { contents: [{ uri, mimeType: 'text/markdown', text: readSkillFile(skill) }] };
       }
 
       throw new McpError(
         ErrorCode.InvalidParams,
-        `Unknown resource '${uri}'. Guides: ${GUIDES.map((g) => guideUri(g.id)).join(', ')}. ` +
+        `Unknown resource '${uri}'. Guides: ${PRODUCT.guides.map((g) => guideUri(PRODUCT, g.id)).join(', ')}. ` +
           `Skills are listed by resources/list.`,
       );
     });
@@ -631,7 +653,7 @@ export class AppServer extends Server {
    * backend without touching the routing below.
    */
   protected createSessionServer(env: NodeJS.ProcessEnv, bearerToken: string): AppServer {
-    return new AppServer({ env, backend: createBackend(env, { bearerToken }) });
+    return new AppServer({ env, backend: createBackend(env, { product: PRODUCT, bearerToken }) });
   }
 
   /**

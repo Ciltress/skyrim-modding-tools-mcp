@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { REQUIRED_ENV } from '../backend/index';
-import { PATH_SETTINGS } from '../backend/skyrim/pathSettings';
+import { CORE_ROOT, PATH_SETTINGS, REQUIRED_ENV } from 'skyrim-modding-tools-core';
 import { PROJECT_ROOT, RESOURCE_SCHEME, SERVER_INFO } from '../lib/serverInfo';
 
 /**
@@ -24,8 +23,11 @@ const declared: Array<{ name: string; isRequired?: boolean; isSecret?: boolean; 
 const declaredNames = declared.map(v => v.name);
 
 /**
- * Every environment variable src/ actually reads, tests excluded — they set
- * variables that are inputs to a fixture rather than to the server.
+ * Every environment variable the server actually reads, tests excluded — they
+ * set variables that are inputs to a fixture rather than to the server: this
+ * repository's src/, and the core's build, where most of them are read. The
+ * build rather than the core's sources, because it is what ships in either way
+ * the core is installed.
  *
  * The two access shapes are `env.NAME` (an injected NodeJS.ProcessEnv, which is
  * how nearly everything reads) and `process.env.NAME`. Both end in `env.NAME`,
@@ -35,21 +37,22 @@ const declaredNames = declared.map(v => v.name);
 function environmentVariablesReadBySource(): Set<string> {
     const found = new Set<string>(PATH_SETTINGS);
 
-    const walk = (dir: string): void => {
+    const walk = (dir: string, extension: string): void => {
         for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
             const full = path.join(dir, entry.name);
             if (entry.isDirectory()) {
-                if (entry.name !== '__tests__') walk(full);
+                if (entry.name !== '__tests__' && entry.name !== 'testing') walk(full, extension);
                 continue;
             }
-            if (!entry.name.endsWith('.ts')) continue;
+            if (!entry.name.endsWith(extension)) continue;
             for (const match of fs.readFileSync(full, 'utf8').matchAll(/\benv(?:\.|\[["'])([A-Z][A-Z_0-9]{2,})/g)) {
                 found.add(match[1]);
             }
         }
     };
 
-    walk(path.join(PROJECT_ROOT, 'src'));
+    walk(path.join(PROJECT_ROOT, 'src'), '.ts');
+    walk(path.join(CORE_ROOT, 'dist'), '.js');
     return found;
 }
 
@@ -59,7 +62,7 @@ function environmentVariablesReadBySource(): Set<string> {
  */
 const DELIBERATELY_UNDECLARED: string[] = [
     // Not this server's settings: the system's and Amethyst's own, read only to find Amethyst's files
-    // exactly where Amethyst looks for them (src/backend/skyrim/amethyst.ts).
+    // exactly where Amethyst looks for them (the core's src/backend/skyrim/amethyst.ts).
     'XDG_CONFIG_HOME', 'XDG_RUNTIME_DIR', 'MOD_MANAGER_PROFILES_DIR',
     // The system's search path, where a Papyrus compiler is looked for on Linux.
     'PATH',

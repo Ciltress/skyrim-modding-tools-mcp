@@ -26,14 +26,11 @@ import readline from 'node:readline/promises';
 import { parse } from 'dotenv';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { chooseModManager, DEFAULT_PROJECTS_DIR, readConfiguration } from '../backend/index.js';
-import { SOURCE_FOLDERS } from '../backend/skyrim/externalTools.js';
-import { InstanceConfigError } from '../backend/skyrim/modManager.js';
-import { findCaseInsensitive } from '../backend/skyrim/paths.js';
-import { pathSetting } from '../backend/skyrim/pathSettings.js';
-import { currentPlatform } from '../backend/skyrim/platform.js';
+import {
+    chooseModManager, CORE_ROOT, currentPlatform, defaultProjectsDir, discoverSkills, findCaseInsensitive, InstanceConfigError,
+    pathSetting, readConfiguration, SOURCE_FOLDERS
+} from 'skyrim-modding-tools-core';
 import { PROJECT_ROOT, SERVER_INFO } from '../lib/serverInfo.js';
-import { discoverSkills } from '../lib/skills.js';
 import { downloadCompiler } from './compiler.js';
 import { setEnvValues } from './envFile.js';
 import { skyrimInstances } from './mo2Instances.js';
@@ -141,14 +138,14 @@ async function prerequisites(run: Run): Promise<boolean> {
  */
 async function helper(run: Run): Promise<void> {
     const { ui, system, left } = run;
-    const built = await system.run('npm', ['run', 'build:helper'], { cwd: PROJECT_ROOT });
-    const holders = built.code === 0 ? [] : helperHolders(await system.processes(), path.join(PROJECT_ROOT, 'helper', 'bin'));
+    const built = await system.run('npm', ['run', 'build:helper'], { cwd: CORE_ROOT });
+    const holders = built.code === 0 ? [] : helperHolders(await system.processes(), path.join(CORE_ROOT, 'helper', 'bin'));
     if (holders.length > 0) {
         left.push(`The plugin helper could not be replaced while a running Skyrim server uses it. Close what started ` +
             `${holders.length === 1 ? 'it' : 'them'}, then run npm run setup again: ${holders.map(describeProgram).join('; ')}.`);
         return;
     }
-    const checked = built.code === 0 && (await system.run('npm', ['run', 'check:helper'], { cwd: PROJECT_ROOT })).code === 0;
+    const checked = built.code === 0 && (await system.run('npm', ['run', 'check:helper'], { cwd: CORE_ROOT })).code === 0;
     if (checked) ui.say('The plugin helper is built and answers.');
     else left.push('The plugin helper did not build or start: see the output above, then run npm run setup again.');
 }
@@ -172,7 +169,7 @@ async function settings(run: Run): Promise<void> {
     const env = currentEnv();
     const values: Record<string, string> = {};
     const choice = chooseModManager(env);
-    const configured = readConfiguration(env);
+    const configured = readConfiguration(env, { root: PROJECT_ROOT });
     if (choice.name === 'amethyst') {
         ui.say(`Amethyst: ${configured.modManager.describe()}.`);
     } else if (configured.paths.SKYRIM_MO2_INSTANCE && !run.instanceArg) {
@@ -208,7 +205,7 @@ async function askInstance(run: Run, env: NodeJS.ProcessEnv): Promise<string | u
         try {
             const resolved = pathSetting({ SKYRIM_MO2_INSTANCE: folder }, 'SKYRIM_MO2_INSTANCE',
                 { platform: currentPlatform(), home: os.homedir(), base: PROJECT_ROOT })!;
-            readConfiguration({ ...env, SKYRIM_MOD_MANAGER: 'mo2', SKYRIM_MO2_INSTANCE: resolved }).modManager.readInstance();
+            readConfiguration({ ...env, SKYRIM_MOD_MANAGER: 'mo2', SKYRIM_MO2_INSTANCE: resolved }, { root: PROJECT_ROOT }).modManager.readInstance();
             return resolved;
         } catch (error) {
             ui.say(error instanceof InstanceConfigError || error instanceof Error ? error.message : String(error));
@@ -237,7 +234,7 @@ async function askInstance(run: Run, env: NodeJS.ProcessEnv): Promise<string | u
 /** 4. Linux has no Creation Kit compiler: russo-2025's, downloaded where the server looks first. */
 async function compiler(run: Run): Promise<void> {
     const { ui, system, left } = run;
-    const { paths, papyrusCompilerCandidates } = readConfiguration(currentEnv());
+    const { paths, papyrusCompilerCandidates } = readConfiguration(currentEnv(), { root: PROJECT_ROOT });
     if (papyrusCompilerCandidates.length === 0) {
         ui.say('Scripts are compiled with the Creation Kit\'s own Papyrus compiler.');
         return;
@@ -264,7 +261,7 @@ async function scriptSources(run: Run): Promise<void> {
     let configured;
     let gameDir;
     try {
-        configured = readConfiguration(currentEnv());
+        configured = readConfiguration(currentEnv(), { root: PROJECT_ROOT });
         gameDir = configured.modManager.readInstance().gameDir;
     } catch {
         return; // No instance yet: said in the settings step.
@@ -378,13 +375,13 @@ async function registerOpenClaw(run: Run): Promise<void> {
     }
     const stateDir = process.env.OPENCLAW_STATE_DIR || path.join(os.homedir(), '.openclaw');
     const projectsDir = pathSetting(currentEnv(), 'SKYRIM_PROJECTS_DIR', { platform: currentPlatform(), home: os.homedir(), base: PROJECT_ROOT })
-        ?? DEFAULT_PROJECTS_DIR;
+        ?? defaultProjectsDir(PROJECT_ROOT);
     // Where OpenClaw puts an agent's workspace when it names none — named all the same, so that a default
     // workspace set later does not move it.
     const agentWorkspace = path.join(stateDir, `workspace-${OPENCLAW_AGENT}`);
     const patch = openClawPatch(current, {
         entry: ENTRY,
-        skillsDir: path.join(PROJECT_ROOT, 'skills', 'Domain'),
+        skillsDir: path.join(CORE_ROOT, 'skills', 'Domain'),
         skills: discoverSkills().filter(skill => skill.collection === 'domain').map(skill => skill.name),
         projectsDir,
         workspace: process.env.OPENCLAW_WORKSPACE_DIR || path.join(stateDir, 'workspace'),
@@ -432,7 +429,7 @@ function writeWorkspaceFiles(run: Run, dir: string): void {
     const { ui, left } = run;
     let boundTo: string | undefined;
     try {
-        const { modManager } = readConfiguration(currentEnv());
+        const { modManager } = readConfiguration(currentEnv(), { root: PROJECT_ROOT });
         modManager.readInstance();
         boundTo = modManager.describe();
     } catch { /* No instance yet: said in the settings step. */ }

@@ -1,7 +1,7 @@
 import { vi, type MockInstance } from 'vitest';
 import { AppServer } from '../server';
-import { PermanentBackendError } from '../backend/Backend';
-import { fakeBackend } from './fakes';
+import { PermanentBackendError } from 'skyrim-modding-tools-core';
+import { fakeBackend } from 'skyrim-modding-tools-core/testing';
 
 /**
  * The Streamable HTTP transport (MCP_TRANSPORT=http): the bearer-token gate,
