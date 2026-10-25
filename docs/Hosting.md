@@ -111,7 +111,7 @@ If `main` was your only agent and has no `workspace` of its own, give it the one
 (`workspace: "~/.openclaw/workspace"`): with a second agent, OpenClaw moves it into a subfolder. With a
 local model, also turn off Tool Search — `tools: { toolSearch: false }`, which applies to every agent (setup
 asks apart): behind it, the agent took two to three times the turns and once never used the server
-([measured](research/local-model-evals.md)). Then `openclaw gateway restart` — the gateway takes a new
+(measured: the eval record, `docs/research/local-model-evals.md` in the skyrim-modding-tools folder beside this repository). Then `openclaw gateway restart` — the gateway takes a new
 agent only when it starts.
 
 **Paths in settings.** Neither `.env` nor a client's `env` block passes through a shell, so the server
@@ -287,7 +287,7 @@ setting. Claude Code pointed at Ollama loads every tool up front; `MCP_PROFILE=c
   Code-completion models such as qwen2.5-coder:3b do not: they write the call into the answer as
   text, which no client acts on. Measure a model before relying on it —
   `npm run eval:ollama -- --model <name>` — and see
-  [`research/local-model-evals.md`](./research/local-model-evals.md) for every model measured so far.
+  the eval record, `docs/research/local-model-evals.md` in the skyrim-modding-tools folder beside this repository, for every model measured so far.
 - **Records are edited with the client's file tools.** Claude Code has its own. A client that only
   connects Ollama to MCP servers — ollmcp, oterm — needs a filesystem server beside this one, allowed
   into the projects folder, e.g. `npx -y @modelcontextprotocol/server-filesystem <projects folder>`.
@@ -297,7 +297,7 @@ setting. Claude Code pointed at Ollama loads every tool up front; `MCP_PROFILE=c
   and a tool-using turn takes about 3 s. `OLLAMA_FLASH_ATTENTION=1` and `OLLAMA_KV_CACHE_TYPE=q8_0`
   are worth setting. Loading it takes 30–40 s, and a client asking for another context size reloads it. Measured on
   Ollama 0.40.4; 0.40.6 ran the same eval about 2.5 times slower with gemma4:26b on this card — ~26 against
-  ~61 tokens/s in long turns, the prompt cache used as before ([round 18](./research/local-model-evals.md)).
+  ~61 tokens/s in long turns, the prompt cache used as before (round 18 of the eval record, `docs/research/local-model-evals.md` in the skyrim-modding-tools folder beside this repository).
 
 ## 5. Setting it up on Linux, with Mod Organizer under Proton
 

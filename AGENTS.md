@@ -38,7 +38,7 @@ The vocabulary is in the core's `CONTEXT.md`; use its words — *mod*, *plugin*,
 | **[`docs/Tool-Reference.md`](docs/Tool-Reference.md)** | Every tool with its arguments, as this server serves them, **generated** from `getTools()` by `npm run docs:tools`. Never edit it by hand. |
 | **[`docs/Hosting.md`](docs/Hosting.md)** | stdio vs. Streamable HTTP, the per-session bearer token, the origin/host allow-lists, the rate limit, where it runs. Read it before touching `runHttp()` or `src/lib/http.ts`. |
 | **The core's `docs/Tool-Router.md` and `docs/MCP-Tools.md`** | Intent to tool, and how the tools behave: the architecture, profiles, the response budget, the gate, the error model, troubleshooting, how to extend. Served here as the guides `router` and `tools`. |
-| **[`docs/research`](docs/research)** | What was found out before deciding: engines, Nexus, Mod Organizer's file formats, the Spriggit spike, and the local-model eval rounds 1–63. |
+| **`docs/research` beside this repository**, in the skyrim-modding-tools folder that holds it, the core and the OpenClaw plugin | What was found out before deciding: engines, Nexus, Mod Organizer's file formats, the Spriggit spike, and the local-model eval rounds. Not in this repository. |
 
 They are kept accurate deliberately — treat a contradiction between a doc and the code as a bug in one
 of them, and fix it rather than working around it.
@@ -130,7 +130,7 @@ A registered client runs `dist/index.js`, so a change is only visible there afte
 ## Measuring with a local model
 
 `npm run eval:ollama` runs fixed modding tasks with a model served by Ollama through the built server and
-scores them. Rounds 1–63 are recorded in [`docs/research/local-model-evals.md`](docs/research/local-model-evals.md).
+scores them. Rounds 1–63 are recorded in the eval record, `docs/research/local-model-evals.md` in the skyrim-modding-tools folder beside this repository.
 From round 64 the eval moves to the OpenClaw plugin's repository, which records its rounds there.
 
 ## Care with a real backend

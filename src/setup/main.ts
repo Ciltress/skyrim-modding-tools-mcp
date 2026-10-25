@@ -408,7 +408,7 @@ async function registerOpenClaw(run: Run): Promise<void> {
         writeWorkspaceFiles(run, agentWorkspace);
     }
     // With a local model, OpenClaw puts an MCP server's tools behind its Tool Search: the modding agent took two
-    // to three times the turns, and once never used the server (docs/research/local-model-evals.md). The
+    // to three times the turns, and once never used the server (the eval record, local-model-evals.md). The
     // setting is OpenClaw's, for every agent, so it is asked apart.
     if (await section('tools.toolSearch').catch(() => undefined) !== false &&
         await ui.yes('With a local model, OpenClaw hides the server\'s tools behind its Tool Search, which costs the modding agent ' +

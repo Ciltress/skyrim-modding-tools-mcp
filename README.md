@@ -120,7 +120,6 @@ its OpenClaw plugin both serve.
 | [`docs/Tool-Reference.md`](docs/Tool-Reference.md) | Every tool and argument — generated, never edited by hand |
 | The core's [`skills/`](https://github.com/Ciltress/skyrim-modding-tools-core/tree/main/skills) | The modding knowledge the server serves to agents |
 | The core's [`CONTEXT.md`](https://github.com/Ciltress/skyrim-modding-tools-core/blob/main/CONTEXT.md) and [`docs/adr`](https://github.com/Ciltress/skyrim-modding-tools-core/tree/main/docs/adr) | Vocabulary and design decisions |
-| [`docs/research`](docs/research) | The research the design rests on |
 | [`AGENTS.md`](AGENTS.md) | Working on this code |
 | [`docs/Hosting.md`](docs/Hosting.md) | stdio, Streamable HTTP, Docker |
 
