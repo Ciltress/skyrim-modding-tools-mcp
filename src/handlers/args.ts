@@ -71,15 +71,32 @@ export function optionalString(args: any, name: string): string | undefined {
     return value.trim() || undefined;
 }
 
-/** An object argument — or its JSON text, as small models send one now and then. */
-export function optionalObject(args: any, name: string, example: string): Record<string, unknown> | undefined {
+/**
+ * Fields and their values, as a list of `{path, value}` items — a field's path is never a key of the call: Ollama's
+ * gemma4 parser dropped e4b's calls with a dotted key and words for its value, `{"Name.Value": "Mavens Warning"}`, 22
+ * times in 56 asked for, and 1 of 20 it wrote itself (probes after eval round 55); in six of the seven turns that ended
+ * a run of rounds 49–55 with no call, e4b had planned `Name.Value`. As a list of paths and values: 0 of 40.
+ * An object of paths and values, as editRecord took first, is read too, and either as JSON text, as small models send
+ * an argument now and then.
+ */
+export function optionalFieldValues(args: any, name: string, example: string): Record<string, unknown> | undefined {
     let value = args?.[name];
     if (value === undefined || value === null) return undefined;
     if (typeof value === 'string') {
         try { value = JSON.parse(value); } catch { /* refused below, with the example */ }
     }
-    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-        throw new McpError(ErrorCode.InvalidParams, `'${name}' must be an object, e.g. ${example}.`);
+    if (Array.isArray(value)) {
+        const fields: Record<string, unknown> = {};
+        for (const item of value) {
+            if (typeof item !== 'object' || item === null || typeof item.path !== 'string' || !('value' in item)) {
+                throw new McpError(ErrorCode.InvalidParams, `'${name}' takes items of a field's path and its value, e.g. ${example}.`);
+            }
+            fields[item.path.trim()] = item.value;
+        }
+        return fields;
+    }
+    if (typeof value !== 'object' || value === null) {
+        throw new McpError(ErrorCode.InvalidParams, `'${name}' takes items of a field's path and its value, e.g. ${example}.`);
     }
     return value as Record<string, unknown>;
 }

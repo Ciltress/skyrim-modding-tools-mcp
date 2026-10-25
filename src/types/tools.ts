@@ -5,7 +5,8 @@
  * sets).
  */
 export interface ToolProperty {
-  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  /** Left out for a value of any kind — editRecord's new value of a field, a number, words, a list or an object. */
+  type?: 'string' | 'number' | 'boolean' | 'object' | 'array';
   description?: string;
   /** Element schema, for properties of type 'array'. */
   items?: ToolProperty;

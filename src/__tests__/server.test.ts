@@ -151,6 +151,24 @@ describe('routing', () => {
         expect(payload.note).not.toMatch(/delete the copy/);
     });
 
+    it('takes editRecord\'s fields as a list of paths and values, and as the object it took first', async () => {
+        // Ollama's gemma4 parser dropped e4b's calls with a dotted key and words for its value, 22 times in 56 (a probe
+        // after eval round 55): the path is a value, never a key of the call.
+        const { client } = await connect();
+        await call(client, 'newProject', { project: 'FlameBlade' });
+        const listed = payloadOf(await call(client, 'editRecord', {
+            project: 'FlameBlade', record: 'Weapons/FlameBlade.yaml',
+            set: [{ path: 'Name.Value', value: 'Flame Blade' }, { path: 'BasicStats', value: { Damage: 12 } }]
+        }));
+        expect(listed.changed).toEqual(['set Name.Value: "Flame Blade"', 'set BasicStats: {"Damage":12}']);
+        const keyed = payloadOf(await call(client, 'editRecord', { project: 'FlameBlade', record: 'FlameBlade', set: { 'BasicStats.Damage': 12 } }));
+        expect(keyed.changed).toEqual(['set BasicStats.Damage: 12']);
+        const asText = payloadOf(await call(client, 'editRecord', { project: 'FlameBlade', record: 'FlameBlade', set: '[{"path": "Name", "value": "X"}]' }));
+        expect(asText.changed).toEqual(['set Name: "X"']);
+        const refused = payloadOf(await call(client, 'editRecord', { project: 'FlameBlade', record: 'FlameBlade', set: [{ field: 'Name', to: 'X' }] }));
+        expect(refused.error).toMatch(/'set' takes items of a field's path and its value, e\.g\. \[\{"path": "BasicStats\.Damage", "value": 12\}\]/);
+    });
+
     it('names in newProject\'s answer the skill of each record family, every one a skill the server serves', async () => {
         // 26b skipped the family skill in three of nine authoring runs; every run that read it passed (eval round 12).
         const { client } = await connect();

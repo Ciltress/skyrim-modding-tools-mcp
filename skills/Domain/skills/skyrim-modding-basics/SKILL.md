@@ -54,8 +54,9 @@ Every authoring task runs this loop.
    - One of the project's own records: its file is already there.
 3. **Edit** only the fields the task names; the rest stays as copied. `editRecord` changes fields by
    their paths, with no old text to match — `{"record": "Weapons/FlameBlade.yaml", "set":
-   {"BasicStats.Damage": 12, "Name": "Flame Blade"}}`; an object sets only the fields it names — and
-   answers the file as it now reads; your file tools do the rest. Take every
+   [{"path": "BasicStats.Damage", "value": 12}, {"path": "Name", "value": "Flame Blade"}]}`; an
+   object value sets only the fields it names — and answers the file as it now reads; your file
+   tools do the rest. Take every
    link — FormID or editor ID — from a record you read or a `findRecords` answer. Scripts and files such as meshes have folders of their own
    ([`REFERENCE.md`](REFERENCE.md), *What a project looks like*).
 4. **Build.** `buildProject`. New records get their FormIDs here, answered in `assignedFormIds`. A

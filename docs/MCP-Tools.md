@@ -71,12 +71,15 @@ arguments, see [`Tool-Reference.md`](./Tool-Reference.md), which is generated fr
 9. **Domain rules.**
    - **Records are changed by editing project text** with your ordinary file tools — read, edit,
      write the YAML files in a project's `plugin/` folder — or field by field with `editRecord`,
-     which needs no old text to match: `{"set": {"BasicStats.Damage": 12}, "remove": ["Critical"]}`.
-     It changes only those fields' lines, refuses a field the record's type does not have, and answers
-     the file's new text (docs/adr/0008, since eval round 48). An object for a part the file has sets
-     the fields it names and keeps the others, as a JSON merge patch does — `{"BasicStats": {"Damage":
-     12}}` — and a text is set by its words or by its `Value` (`Name.Value`), as the file writes it
-     (since eval round 49).
+     which needs no old text to match: `{"set": [{"path": "BasicStats.Damage", "value": 12}],
+     "remove": ["Critical"]}`. It changes only those fields' lines, refuses a field the record's type
+     does not have, and answers the file's new text (docs/adr/0008, since eval round 48). An object
+     for a part the file has sets the fields it names and keeps the others, as a JSON merge patch
+     does — `{"path": "BasicStats", "value": {"Damage": 12}}` — and a text is set by its words or by
+     its `Value` (`Name.Value`), as the file writes it (since eval round 49). `set` is a list of paths
+     and values since eval round 55, the path never a key of the call: Ollama's gemma4 parser dropped
+     e4b's calls with a dotted key and words for its value, as `{"Name.Value": "Mavens Warning"}`.
+     The object of paths and values it took first is still read.
    - **A `path` in an answer is a full path**, ready for your file tools; `addPatch` adds the file's
      text, so you can edit it at once. A path relative to something says so in its name:
      `readRecord`'s `pathInPluginFolder`.
@@ -339,7 +342,7 @@ reference inside it is a FormID: resolve the ones you reason about with `findRec
 ```jsonc
 {"tool":"addPatch","args":{"project":"IronSwordBuff","records":["IronSword"]}}   // copies the winning version in
 // added[].files holds the copy's full path and text: edit it with your file tools, or by its fields:
-{"tool":"editRecord","args":{"project":"IronSwordBuff","record":"IronSword","set":{"BasicStats.Damage":12}}}
+{"tool":"editRecord","args":{"project":"IronSwordBuff","record":"IronSword","set":[{"path":"BasicStats.Damage","value":12}]}}
 {"tool":"buildProject","args":{"project":"IronSwordBuff"}}     // checks every link, writes the plugin
 {"tool":"deployProject","args":{"project":"IronSwordBuff"}}    // into the mod manager, at the end of the load order
 ```

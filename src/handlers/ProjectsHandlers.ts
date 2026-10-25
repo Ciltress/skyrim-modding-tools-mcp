@@ -1,6 +1,6 @@
 import { BaseHandler } from './BaseHandler.js';
 import type { ToolSpec } from './BaseHandler.js';
-import { asRequestError, optionalBoolean, optionalObject, optionalString, optionalStringList, recordRef, requireString } from './args.js';
+import { asRequestError, optionalBoolean, optionalFieldValues, optionalString, optionalStringList, recordRef, requireString } from './args.js';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { FAMILY_SKILLS } from '../lib/skills.js';
 
@@ -157,15 +157,17 @@ export class ProjectsHandlers extends BaseHandler {
                         openWorldHint: false
                     },
                     // 95 of e4b's text edits were refused in eval rounds 40–47: old text from memory, indented otherwise
-                    // than the file, or made stale by a build's own changes (docs/adr/0008).
+                    // than the file, or made stale by a build's own changes (docs/adr/0008). `set` is a list of paths and
+                    // values, no object keyed by path: Ollama's gemma4 parser dropped calls with a dotted key (args.ts).
                     description:
-                        'Change fields of one record file of a project by their paths — no old text to match. `set` takes ' +
-                        'each field\'s path and its value: {"Data.Damage": 12, "Name": "Flame Blade", ' +
-                        '"Effects[0].Data.Magnitude": 40, "Keywords": ["WeapTypeSword"]} — a text field (Name, Description) ' +
-                        'takes its words, a link a FormID or an editor ID, a list a list, written whole; an object sets the ' +
-                        'fields it names inside that part and keeps its others, as {"BasicStats": {"Damage": 12}} does. ' +
-                        '`remove` takes paths to delete: ["Critical", "Effects[1]"]. Changes only those lines, refuses a field ' +
-                        'the record\'s type does not have, and answers the file\'s new text. Then run buildProject.',
+                        'Change fields of one record file of a project by their paths — no old text to match. `set` lists ' +
+                        'each field\'s path and its value: [{"path": "BasicStats.Damage", "value": 12}, {"path": "Name", ' +
+                        '"value": "Flame Blade"}, {"path": "Effects[0].Data.Magnitude", "value": 40}] — a text field (Name, ' +
+                        'Description) takes its words, a link a FormID or an editor ID, a list a list, written whole; an ' +
+                        'object sets the fields it names inside that part and keeps its others, as {"path": "BasicStats", ' +
+                        '"value": {"Damage": 12}} does. `remove` takes paths to delete: ["Critical", "Effects[1]"]. Changes ' +
+                        'only those lines, refuses a field the record\'s type does not have, and answers the file\'s new text. ' +
+                        'Then run buildProject.',
                     inputSchema: {
                         type: 'object',
                         properties: {
@@ -175,8 +177,20 @@ export class ProjectsHandlers extends BaseHandler {
                                 description: 'The record file: its path in the plugin folder, like "Weapons/FlameBlade.yaml", or the record\'s EditorID.'
                             },
                             set: {
-                                type: 'object',
-                                description: 'Fields by path, each with its new value. A path joins fields with dots, and names a list\'s item by its number from 0.'
+                                type: 'array',
+                                items: {
+                                    type: 'object',
+                                    description: 'One field: its path and its new value.',
+                                    properties: {
+                                        path: {
+                                            type: 'string',
+                                            description: 'The field: fields joined with dots, a list\'s item by its number from 0 — "BasicStats.Damage", "Name", "Effects[0].Data.Magnitude".'
+                                        },
+                                        value: { description: 'Its new value: a number, words, a FormID or editor ID for a link, a list, or an object of fields.' }
+                                    },
+                                    required: ['path', 'value']
+                                },
+                                description: 'The fields to change, each its path and its new value.'
                             },
                             remove: {
                                 type: 'array',
@@ -191,7 +205,7 @@ export class ProjectsHandlers extends BaseHandler {
                 run: args => asRequestError(this.backend.editRecord({
                     project: requireString(args, 'project'),
                     record: requireString(args, 'record', 'The record file, like "Weapons/FlameBlade.yaml", or its EditorID.'),
-                    set: optionalObject(args, 'set', '{"Data.Damage": 12}'),
+                    set: optionalFieldValues(args, 'set', '[{"path": "BasicStats.Damage", "value": 12}]'),
                     remove: optionalStringList(args, 'remove', '["Critical"]')
                 }))
             },

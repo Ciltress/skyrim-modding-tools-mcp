@@ -72,7 +72,7 @@ const cell = (text: string) => text.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
  * adds is the name, the shape, and what the tool is *for*.
  */
 function describeProperty(name: string, property: ToolProperty, required: boolean): string {
-    const bits: string[] = [property.type];
+    const bits: string[] = [property.type ?? 'any'];
     if (property.enum?.length) bits.push(`one of ${property.enum.join('/')}`);
     if (property.default !== undefined) bits.push(`default \`${property.default}\``);
     return `\`${name}\`${required ? '**\\***' : ''} ${bits.join(', ')}`;

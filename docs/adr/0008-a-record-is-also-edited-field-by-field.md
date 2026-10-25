@@ -30,5 +30,9 @@ installed later whose record has the same editor ID does not change the link.
 - An object for a part the file has is merged into it, as a JSON merge patch is, rather than written whole:
   e4b's first `{"BasicStats": {"Damage": 12}}` took the Iron Sword's value and weight with it (eval round
   49). One that names another kind of the part is written whole.
+- `set` lists each field as `{"path": …, "value": …}`, the path never a key of the call: as an object keyed by
+  path, a dotted key with words for its value — `{"Name.Value": "Mavens Warning"}` — was dropped by Ollama's
+  gemma4 parser, 22 times in 56 asked for, and turns that planned one ended six runs of eval rounds 49–55 with
+  no call. The object it took first is still read, for clients that send one.
 - Whether models choose it over their file tools is for the eval to show. It does not replace them.
 - A project's files can hold editor IDs where a pull or `addPatch` writes FormIDs; both read alike.
