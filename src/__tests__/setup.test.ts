@@ -195,6 +195,12 @@ describe('the modding agent\'s workspace files', () => {
         expect(files['AGENTS.md']).toMatch(/`edit` refused: `read` the file/);
     });
 
+    it('tell the agent to write a whole record anew, and to edit only a few lines', () => {
+        // Rounds 31–58: 16 of e4b's failed runs ended on an `edit` call that Ollama dropped unparsed — its `edits` list
+        // never closed, its texts mostly whole record files (ollama/ollama#19273). Its writes were dropped once.
+        expect(files['AGENTS.md']).toContain('- A whole record, or a file changed in many places, you `write` anew; `edit` is for a few lines.');
+    });
+
     it('tell the agent not to overthink', () => {
         // The user, 2026-10-22: bonsai-2:27b likes to overthink, so its prompt should say not to and to deliver the task.
         expect(files['AGENTS.md']).toContain('Don\'t overthink: decide, then deliver the task.');

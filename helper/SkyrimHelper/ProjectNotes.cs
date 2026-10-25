@@ -134,13 +134,16 @@ public static class ProjectNotes
             // So too one left its name and given the project's new enchantment: e4b's Flame Blade was IronSword's copy,
             // its stats and enchantment changed and its name not, built with no word and told the user as a new sword
             // (eval round 43's sword+detailed #5) — 6 of the 11 sword runs of rounds 30–43 that made no new sword copied IronSword.
+            // Its name too: told only of the FormKey line and an EditorID, e4b did both, and its new sword was an Iron Sword
+            // (eval round 59's sword+detailed #3).
             if (NameIn(text) is not { } now || now == was)
             {
                 if (Things.Contains(type.Name) && ObjectEffectLink.Match(text) is { Success: true } link && enchantments.Contains(link.Groups[1].Value))
                     notes.Add($"{relative}: overrides {entry.EditorId} of {key.ModKey.FileName} and gives it {link.Groups[1].Value}, the project's " +
                         $"new enchantment: every {was} in the game — the player's, the merchants', the ones NPCs carry and leveled lists hand " +
                         $"out — carries it, with all this file changes. If a new one was asked for, this copy is not it: delete this file's " +
-                        $"FormKey line and give it an EditorID of its own — it builds as a new record, and {was} stays as it is");
+                        $"FormKey line and give it an EditorID and a Name of its own — it builds as a new record, named '{was}' until its " +
+                        $"Name says otherwise, and {was} stays as it is");
                 continue;
             }
             // What it does in the game, and the one edit that makes the copy a new record: told the game shows that
