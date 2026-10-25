@@ -265,6 +265,11 @@ export function writeSessionConfig({ dir, configFile, proxyUrl, model, root, ser
     };
     config.tools ??= {};
     config.tools.deny = [...new Set([...(config.tools.deny ?? []), ...DENIED_TOOLS])];
+    // Denied, they are no tool of the run: left in an agent's allow list, the file tools were "unknown entries" in
+    // OpenClaw's warning on every run, though the user's own gateway has them.
+    for (const kept of Object.values(config.agents?.entries ?? {})) {
+        if (Array.isArray(kept.tools?.allow)) kept.tools.allow = kept.tools.allow.filter(name => !DENIED_TOOLS.includes(name));
+    }
 
     const file = path.join(dir, 'openclaw.json');
     fs.writeFileSync(file, JSON.stringify(config, null, 2));
