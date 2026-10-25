@@ -201,6 +201,16 @@ describe('the modding agent\'s workspace files', () => {
         expect(files['AGENTS.md']).toContain('- A whole record, or a file changed in many places, you `write` anew; `edit` is for a few lines.');
     });
 
+    it('name editRecord as the agent calls it, and send a copy\'s changes to it', () => {
+        // AGENTS.md named every other tool as `skyrim__…` and editRecord nowhere: e4b called it `editRecord`, as the
+        // server's answers name it, and OpenClaw answered "Tool editRecord not found" seven times (eval round 62's
+        // npc+detailed #2). "Edit the copy" read as the edit tool.
+        expect(files['AGENTS.md']).toContain('- `skyrim__editRecord` changes a record file\'s fields by their paths, with no old text to match:\n' +
+            '  `{"record": "Weapons/FlameBlade.yaml", "set": [{"path": "BasicStats.Damage", "value": 12}]}`.');
+        expect(files['AGENTS.md']).toContain('in the game. Change the copy with `skyrim__editRecord`; never edit another mod\'s plugin.');
+        expect(files['AGENTS.md']).not.toContain('Edit the copy');
+    });
+
     it('tell the agent not to overthink', () => {
         // The user, 2026-10-22: bonsai-2:27b likes to overthink, so its prompt should say not to and to deliver the task.
         expect(files['AGENTS.md']).toContain('Don\'t overthink: decide, then deliver the task.');

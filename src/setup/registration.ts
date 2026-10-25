@@ -140,10 +140,14 @@ export function openClawWorkspaceFiles(boundTo: string | undefined, today: strin
             '- A whole record, or a file changed in many places, you `write` anew; `edit` is for a few lines.',
             '- `edit` finds each `oldText` exactly as the file holds it: whole lines with their indentation, and',
             '  real line breaks — never `\\n` typed. `edit` refused: `read` the file, then edit what it holds now.',
+            // Named nowhere here, editRecord was called by the name the server's answers give it, and OpenClaw answered
+            // "Tool editRecord not found" seven times (eval round 62's npc+detailed #2).
+            `- ${tool('editRecord')} changes a record file's fields by their paths, with no old text to match:`,
+            '  `{"record": "Weapons/FlameBlade.yaml", "set": [{"path": "BasicStats.Damage", "value": 12}]}`.',
             `- A new record — a new sword, a new note — is a new file you write, following a vanilla record`,
             `  read with ${tool('readRecord')}: copy its values instead of guessing. Find records with ${tool('findRecords')}.`,
             `- ${tool('addPatch')} is only for changing an existing record: its copy changes that record everywhere`,
-            '  in the game. Edit the copy; never edit another mod\'s plugin.',
+            `  in the game. Change the copy with ${tool('editRecord')}; never edit another mod's plugin.`,
             `- ${tool('buildProject')} checks and builds. A refusal names the line to write: fix it, build again.`,
             '  `built_with_warnings`: the plugin is built — fix what each warning says and build again, that is part',
             '  of the task. A warning stays only where the user asked for just what it names.',
