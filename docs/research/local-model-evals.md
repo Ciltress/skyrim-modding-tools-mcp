@@ -222,6 +222,7 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-25 | gemma4:e4b | `all`, OpenClaw | 9f73920 | 39/45 | 3.86 s | ~7,252 tokens/s | ~166 tokens/s | 100% |
 | 2026-10-25 | gemma4:e4b | `all`, OpenClaw | 0054e61 | 43/45 | 3.81 s | ~7,364 tokens/s | ~172 tokens/s | 100% |
 | 2026-10-25 | gemma4:e4b | `all`, OpenClaw | 6c892b0 | 43/45 | 3.75 s | ~6,991 tokens/s | ~164 tokens/s | 100% |
+| 2026-10-25 | gemma4:e4b | `all`, OpenClaw | dfdb9eb | 44/45 | 3.52 s | ~7,040 tokens/s | ~169 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -342,72 +343,6 @@ model's: four turns lost calling `skills_read` with `skill:` instead of `name:`,
 effect on the enchantment, refused by the build, and the turns ran out. (The seconds do not compare: the
 GPU ran the second half at ~184 tokens/s of prompt against ~891.)
 
-## Round 54 — a field written inside a text moved out; e4b alone (2026-10-25)
-
-**Changed before it** (fd83ba8):
-
-- A field of the record written inside one of its texts is moved out of it, and any other line in a text refused; a
-  weapon's `ObjectEffect` naming a magic effect is told what an enchantment is.
-- The twenty-first round with AGENTS.md's "delivered" line. Nothing ran beside it. The clocks went back an hour
-  during it: it ran from 02:17 summer time to 02:08 winter time, 51 minutes.
-
-gemma4:e4b, `all`, OpenClaw, at 0054e61 (prompt ~7,364 tokens/s, generation ~172 tokens/s; first prompt 10364 tokens (27 tools, 17 of them this server's), think high, num_ctx 131072, num_predict none, temperature the Modelfile's, first token after 1.825 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 2 side requests):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 1/1 | 2 | 1 | 0 | 0 | 12037 | 128 |
-| read | 1/1 | 3 | 2 | 0 | 0 | 13021 | 42.2 |
-| filter | 1/1 | 2 | 1 | 0 | 0 | 10703 | 39.8 |
-| patch | 1/1 | 6 | 5 | 0 | 0 | 19551 | 45.7 |
-| build | 1/1 | 7 | 6 | 0 | 0 | 21457 | 50.3 |
-| sword | 5/5 | 11 | 10 | 1 | 0 | 25423 | 70.5 |
-| sword+detailed | 4/5 | 12.2 | 11.8 | 2 | 4 | 30950 | 89.7 |
-| spell | 5/5 | 6.2 | 5.2 | 0 | 0 | 17154 | 46.2 |
-| spell+detailed | 5/5 | 6.6 | 5.6 | 0 | 1 | 17606 | 51.7 |
-| npc | 5/5 | 10.4 | 9.4 | 3 | 6 | 29924 | 77 |
-| npc+detailed | 5/5 | 11.6 | 10.6 | 7 | 2 | 17600 | 74.9 |
-| note | 5/5 | 6.4 | 5.4 | 1 | 0 | 20393 | 61.6 |
-| note+detailed | 4/5 | 10.4 | 9.4 | 7 | 1 | 17420 | 79.4 |
-
-**Seen.**
-
-- **e4b 43 of 45** (round 53: 39): sword 9 of 10, spell 10, NPC 10, note 9, and the five simple tasks. Only
-  sword+detailed #5 left an unchanged copy and no playable sword. The build took a copied `FormKey` out in 8 runs,
-  copied escapes in 2 and moved fields in 4. It refused 19 builds in 11 runs (round 53: 17 in 9). A turn's median
-  thinking was 1,079 characters (1,145). 2 side requests.
-- **Round 53's fixes** did not come up: no field was written inside a text, no `ObjectEffect` named a magic effect.
-- **`editRecord`:** 6 calls in 6 runs, none refused (round 53: 1 of 5).
-- **Round 50's wording:** three refused builds named corrections; edits found nothing after one, which then read the
-  file and its next edit applied. In rounds 51–54, edits found nothing after 5 of the 17 such refusals — after 12 of
-  29 in rounds 40–50. The edit tool refused 12 of e4b's 35 edits by the replay (14 counted from the calls; round 53:
-  10 of 27): 8 sent text never in the file, 3 text a build had changed, 1 a field with another value.
-- **e4b's misses.**
-  - note+detailed #3 met round 51's refusal of a new record with a load-order editor ID. Told by the build's warning
-    that its renamed copy of Maven's note was an override — "delete this file's FormKey line and give it an
-    EditorID of its own" — it took the FormKey line out and kept the EditorID; refused for that, it gave the copy
-    `MavenNote_MavenWarning` and wrote a second file of that name; refused twice for two records of one editor ID, it
-    answered unbuilt. Without round 51's refusal the copy would have built as a new note, under Skyrim.esm's editor
-    ID.
-  - sword+detailed #5 copied the Iron Sword with addPatch and ended on a turn that made no call, its thinking planning
-    an `editRecord` call; OpenClaw answered after a request of its own that the mod was built, where no build had run.
-    13 failed runs of rounds 40–54 ended on a turn that made no call. In the six of rounds 49 and 52–54, the thinking
-    planned an `editRecord` call, and the turn wrote at most ~130 tokens beside its thinking — where the seven of
-    rounds 40–51 wrote 280 to 2,800, and an answer of a run that passed some 150. What those tokens were, the record
-    does not keep.
-- **The "delivered" line, twenty-one rounds:** sword+detailed #5 answered built with no build — OpenClaw's answer
-  after the turn; note+detailed #3 answered that the build had not gone through.
-
-**After the round (1504343):**
-
-- A new record with the editor ID of a record of the load order is given one of its own, from its in-game name —
-  Maven's Warning is MavensWarning, with a number where that is taken — as a correction, where round 51 refused it;
-  a link by the old one names the load order's record. The refusal stays for a record no name is found for.
-- The eval keeps what the model wrote beside its thinking in each turn, 600 characters of it — for the turn that
-  makes no call.
-
-**What it points at next:** what a turn that makes no call writes; whether the editor-ID correction holds where the
-refusal did not.
-
 ## Round 55 — a new record with a load-order editor ID given its own; e4b alone (2026-10-25)
 
 **Changed before it** (1504343):
@@ -473,3 +408,56 @@ gemma4:e4b, `all`, OpenClaw, at 6c892b0 (prompt ~6,991 tokens/s, generation ~164
   `Name.TargetLanguage.Value`, which the tool refuses with `Name.Value` named).
 
 **What it points at next:** whether turns that make no call end fewer runs; e4b ending a run with an unbuilt fix.
+
+## Round 56 — editRecord's set a list of paths and values; e4b alone (2026-10-25)
+
+**Changed before it** (ed70825):
+
+- `editRecord` takes `set` as a list of `{path, value}` items, the path never a key of the call — Ollama's gemma4
+  parser had dropped e4b's calls with a dotted key and words for its value, 22 times in 56 asked for.
+- The twenty-third round with AGENTS.md's "delivered" line. Nothing ran beside it.
+
+gemma4:e4b, `all`, OpenClaw, at dfdb9eb (prompt ~7,040 tokens/s, generation ~169 tokens/s; first prompt 10482 tokens (27 tools, 17 of them this server's), think high, num_ctx 131072, num_predict none, temperature the Modelfile's, first token after 1.86 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 1/1 | 2 | 1 | 0 | 0 | 12087 | 100.5 |
+| read | 1/1 | 3 | 2 | 0 | 0 | 13244 | 40.6 |
+| filter | 1/1 | 2 | 1 | 0 | 0 | 10846 | 39.6 |
+| patch | 1/1 | 6 | 5 | 0 | 0 | 21271 | 47.9 |
+| build | 1/1 | 7 | 6 | 0 | 0 | 21286 | 47.1 |
+| sword | 5/5 | 12.2 | 11.4 | 2 | 3 | 26874 | 81.5 |
+| sword+detailed | 5/5 | 12 | 11.2 | 2 | 5 | 26201 | 85 |
+| spell | 5/5 | 7 | 6.2 | 1 | 0 | 18880 | 53.4 |
+| spell+detailed | 5/5 | 7.6 | 6.6 | 0 | 0 | 20941 | 56.8 |
+| npc | 5/5 | 9.8 | 9 | 4 | 1 | 20307 | 67 |
+| npc+detailed | 5/5 | 9.8 | 8.8 | 5 | 2 | 18303 | 60.3 |
+| note | 5/5 | 7.2 | 6.2 | 2 | 0 | 17042 | 60 |
+| note+detailed | 4/5 | 8.2 | 7.2 | 2 | 0 | 19007 | 58.9 |
+
+**Seen.**
+
+- **e4b 44 of 45** (round 55: 43): sword 10 of 10, spell 10, NPC 10, note 9, and the five simple tasks, in 49
+  minutes. No run left a copy that changes nothing; every sword is playable. The build took a copied `FormKey` out
+  in 11 runs, copied escapes in 2 and moved fields in 3. It refused 16 builds in 13 runs (round 55: 12 in 8). A turn's
+  median thinking was 1,048 characters (1,072). No side request.
+- **Round 55's change:** no turn of the round came back with neither a call nor text — in rounds 40–55, 14 failed
+  runs ended on one. e4b called `editRecord` 9 times in 9 runs (round 55: 6 in 4), every call a list, seven of them
+  setting words by a dotted path — the shape Ollama had dropped, five of them `Name.Value`; all came through. The
+  one refused, sword+detailed #3's, met a file whose YAML did not read, and was sent to the build for the line.
+- **Earlier fixes:** sword #4 named a magic effect as its sword's `ObjectEffect` and was told what an enchantment is
+  (round 53); it named one, and passed — all 3 runs of rounds 40–53 refused so had failed.
+- **Round 50's wording:** four refused builds named corrections; edits found nothing after two. In rounds 51–56,
+  after 8 of the 22 such refusals — 12 of 29 in rounds 40–50. The edit tool refused 11 of e4b's 32 edits (10 of 22);
+  of the 8 the replay places, 4 sent a field with another value than the file's.
+- **e4b's miss.** note+detailed #5 wrote Maven's note first outside its project, with its line breaks typed as `\\n`;
+  told where it goes, wrote it there; refused for the text's indentation, wrote it anew and built — without
+  "Indaryn," at its head. The stray first file, outside the project and left out of the build, is what the escapes
+  check found.
+- **The "delivered" line, twenty-three rounds:** every run that builds answered as built, as it was.
+
+**After the round:** no change to the server — the miss was e4b's copy of the text. Round 57 runs from the same
+server, a second sample of round 55's change.
+
+**What it points at next:** whether a round with no empty turn holds; the edit tool's refusals for a field written
+with another value than the file's.
