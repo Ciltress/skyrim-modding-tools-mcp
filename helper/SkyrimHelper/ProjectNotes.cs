@@ -163,7 +163,7 @@ public static class ProjectNotes
     }
 
     /// <summary>A record's in-game name as its file writes it — `Name:` with its `Value:` below — unquoted; null for none.</summary>
-    private static string? NameIn(string text)
+    internal static string? NameIn(string text)
     {
         var lines = text.Replace("\r\n", "\n").Split('\n');
         var at = Array.FindIndex(lines, line => line.TrimEnd() == "Name:");

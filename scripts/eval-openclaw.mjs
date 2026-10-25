@@ -388,6 +388,9 @@ export async function runOpenClaw({ entry, prompt, model, cwd, configFile, works
         firstTokenSeconds: e.firstTokenMs === null ? null : e.firstTokenMs / 1000,
         thinkingChars: e.thinking.length,
         thinking: e.thinking,
+        // What the model wrote beside its thinking, as Ollama passed it on: 13 failed runs of eval rounds 40–54 ended on a
+        // turn with no call, six of them after thinking that planned an editRecord call, and at most ~130 tokens beside it.
+        content: e.content.slice(0, 600),
         calls: e.toolCalls.length,
         doneReason: e.doneReason,
         cut: !e.done || e.abandoned || !!e.error

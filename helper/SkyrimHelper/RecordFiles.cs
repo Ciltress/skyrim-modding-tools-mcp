@@ -1051,6 +1051,42 @@ public static class RecordFiles
         return changes;
     }
 
+    /// <summary>
+    /// Gives a new record — no FormKey line — written with the editor ID of a record of the load order an editor ID of its
+    /// own, from its in-game name: every link by the one it had would name it, and the game would have two records of one
+    /// editor ID. Refused, e4b half-did the build's own advice for addPatch's renamed copy — took out its FormKey line,
+    /// kept its EditorID — then named it so and wrote a second file of that name, and answered unbuilt (eval round 54's
+    /// note+detailed #3); in rounds 31 and 51 a magic effect so written took its spell's link from Skyrim.esm's. A link
+    /// by the old editor ID names the load order's record again.
+    /// </summary>
+    public static List<(string File, string Change)> RenameTakenEditorIds(string pluginDir, RecordIndex index)
+    {
+        var changes = new List<(string File, string Change)>();
+        var own = OwnPlugin(pluginDir);
+        var files = FlatRecords(pluginDir).Select(f => (f.File, f.Relative, Text: File.ReadAllText(f.File))).Where(f => !Empty(f.Text)).ToList();
+        var taken = files.Select(f => Identity(f.Text).EditorId).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        bool Free(string name) => !taken.Contains(name) && !index.ByEditorId.ContainsKey(name);
+        foreach (var (file, relative, text) in files)
+        {
+            if (Identity(text) is not { FormKey: null, EditorId: { } editorId } || !index.ByEditorId.TryGetValue(editorId, out var key)
+                || key.ModKey == own || !index.ByFormKey.TryGetValue(key, out var entry) || EditorIdLine.Match(text) is not { Success: true } line)
+                continue;
+            // The in-game name's words, each capitalized — Maven's Warning is MavensWarning — or the old name and the plugin's.
+            var named = ProjectNotes.NameIn(text) is { } words
+                ? string.Concat(Regex.Split(Regex.Replace(words, "['’]", ""), "[^A-Za-z0-9]+").Where(w => w.Length > 0).Select(w => char.ToUpperInvariant(w[0]) + w[1..]))
+                : "";
+            var stem = named.Length > 0 && char.IsLetter(named[0]) ? named : editorId + (own is { } plugin ? Regex.Replace(plugin.Name, "[^A-Za-z0-9]", "") : "New");
+            var name = Enumerable.Range(1, 99).Select(n => n == 1 ? stem : $"{stem}{n}").First(Free);
+            taken.Add(name);
+            var value = line.Groups[1];
+            File.WriteAllText(file, text[..value.Index] + name + text[(value.Index + value.Length)..]);
+            changes.Add((relative, $"wrote `EditorID: {name}` for `EditorID: {editorId}` — {editorId} is {key.ModKey.FileName}'s " +
+                $"{entry.Type} ({Session.FormKeyText(key)}), and this file, with no FormKey line, is a new record of its own; a link by " +
+                $"{editorId} names {key.ModKey.FileName}'s. To change that one instead, copy it in with addPatch and write this file empty"));
+        }
+        return changes;
+    }
+
     /// <summary>Throws what is wrong with the files, as the request's fault; answers how many there are, and those left out.</summary>
     public static (int Records, List<(string File, string Copy)> LeftOut) Require(string pluginDir, RecordIndex? index = null)
     {

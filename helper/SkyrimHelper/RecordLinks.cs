@@ -691,7 +691,8 @@ public static class RecordLinks
     /// A new record — no FormKey line yet — written with the editor ID of a record of the load order: every link by it
     /// names the new one, and the game has two records of one editor ID. e4b wrote `EditorID: ShockDamageFFAimed` with a
     /// few lines to change Skyrim.esm's, and its spell then cast that empty effect, refused until the turns ran out
-    /// (eval rounds 31 and 51, spell+detailed #3) — 4 runs of rounds 30–51 wrote one.
+    /// (eval rounds 31 and 51, spell+detailed #3) — 4 runs of rounds 30–51 wrote one. The checks give such a record an editor
+    /// ID of its own first (RecordFiles.RenameTakenEditorIds); this is for one they found no name for.
     /// </summary>
     private static string? TakenEditorId(string text, RecordIndex index, ModKey? ownPlugin)
     {
