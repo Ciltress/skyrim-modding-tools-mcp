@@ -92,19 +92,19 @@ describe('registering the server', () => {
 });
 
 describe('OpenClaw', () => {
-    const envFile = path.join('C:\\Tools', 'skyrim-modding-tools-mcp', '.env');
-
-    it('is pointed to the OpenClaw plugin, which can share this server\'s .env', () => {
+    it('is pointed to the OpenClaw plugin, whose settings are in OpenClaw\'s own Settings', () => {
         // The user, 2026-10-25: OpenClaw uses the plugin only; it carries the instructions, the skills and the tools
-        // under their own names, which OpenClaw drops, loads apart and prefixes for an MCP server.
-        const advice = openClawAdvice(envFile, false);
+        // under their own names, which OpenClaw drops, loads apart and prefixes for an MCP server. Its settings are
+        // its OpenClaw config, set in OpenClaw's Settings page, not this server's .env.
+        const advice = openClawAdvice(false);
         expect(advice).toHaveLength(1);
         expect(advice[0]).toContain('https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin');
-        expect(advice[0]).toContain(envFile);
+        expect(advice[0]).toContain('Settings');
+        expect(advice[0]).not.toContain('.env');
     });
 
     it('is told to remove this server where an earlier setup registered it, as every tool would be listed twice', () => {
-        expect(openClawAdvice(envFile, true)[1]).toContain('openclaw config unset mcp.servers.skyrim');
+        expect(openClawAdvice(true)[1]).toContain('openclaw config unset mcp.servers.skyrim');
     });
 });
 

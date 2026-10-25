@@ -74,8 +74,8 @@ Claude Code, Claude Desktop and VS Code, and ends with a healthcheck: the instan
 version it found. Everything it installs, downloads or registers, it asks about first.
 
 **OpenClaw** gets the same tools from the
-[OpenClaw plugin](https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin) instead, which can read
-this server's `.env`; setup says so when it finds OpenClaw.
+[OpenClaw plugin](https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin) instead, set up in OpenClaw's
+own Settings; setup says so when it finds OpenClaw.
 
 **Updating:** `git pull && npm run setup`, then restart your client. A client still running the server
 keeps the plugin helper in use; setup then names what to close.

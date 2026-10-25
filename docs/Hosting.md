@@ -80,9 +80,9 @@ A JSON file is read by no shell, so `~` does not work in its `args`: on Linux wr
 
 **OpenClaw** reads none of a server's `instructions`, prefixes its tools and, for a local model, hides
 them behind its Tool Search; the [OpenClaw plugin](https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin)
-serves it the same tools under their own names, with the instructions and the skills. Its `envFile` can be
-this server's `.env`. A registration of this server that an earlier setup wrote lists every tool a second
-time beside it: `openclaw config unset mcp.servers.skyrim`.
+serves it the same tools under their own names, with the instructions and the skills; its settings are set in
+OpenClaw's Settings, not in this server's `.env`. A registration of this server that an earlier setup wrote
+lists every tool a second time beside it: `openclaw config unset mcp.servers.skyrim`.
 
 **Paths in settings.** Neither `.env` nor a client's `env` block passes through a shell, so the server
 reads every setting that names a file or folder — `SKYRIM_MO2_INSTANCE`, `SKYRIM_AMETHYST_DIR`,

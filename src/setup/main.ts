@@ -340,7 +340,7 @@ async function register(run: Run): Promise<void> {
 
     if (await system.has('openclaw')) {
         const registered = await system.run('openclaw', ['config', 'get', `mcp.servers.${SERVER_NAME}`, '--json'], { capture: true });
-        left.push(...openClawAdvice(ENV_FILE, registered.code === 0));
+        left.push(...openClawAdvice(registered.code === 0));
     }
 }
 

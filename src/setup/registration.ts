@@ -42,13 +42,13 @@ export const OPENCLAW_PLUGIN_URL = 'https://github.com/Ciltress/skyrim-modding-t
 /**
  * What setup leaves an OpenClaw user to do. OpenClaw drops an MCP server's instructions, prefixes its tools and
  * hides them behind its Tool Search, so OpenClaw gets the tools from the plugin, which carries the instructions,
- * the skills and the tools under their own names (the user's call, 2026-10-25); the plugin can read this server's
- * `.env`. This server registered by an earlier setup would list every tool a second time.
+ * the skills and the tools under their own names (the user's call, 2026-10-25); its settings are its own, in
+ * OpenClaw's Settings page. This server registered by an earlier setup would list every tool a second time.
  */
-export function openClawAdvice(envFile: string, registered: boolean): string[] {
+export function openClawAdvice(registered: boolean): string[] {
     return [
         `For OpenClaw, install the OpenClaw plugin, not this server: ${OPENCLAW_PLUGIN_URL} — its README says how; ` +
-        `its envFile can be this server's ${envFile}.`,
+        'then set the Mod Organizer instance and the rest in OpenClaw\'s Settings, under Plugins → Skyrim Modding Tools.',
         ...(registered
             ? [`OpenClaw still has this server from an earlier setup, which the plugin replaces: openclaw config unset mcp.servers.${SERVER_NAME}`]
             : [])
