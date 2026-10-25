@@ -229,6 +229,7 @@ the test instance — a portable Mod Organizer on Skyrim SE 1.7.104 with no mods
 | 2026-10-25 | gemma4:e4b | `all`, OpenClaw | eefde62 + uncommitted changes | 43/45 | 3.81 s | ~7,275 tokens/s | ~179 tokens/s | 100% |
 | 2026-10-25 | gemma4:e4b | `all`, OpenClaw, Ollama 0.40.11-ciltress.2 | d7c300f | 44/45 | 3.72 s | ~7,219 tokens/s | ~176 tokens/s | 100% |
 | 2026-10-25 | gemma4:e4b | `all`, OpenClaw, Ollama 0.40.11-ciltress.2 | e30f1d8 | 44/45 | 3.86 s | ~7,133 tokens/s | ~159 tokens/s | 100% |
+| 2026-10-25 | gemma4:e4b | `all`, OpenClaw, Ollama 0.40.11-ciltress.2 | e2cd65c | 44/45 | 3.35 s | ~7,219 tokens/s | ~172 tokens/s | 100% |
 
 Rounds 1–5 ran before the script measured speed; their *prompt* and *generation* were measured
 afterwards the same way — they are the model's and the machine's, not the build's.
@@ -349,80 +350,6 @@ model's: four turns lost calling `skills_read` with `skill:` instead of `name:`,
 effect on the enchantment, refused by the build, and the turns ran out. (The seconds do not compare: the
 GPU ran the second half at ~184 tokens/s of prompt against ~891.)
 
-## Round 61 — paths placed, and our own Ollama; e4b alone (2026-10-25)
-
-**Changed before it, both at once:** `editRecord` sets a field sent one part off where it is, refuses an NPC's level
-in paths, and tells a magic effect's Data that it has no strength of its own (d67c02f). Ollama is our own build,
-`0.40.11-ciltress.2`, the user's call: the branch of ollama/ollama#19274, with ba73894, 37740df and 5cfc699 on
-upstream main d44c258, running on 0.40.11's runners. The round's progress file names it, from `ollama --version`.
-The twenty-eighth round with AGENTS.md's "delivered" line. Nothing ran beside it.
-
-gemma4:e4b, `all`, OpenClaw, Ollama 0.40.11-ciltress.2, at d7c300f (prompt ~7,219 tokens/s, generation ~176 tokens/s; first prompt 10524 tokens (27 tools, 17 of them this server's), think high, num_ctx 131072, num_predict none, temperature the Modelfile's, first token after 1.907 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
-
-| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
-|---|---|---|---|---|---|---|---|
-| find | 1/1 | 2 | 1 | 0 | 0 | 12155 | 186.5 |
-| read | 1/1 | 3 | 2 | 0 | 0 | 13235 | 41.9 |
-| filter | 1/1 | 2 | 1 | 0 | 0 | 10880 | 40.6 |
-| patch | 1/1 | 7 | 6 | 1 | 0 | 21268 | 51.1 |
-| build | 1/1 | 7 | 6 | 0 | 0 | 19867 | 48.9 |
-| sword | 5/5 | 11.4 | 10.8 | 1 | 3 | 29189 | 81.1 |
-| sword+detailed | 5/5 | 12.8 | 11.8 | 0 | 2 | 27676 | 84.2 |
-| spell | 5/5 | 7.4 | 6.4 | 2 | 1 | 18407 | 54.3 |
-| spell+detailed | 5/5 | 6.2 | 5.4 | 0 | 0 | 18550 | 52.1 |
-| npc | 5/5 | 12.8 | 11.8 | 13 | 0 | 26758 | 94.5 |
-| npc+detailed | 4/5 | 8.4 | 7.4 | 5 | 1 | 17438 | 57 |
-| note | 5/5 | 7 | 6 | 2 | 0 | 19949 | 60.1 |
-| note+detailed | 5/5 | 7.2 | 6.2 | 2 | 0 | 20855 | 57.7 |
-
-**Seen.**
-
-- **e4b 44 of 45** (round 60: 43): sword 10 of 10, spell 10, NPC 9, note 10, and the five simple tasks, in 52 minutes.
-  No run left a copy that changes nothing. The build took a copied `FormKey` out in 12 runs, moved fields in 3 and
-  undid copied escapes in 2. It refused 17 builds in 9 runs (round 60: 12 in 9). A turn's median thinking was 1,098
-  characters (1,115).
-- **Our Ollama** ran as the official 0.40.11 did: prompt ~7,219 and generation ~176 tokens/s (round 60: ~7,275 and
-  ~179). No turn came back with neither a call nor text, and its log has no call that failed to parse (round 60: 2).
-  A call it repairs is not logged, so whether a repair fired does not show. Two `edit` calls of sword #1 came with
-  no `path` at all, the shape of 4 of the 30 dropped calls replayed. OpenClaw refused them, and the run passed.
-- **Round 60's change** did not come up: no `editRecord` path was placed elsewhere, and no NPC's level was refused.
-- **addPatch and `editRecord`:** each of the 7 runs that copied a record changed it with `editRecord` (round 60: 7 of
-  7) — 16 calls in 9 runs, 3 refused (7), all npc #1's `Configuration.TemplateFlags[5]`: "TemplateFlags is no list".
-  The edit tool refused 7 of e4b's 22 edits (10 of 24): 4 sent text a build had changed since, 3 of them a mesh path
-  written with `\\`; 2 sent no path; and 1 sent text found twice. 10 `write`
-  calls went over a file the run had (6).
-- **Round 50's wording:** five refused builds named corrections where the record keeps them, and an edit after two of
-  them found nothing. In rounds 51–61, after 14 of the 38 such refusals.
-- **The "delivered" line, twenty-eight rounds:** each of the 40 runs whose last build passed answered as built. The
-  miss answered as built after a refused build.
-
-**e4b's miss.** npc+detailed #5 wrote Hilda with a woman's voice and no `Female` among her Flags. The build refused
-her Aggression, `Average`; set with `editRecord`, she built, with the warning that the game makes her a man — "a
-woman has `- Female` there". e4b set `Configuration.Flags` with `editRecord` to the text `"- AutoCalcStats\n-
-Unique\n- Female"`, its line ends written as `\n`. `editRecord` wrote that as one quoted text, and the build refused
-it: "Configuration.Flags is - AutoCalcStats\n- Unique\n- Female — it takes one of Female, Essential, …". The next
-text, `"AutoCalcStats\nUnique\nFemale"`, was written as one value again. e4b answered "Build Status: Success" with
-no build since, and the plugin was the one without Female.
-
-npc #1 put Female among the TemplateFlags, and was refused. It removed it with `editRecord` as
-`Configuration.TemplateFlags[5]`, three times, and was told "TemplateFlags is no list". Its hand edits broke the
-YAML twice. It passed after writing the file whole, in 23 calls.
-
-**After the round (9562e0a):**
-
-- `editRecord` takes a flags field as the list the file writes it as. Its items are named by number, as
-  `TemplateFlags[5]`. A text of several names, split at its line ends (written, or as `\n`) and at its commas, is set
-  as the list of them, as for a list of links, and the answer says "(a list, sent as a text)". One name alone, for a
-  list that holds others, is refused with the whole list to set: "Configuration.Flags: a list, set whole — to add
-  Essential, set it to ["AutoCalcStats","Unique","Female","Essential"]". Replayed, each of npc+detailed #5's two
-  calls sets the three flags, and Hilda builds a woman.
-- `editRecord`'s answer says "Run buildProject next — the plugin has this change only once a build answers success."
-  In rounds 49–61, 8 runs changed a file after their last build and answered without building again; 3 of them
-  failed.
-
-**What it points at next:** whether `editRecord`'s lists and its "build next" come up, and whether a call our Ollama
-cannot repair shows up in its log.
-
 ## Round 62 — flags as lists, and "build next"; e4b alone (2026-10-25)
 
 **Changed before it:** `editRecord` takes a flags field as the list the file writes it as, sets a text of several
@@ -483,3 +410,66 @@ the renamed copy and failed: round 52's sword #5, 54's note+detailed #3, 55's sw
   addPatch's note keeps its "if a new record like it was meant", since an override is what addPatch is for.
 
 **What it points at next:** whether a renamed copy is still kept.
+
+## Round 63 — a new record by default, and skyrim__editRecord named; e4b alone (2026-10-25)
+
+**Changed before it, both at once:** the build's warnings for a copied record, renamed or given the project's new
+enchantment, make a new record the default — "Unless the user asked for Iron Sword itself to change, make it a new
+record" (33cb75e); and AGENTS.md, the user's and the one setup writes, names `skyrim__editRecord` with an example and
+says to change addPatch's copy with it, where it named every other tool with OpenClaw's prefix and editRecord nowhere
+(e2cd65c, the user's call). Ollama our own build, `0.40.11-ciltress.2`. The thirtieth round with AGENTS.md's
+"delivered" line. Nothing ran beside it.
+
+gemma4:e4b, `all`, OpenClaw, Ollama 0.40.11-ciltress.2, at e2cd65c (prompt ~7,219 tokens/s, generation ~172 tokens/s; first prompt 10593 tokens (27 tools, 17 of them this server's), think high, num_ctx 131072, num_predict none, temperature the Modelfile's, first token after 1.912 s (median of the first turns), 0 answers cut off, 0 turns ended at the length limit, 0 side requests):
+
+| task | passed | turns | calls | invalid arguments | other errors | largest prompt (tokens) | seconds |
+|---|---|---|---|---|---|---|---|
+| find | 1/1 | 2 | 1 | 0 | 0 | 10771 | 107 |
+| read | 1/1 | 4 | 3 | 0 | 0 | 13394 | 39.6 |
+| filter | 1/1 | 2 | 1 | 0 | 0 | 10921 | 39.1 |
+| patch | 1/1 | 7 | 6 | 0 | 0 | 16858 | 53.5 |
+| build | 1/1 | 7 | 6 | 0 | 0 | 20215 | 46.7 |
+| sword | 5/5 | 11.4 | 10.4 | 6 | 1 | 27656 | 69.6 |
+| sword+detailed | 4/5 | 13.8 | 12.8 | 2 | 3 | 31347 | 86.2 |
+| spell | 5/5 | 6 | 5 | 0 | 0 | 17310 | 47 |
+| spell+detailed | 5/5 | 6.2 | 5.4 | 0 | 0 | 19136 | 52.2 |
+| npc | 5/5 | 8.2 | 7.2 | 0 | 0 | 20459 | 60.1 |
+| npc+detailed | 5/5 | 8.2 | 7.2 | 2 | 0 | 17887 | 59.2 |
+| note | 5/5 | 6 | 5 | 0 | 0 | 14707 | 56.2 |
+| note+detailed | 5/5 | 7.2 | 6.2 | 0 | 0 | 16473 | 57.7 |
+
+**Seen.**
+
+- **e4b 44 of 45** (round 62: 44): sword 9 of 10, spell 10, NPC 10, note 10, and the five simple tasks, in 46 minutes.
+  The build took a copied `FormKey` out in 8 runs, moved fields in 3 and undid copied escapes in 1. It refused 9 builds
+  in 6 runs (round 62: 15 in 10). A turn's median thinking was 956 characters (1,081).
+- **Speed:** prompt ~7,219 and generation ~172 tokens/s (round 62: ~7,133 and ~159; round 61: ~7,219 and ~176), on
+  the same Ollama build.
+- **Our Ollama:** no turn came back with neither a call nor text, and its log has no call that failed to parse.
+- **The AGENTS.md lines:** no call went to a tool by a name OpenClaw does not know (round 62: 7, all `editRecord`).
+  e4b used the edit tool less: 13 edits (27), 4 refused (7) — 2 sent a field with another value than the file's, 1 a
+  link comment, 1 text never in the file. `editRecord` took 18 calls in 12 runs, 1 refused (8): sword #5 named its copy by
+  the EditorID it had just changed, `DaedricSword`, was given the file, and the next call went through — as round 60's
+  npc #2 did.
+- **The warnings' new default:** a copy was warned of in 4 runs, each with "Unless the user asked for …", and all 4
+  passed (round 62: 1 of 5 failed so).
+- **Rounds 60 and 61's changes:** `editRecord` placed npc #5's `Health`, `Magicka` and `Stamina` under PlayerSkills,
+  saying "(sent as Health)". npc #2's Flags, sent as the text `["AutoCalcStats", "Unique", "Female"]`, were set as the
+  list of the three. npc #5 set those PlayerSkills after its last build, was told "Run buildProject next", and
+  answered as built; it passed, the checks naming no field it changed.
+- **addPatch:** each of the 7 runs that copied a record changed it with `editRecord`.
+- **Round 50's wording:** one refused build named corrections where the record keeps them, and 2 of the 3 edits after
+  it found nothing. In rounds 51–63, after 17 of the 41 such refusals.
+- **The "delivered" line, thirty rounds:** 41 of the 42 runs whose last build passed answered as built; patch #1 told
+  its steps without the word.
+
+**e4b's miss.** sword+detailed #2 wrote a new sword from the Iron Sword with the name `FlameBlade` — its EditorID —
+where "Flame Blade" was asked for, gave it the new enchantment with `editRecord`, and built it with no word against
+it. So no sword named Flame Blade was made. Of the files e4b wrote in rounds 40–63, it is the only one whose name was
+its EditorID, so nothing on the server's side warns of it.
+
+**After the round:** no change to the server. The eval's copy of the user's OpenClaw config takes the tools it denies
+— the file tools of the File Transfer plugin, and `nodes` — out of each agent's allow list too (4524330): left in,
+they were "unknown entries" in a warning OpenClaw printed on every run, though the user's own gateway has them.
+
+**What it points at next:** whether rounds 61–63's changes hold, now that most of e4b's runs pass.
