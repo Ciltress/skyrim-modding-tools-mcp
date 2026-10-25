@@ -403,6 +403,8 @@ public sealed class Session : IDisposable
         // Before the links are checked: a link may name the record by its file's name.
         corrected.AddRange(RecordFiles.NameFromFiles(dir, Index));
         corrected.AddRange(RecordFiles.RenameTakenEditorIds(dir, Index));
+        // Before the moves: what is left of another record type may break the reader they use.
+        corrected.AddRange(RecordFiles.DropOtherTypesFields(dir));
         corrected.AddRange(MisplacedFields.Move(dir));
         corrected.AddRange(MisplacedFields.MoveEffectData(dir));
         int records;

@@ -189,12 +189,14 @@ public static class RecordFiles
         (["Spell", "ObjectEffect", "Scroll"], ["Delivery"], "TargetType", "it is TargetType: Self, Touch, Aimed, TargetActor or TargetLocation"),
         (["Spell"], ["Cost", "MagickaCost"], "BaseCost", "it is BaseCost"),
         // Told only where a school is, e4b took MagicSkill out of its magic effect and kept it in the spell (eval round 23).
-        (["Spell"], ["School", "MagicSkill", "Skill"], null,
-            "delete it here, and keep the magic effect's: a spell's school is the MagicSkill of the magic effects its Effects name"),
+        (["Spell"], ["School", "MagicSkill", "Skill"], null, SpellSchool),
         (["Weapon"], ["Type", "WeaponType"], null, "a weapon's type is AnimationType, under Data — OneHandSword, TwoHandAxe, Bow…"),
         (["Npc"], ["Gender", "Sex", "Female"], null, "a female NPC has Female among the Flags under Configuration"),
         (["Npc", "NpcConfiguration", "PcLevelMult", "NpcLevel"], ["Level", "LevelMult", "CalcMinLevel", "CalcMaxLevel"], null, NpcLevel)
     ];
+
+    /// <summary>Where a spell's school is: in its magic effects, not in the spell — a field to delete there.</summary>
+    private const string SpellSchool = "delete it here, and keep the magic effect's: a spell's school is the MagicSkill of the magic effects its Effects name";
 
     /// <summary>Where the strength of a magic effect is written: in what names it, not in the effect.</summary>
     internal const string EffectStrength ="a magic effect has no strength of its own: Magnitude, Area and Duration go under Data, " +
@@ -258,7 +260,8 @@ public static class RecordFiles
     /// line, a field of one value to rename is answered as the line to write: told "an enchantment is
     /// ObjectEffect", a model wrote <c>EnchantmentID</c> (eval round 11's probes).
     /// </summary>
-    private static string? Hint(Type type, HashSet<string> known, string key, string? value = null, IReadOnlyList<string>? values = null)
+    private static string? Hint(Type type, HashSet<string> known, string key, string? value = null, IReadOnlyList<string>? values = null,
+        IReadOnlyList<string>? fields = null)
     {
         string Rename(string field, string otherwise) =>
             value is { Length: > 0 } && OneValue(type, field) ? $"write it as `{field}: {value}`" : otherwise;
@@ -270,7 +273,7 @@ public static class RecordFiles
             return Rename(number, $"it is spelled {number}");
         // "Move", not "it goes": told Value and Weight go under BasicStats, a model added BasicStats and kept
         // them at the top level, build after build (eval probe 7 after round 11).
-        if (Under(type, key, values) is { } path) return $"move it {path}";
+        if (Under(type, key, values, fields) is { } path) return $"move it {path}";
         // One letter off one field of the type: HalflCostPerk, told "delete it", was deleted, written back and deleted
         // again until the turns ran out (eval round 37's spell+detailed #3).
         return known.Where(k => OneEditApart(k, key)).ToList() is [var near] ? Rename(near, $"it is spelled {near}") : null;
@@ -306,8 +309,11 @@ public static class RecordFiles
     /// Skyrim are followed — a link's FormKey, a text's Value are no field a record is written with. Of two parts at one
     /// depth with the field, the one whose field takes the <paramref name="values"/> written: a weapon's Flags are
     /// Data's and Critical's, and OnDeath is only Critical's — sent to Data, e4b ran out of turns (eval round 40's sword #2).
+    /// A field written with <paramref name="fields"/> below it goes only where most of them are its: an enchantment written
+    /// after the Iron Sword was told to move the sword's Data — AnimationType, Speed, Reach — into each item of Effects
+    /// (eval round 58's sword+detailed #5).
     /// </summary>
-    private static string? Under(Type type, string key, IReadOnlyList<string>? values = null)
+    private static string? Under(Type type, string key, IReadOnlyList<string>? values = null, IReadOnlyList<string>? fields = null)
     {
         const BindingFlags Public = BindingFlags.Public | BindingFlags.Instance;
         var level = new List<(Type Part, string Path, bool Listed)> { (type, "", false) };
@@ -326,13 +332,45 @@ public static class RecordFiles
                 }
             // By name, not GetProperty: that throws where a class redeclares a property of its base. A part
             // of several kinds has the fields of each: Archetype's Type is MagicEffectArchetype's.
-            var hits = next.Where(n => (n.Part.IsAbstract ? Parts.Value.Where(n.Part.IsAssignableFrom) : [n.Part])
+            var hits = next.Where(n => KindsOf(n.Part)
                 .Any(kind => kind.GetProperties(Public).Any(p => p.Name.Equals(key, StringComparison.OrdinalIgnoreCase)))).ToList();
+            if (fields is { Count: > 0 }) hits = hits.Where(h => Fits(h.Part, key, fields)).ToList();
             if (hits.Count > 1 && values is { Count: > 0 } && hits.Where(h => Takes(h.Part, key, values)).ToList() is [var fits]) return fits.Path;
             if (hits.Count > 0) return hits.OrderBy(h => h.Listed).First().Path;
             level = next;
         }
         return null;
+    }
+
+    /// <summary>A part's kinds: its own type, or the concrete ones of a part of several kinds.</summary>
+    private static IEnumerable<Type> KindsOf(Type part) => part.IsAbstract ? Parts.Value.Where(part.IsAssignableFrom) : [part];
+
+    /// <summary>Whether most of the fields written below a part's field are fields of what that field holds, of any of its kinds.</summary>
+    private static bool Fits(Type part, string key, IReadOnlyList<string> fields)
+    {
+        const BindingFlags Public = BindingFlags.Public | BindingFlags.Instance;
+        foreach (var kind in KindsOf(part))
+        {
+            if (kind.GetProperties(Public).FirstOrDefault(p => p.Name.Equals(key, StringComparison.OrdinalIgnoreCase)) is not { } property) continue;
+            var held = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+            if (held != typeof(string) && held.IsGenericType && typeof(System.Collections.IList).IsAssignableFrom(held)) held = held.GetGenericArguments()[0];
+            var theirs = KindsOf(held).ToList();
+            if (fields.Count(f => theirs.Any(t => t.GetProperties(Public).Any(p => p.Name == f))) * 2 > fields.Count) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// The fields written one level below a top-level field written with fields below it — AnimationType, Speed… of a
+    /// weapon's Data; none for a field of one value, a list, or a flow.
+    /// </summary>
+    private static List<string> FieldsBelow(string text, string key)
+    {
+        var below = BlockOf(text, key).Split('\n').Skip(1).Where(line => line.Trim().Length > 0 && !line.TrimStart().StartsWith('#')).ToList();
+        if (below.Count == 0 || below[0].TrimStart().StartsWith('-')) return [];
+        var indent = below[0].Length - below[0].TrimStart().Length;
+        return below.Where(line => line.Length - line.TrimStart().Length == indent)
+            .Select(line => Regex.Match(line, @"^[ \t]+([A-Za-z_]\w*)[ \t]*:")).Where(m => m.Success).Select(m => m.Groups[1].Value).Distinct().ToList();
     }
 
     /// <summary>Whether a part's field of names takes each of the values: a flag or a kind its enum has.</summary>
@@ -374,9 +412,13 @@ public static class RecordFiles
     internal static string? PartFor(Type type, string key, string text)
     {
         if (type.Name == "Npc" && key is "Level" or "CalcMinLevel" or "CalcMaxLevel") return "Configuration";
-        var hint = DataHint(type, key, text) ?? Hint(type, FieldsOf(type), key, ValueOf(text, key), ValuesOf(text, key));
+        var hint = HintIn(type, FieldsOf(type), key, text);
         return hint is not null && Regex.Match(hint, @"^move it under (?<part>\w+)$") is { Success: true } move ? move.Groups["part"].Value : null;
     }
+
+    /// <summary>What a top-level field its type lacks is likely meant to be, as the file writes it — the value on its line, the fields below it — or null.</summary>
+    private static string? HintIn(Type type, HashSet<string> known, string key, string text) =>
+        DataHint(type, key, text) ?? Hint(type, known, key, ValueOf(text, key), ValuesOf(text, key), FieldsBelow(text, key));
 
     /// <summary>
     /// The unknown fields of a record file, named for a message: those with one hint together — "Damage,
@@ -387,7 +429,7 @@ public static class RecordFiles
     /// </summary>
     private static string Unknown(Type type, HashSet<string> known, IEnumerable<string> keys, string text)
     {
-        var hinted = keys.Select(key => (Key: key, Hint: DataHint(type, key, text) ?? Hint(type, known, key, ValueOf(text, key), ValuesOf(text, key)))).ToList();
+        var hinted = keys.Select(key => (Key: key, Hint: HintIn(type, known, key, text))).ToList();
         var named = hinted.Where(f => f.Hint is not null).GroupBy(f => f.Hint!).Select(group => group.Count() == 1
             ? $"{group.First().Key} ({group.Key}{Moved(text, group.Key, [group.First().Key])})"
             : $"{string.Join(", ", group.Select(f => f.Key))} ({Regex.Replace(group.Key, @"^(move it|it is)\b", m => m.Groups[1].Value == "move it" ? "move them" : "they are")}" +
@@ -933,6 +975,49 @@ public static class RecordFiles
     }
 
     /// <summary>
+    /// Deletes from a record file the fields of another record type, which its own type has nowhere, left in where the
+    /// file was written after a record of that type: Flame Blade Burn, written after the Iron Sword, kept the sword's Model,
+    /// BasicStats, Critical and thirteen more beside its own Effects; told to delete them, e4b planned the edit, its turn
+    /// came back with no call, and the run failed (eval round 58's sword+detailed #5) — 9 of the 18 such refusals of
+    /// rounds 40–58 were of a file so written, and two of those runs failed. Only fields the type has no other place for, two
+    /// or more, all of one other record type, in a file with fields of its own type that one lacks: a file of the other
+    /// type's fields alone is left to the refusal, which names that type's folder.
+    /// </summary>
+    public static List<(string File, string Change)> DropOtherTypesFields(string pluginDir)
+    {
+        var changes = new List<(string File, string Change)>();
+        foreach (var (file, relative, type) in FlatRecords(pluginDir))
+        {
+            var written = File.ReadAllText(file);
+            var text = written.Replace("\r\n", "\n");
+            var known = FieldsOf(type);
+            var fields = TopLevelKey.Matches(text).Select(m => m.Groups[1].Value).Where(k => k != "MutagenObjectType").Distinct().ToList();
+            // A spell's school is a field it has nowhere too, said as one to delete.
+            var nowhere = fields.Where(k => !known.Contains(k) && HintIn(type, known, k, text) is null or SpellSchool).ToList();
+            if (nowhere.Count < 2) continue;
+            var own = fields.Where(known.Contains).ToList();
+            var source = Groups.Values.OfType<Type>().Where(other => !other.IsAbstract && other != type).Distinct()
+                .Where(other => nowhere.All(k => WhereIn(other, k) is not null) && own.Any(k => !FieldsOf(other).Contains(k)))
+                .OrderByDescending(other => nowhere.Count(FieldsOf(other).Contains)).FirstOrDefault();
+            if (source is null) continue;
+            // Each field's block: its line, and the lines below it that are indented, listed or blank.
+            var kept = new List<string>();
+            var dropping = false;
+            foreach (var line in text.Split('\n'))
+            {
+                if (line.Length > 0 && line[0] is not (' ' or '\t' or '-' or '#'))
+                    dropping = TopLevelKey.Match(line) is { Success: true } key && nowhere.Contains(key.Groups[1].Value);
+                if (!dropping) kept.Add(line);
+            }
+            var left = string.Join('\n', kept);
+            File.WriteAllText(file, written.Contains("\r\n") ? left.Replace("\n", "\r\n") : left);
+            changes.Add((relative, $"deleted {string.Join(", ", nowhere.Select(k => $"`{k}`"))} — {Article(source.Name)}'s fields, which " +
+                $"{Article(type.Name)} has nowhere"));
+        }
+        return changes;
+    }
+
+    /// <summary>
     /// The value of a record's EditorID line as written, its quotes taken off — `Maven's Warning` too, which is no
     /// editor ID — or null where the record has no such line, or none with a value.
     /// </summary>
@@ -1122,9 +1207,45 @@ public static class RecordFiles
             if (number >= 1 && number <= lines.Length)
                 quoted = $" Line {number} is `{lines[number - 1].Trim()}`{Expected(message)}.";
         }
+        else if (path.Length > 0 && File.Exists(path) && message.Contains("hex string") && Groups.GetValueOrDefault(where.Split('/')[0]) is { } type)
+            quoted = BytesWritten(File.ReadAllLines(path), type);
         return new HelperException("badRecord",
             $"{where} cannot be read as a record: {message}{quoted} Write it the way readRecord shows a record of its " +
             "type — the same field names, nesting and value formats.");
+    }
+
+    /// <summary>
+    /// The lines that write a field of bytes otherwise than as hex — `Unused2: 0` for the Iron Sword's Critical `Unused2:
+    /// 0x000000` — for the reader's "not a valid hex string", which names no line: e4b's sword was so refused three builds
+    /// running (eval round 43's sword #3), and round 58's sword+detailed #5 wrote Critical's Unused2 so. Empty where none is.
+    /// </summary>
+    private static string BytesWritten(string[] lines, Type type)
+    {
+        // Each line's field found in the part its indent puts it in: Critical's Unused is a number, Data's three bytes.
+        var parts = new List<(int Column, Type Part)>();
+        var wrong = new List<string>();
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (Regex.Match(lines[i], @"^(?<lead>[ \t]*(?:-[ \t]+)?)(?<key>[A-Za-z_]\w*)[ \t]*:[ \t]*(?<value>[^\s#]*)") is not { Success: true } field) continue;
+            var column = field.Groups["lead"].Length;
+            while (parts.Count > 0 && parts[^1].Column >= column) parts.RemoveAt(parts.Count - 1);
+            var key = field.Groups["key"].Value;
+            if (KindsOf(parts.Count > 0 ? parts[^1].Part : type).Select(kind => kind.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                    .FirstOrDefault(p => p.Name == key)).FirstOrDefault(p => p is not null) is not { } property)
+                continue;
+            var held = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+            var value = field.Groups["value"].Value;
+            if (held == typeof(byte[]) || held.IsGenericType && held.GetGenericArguments() is [var of] && of == typeof(byte) && held.Name.Contains("MemorySlice"))
+            {
+                if (value.Length > 0 && !Regex.IsMatch(value, "^0x(?:[0-9A-Fa-f]{2})+$")) wrong.Add($"line {i + 1}, `{lines[i].Trim()}`");
+            }
+            else if (value.Length == 0)
+                parts.Add((column, held != typeof(string) && held.IsGenericType && typeof(System.Collections.IEnumerable).IsAssignableFrom(held)
+                    ? held.GetGenericArguments()[0] : held));
+        }
+        return wrong.Count == 0 ? ""
+            : $" Of bytes, written otherwise: {string.Join(", ", wrong)} — a field of bytes is written as readRecord shows it, 0x and two hex " +
+                "digits a byte, as `Unused2: 0x000000`.";
     }
 
     /// <summary>What the reader's "Expected X, got Y" means for the line it names.</summary>
