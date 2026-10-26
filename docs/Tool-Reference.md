@@ -3,7 +3,7 @@
 <!-- GENERATED FILE - do not edit by hand.
      Run `npm run build && npm run docs:tools` after changing any getTools(). -->
 
-Every tool this server can expose: **17 tools across 6 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
+Every tool this server can expose: **19 tools across 6 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
 
 **How many you can actually call is smaller.** The active `MCP_PROFILE` decides what is
 listed, and the server withholds anything the connected backend does not support.
@@ -27,7 +27,7 @@ what needs a human, not a permission system: nothing here is enforced.
 - [Bundled skills](#bundled-skills) — 1 tool
 - [Installing mods](#installing-mods) — 4 tools
 - [Nexus Mods](#nexus-mods) — 3 tools
-- [Projects: authoring and patching](#projects-authoring-and-patching) — 6 tools
+- [Projects: authoring and patching](#projects-authoring-and-patching) — 8 tools
 - [Records in the load order](#records-in-the-load-order) — 2 tools
 - [This server's own guides](#this-servers-own-guides) — 1 tool
 
@@ -120,6 +120,18 @@ _writes · idempotent_
 _writes · destructive · idempotent_
 
 `project`**\*** string · `record`**\*** string · `set` array · `remove` array
+
+**`moveRecord`** — Move one record file into a project's plugin folder: out of a folder the build does not read, to its .yaml name, or in from outside every project. The build's answers write this call out for each misplaced file. Then run buildProject.
+
+_writes · idempotent_
+
+`project`**\*** string · `from`**\*** string · `to`**\*** string
+
+**`deleteRecord`** — Delete one record file of the projects folder: a copy left behind where the build does not read it, or a record the mod no longer needs. The build's answers write this call out for each copy left behind. Then run buildProject.
+
+_writes · destructive · idempotent_
+
+`project`**\*** string · `record`**\*** string
 
 **`buildProject`** — Build a project's plugin from its text: gives new records their FormIDs (written back into their files, which keep their names), builds a link written as an editor ID — a new record of the project, or one of the load order — as that record's FormID, the file keeping the editor ID (`resolvedLinks`), checks that every link points at a record that exists, compiles the project's Papyrus scripts and writes the plugin with the header this game version needs. Refuses a project with no records, fields a record type does not have, and files below a group's folder — each named. What has one right fix — a FormKey copied into a new record, escapes copied out of a JSON answer, a field written where its record has none but one place it goes — it writes into the file and lists in `corrected`. What builds but likely not as meant — record files outside the plugin folder, an override renamed as if it were a new record, a woman's voice on a man — is answered with status `built_with_warnings` and the `warnings` first: the plugin is written, and each warning says what to fix. Does not touch the mod manager — deployProject does.
 
