@@ -115,11 +115,11 @@ _writes · idempotent_
 
 `project`**\*** string · `records`**\*** array · `from` string · `plugin` string
 
-**`editRecord`** — Change fields of one record file of a project by their paths — no old text to match. `set` lists each field's path and its value: [{"path": "BasicStats.Damage", "value": 12}, {"path": "Name", "value": "Flame Blade"}, {"path": "Effects[0].Data.Magnitude", "value": 40}] — a text field (Name, Description) takes its words, a link a FormID or an editor ID, a list a list, written whole; an object sets the fields it names inside that part and keeps its others, as {"path": "BasicStats", "value": {"Damage": 12}} does. `remove` takes paths to delete, any the file has: ["Critical", "Effects[1]"]. Changes only those lines, refuses a field the record's type does not have, and answers the file's new text. Then run buildProject.
+**`editRecord`** — Change fields of one record file of a project by their paths — no old text to match. `set` lists each field's path and its value: [{"path": "BasicStats.Damage", "value": 12}, {"path": "Name", "value": "Flame Blade"}, {"path": "Effects[0].Data.Magnitude", "value": 40}] — a text field (Name, Description) takes its words, a link a FormID or an editor ID, a list a list, written whole; an object sets the fields it names inside that part and keeps its others, as {"path": "BasicStats", "value": {"Damage": 12}} does. `remove` takes paths to delete, any the file has: ["Critical", "Effects[1]"]. Changes only those lines, refuses a field the record's type does not have, and answers the file's new text. Then run buildProject — or send `"build": true`, and this call builds the project after the change and answers that build, as buildProject does.
 
 _writes · destructive · idempotent_
 
-`project`**\*** string · `record`**\*** string · `set` array · `remove` array
+`project`**\*** string · `record`**\*** string · `set` array · `remove` array · `build` boolean
 
 **`moveRecord`** — Move one record file into a project's plugin folder: out of a folder the build does not read, to its .yaml name, or in from outside every project. The build's answers write this call out for each misplaced file. Then run buildProject.
 
