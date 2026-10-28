@@ -138,7 +138,7 @@ describe('routing', () => {
 
     it('says first in addPatch\'s answer which records are copied as overrides, and how a new record like one is made', async () => {
         // Asked for a new sword "like the Iron Sword", a model patched the Iron Sword and renamed it (eval probe 16);
-        // said after the copied files' text, e4b still did in four of six misses (eval round 22).
+        // said after the copied files' text, the model still did in four of six misses (eval round 22).
         const { client } = await connect();
         const payload = payloadOf(await call(client, 'addPatch', { project: 'FlameBlade', records: ['sample'] }));
 
@@ -154,7 +154,7 @@ describe('routing', () => {
     });
 
     it('takes editRecord\'s fields as a list of paths and values, and as the object it took first', async () => {
-        // Ollama's gemma4 parser dropped e4b's calls with a dotted key and words for its value, 22 times in 56 (a probe
+        // Ollama's tool-call parser dropped the model's calls with a dotted key and words for its value, 22 times in 56 (a probe
         // after eval round 55): the path is a value, never a key of the call.
         const { client } = await connect();
         await call(client, 'newProject', { project: 'FlameBlade' });
@@ -172,7 +172,7 @@ describe('routing', () => {
     });
 
     it('tells after editRecord to build again', async () => {
-        // A build refused, its field then set with editRecord, e4b answered "Build Status: Success" with no build since
+        // A build refused, its field then set with editRecord, the model answered "Build Status: Success" with no build since
         // (eval round 61's npc+detailed #5): the plugin was the one before.
         const { client } = await connect();
         await call(client, 'newProject', { project: 'FlameBlade' });
@@ -184,7 +184,7 @@ describe('routing', () => {
     });
 
     it('names in newProject\'s answer the skill of each record family, every one a skill the server serves', async () => {
-        // 26b skipped the family skill in three of nine authoring runs; every run that read it passed (eval round 12).
+        // A model skipped the family skill in three of nine authoring runs; every run that read it passed (eval round 12).
         const { client } = await connect();
         const payload = payloadOf(await call(client, 'newProject', { project: 'FlameBlade' }));
 
