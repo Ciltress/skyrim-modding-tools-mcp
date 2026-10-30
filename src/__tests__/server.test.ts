@@ -58,6 +58,15 @@ describe('initialize', () => {
         expect(client.getServerVersion()).toEqual(expect.objectContaining(SERVER_INFO));
     });
 
+    it('announces its title, website and icon, the small icon carried with it as a PNG', async () => {
+        const { client } = await connect();
+        const info = client.getServerVersion()!;
+        expect(info).toMatchObject({ title: 'Skyrim Modding Tools', websiteUrl: 'https://github.com/Ciltress/skyrim-modding-tools-mcp' });
+        const small = info.icons!.find(icon => icon.sizes?.includes('64x64'))!;
+        // A PNG's signature, decoded from the data URI: the file in assets/, not a path a client cannot open.
+        expect(Buffer.from(small.src.replace(/^data:image\/png;base64,/, ''), 'base64').subarray(1, 4).toString()).toBe('PNG');
+    });
+
     it('says what it is bound to and where the help is, before anything is called', async () => {
         const { client } = await connect();
         const instructions = client.getInstructions() ?? '';

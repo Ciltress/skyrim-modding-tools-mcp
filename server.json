@@ -1,8 +1,19 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.ciltress/skyrim-modding-tools-mcp",
+  "title": "Skyrim Modding Tools",
   "description": "Skyrim SE modding: look up records in a Mod Organizer load order, author mods and patches as text",
   "version": "0.1.0",
+  "websiteUrl": "https://github.com/Ciltress/skyrim-modding-tools-mcp",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/Ciltress/skyrim-modding-tools-mcp/main/assets/icon.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
   "repository": {
     "url": "https://github.com/Ciltress/skyrim-modding-tools-mcp",
     "source": "github"
@@ -108,7 +119,7 @@
         {
           "name": "NEXUS_API_KEY",
           "isSecret": true,
-          "description": "Your personal Nexus Mods API key (nexusmods.com/settings/api-keys). Without it the Nexus tools are not offered; downloadNexusFile is offered only when Nexus confirms a premium account. healthcheck shows the account it belongs to. Never share it: Nexus allows personal keys for personal use only."
+          "description": "Your personal Nexus Mods API key (nexusmods.com/settings/api-keys), for downloading through Nexus: downloadNexusFile is offered only when Nexus confirms a premium account. searchNexus and readNexusMod need no key. healthcheck shows the account it belongs to. Never share it: Nexus allows personal keys for personal use only."
         },
         {
           "name": "SKYRIM_ACCEPTED_TOKENS",

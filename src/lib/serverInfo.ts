@@ -27,6 +27,30 @@ export const SERVER_INFO: { name: string; version: string } = {
     version: String(packageJson.version)
 };
 
+/** Where the server lives: its repository, and the raw files of its main branch. */
+export const REPOSITORY = 'https://github.com/Ciltress/skyrim-modding-tools-mcp';
+const RAW = 'https://raw.githubusercontent.com/Ciltress/skyrim-modding-tools-mcp/main';
+
+/**
+ * How a client shows this server, beside its name and version: a title, what it does, where it lives, and the
+ * mudcrab icon (the user's wish, 2026-10-30). The small icon travels with the server as a data URI, so a client
+ * shows it offline and asks no one for it; the large one is the repository's copy. Kept apart from SERVER_INFO,
+ * which healthcheck answers with, so no answer carries the image.
+ */
+export const SERVER_PRESENTATION = {
+    title: 'Skyrim Modding Tools',
+    description: String(packageJson.description),
+    websiteUrl: REPOSITORY,
+    icons: [
+        {
+            src: `data:image/png;base64,${fs.readFileSync(path.join(PROJECT_ROOT, 'assets', 'icon-64.png')).toString('base64')}`,
+            mimeType: 'image/png',
+            sizes: ['64x64']
+        },
+        { src: `${RAW}/assets/icon.png`, mimeType: 'image/png', sizes: ['512x512'] }
+    ]
+};
+
 /**
  * The URI scheme of this server's resources — `<scheme>://guides/<id>` and
  * `<scheme>://skills/<collection>/<name>`. Derived from the package name, so a

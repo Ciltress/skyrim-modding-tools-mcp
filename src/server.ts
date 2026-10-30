@@ -46,7 +46,7 @@ import type {
   ProfileName,
   ToolDefinition,
 } from 'skyrim-modding-tools-core';
-import { PRODUCT, SERVER_INFO } from './lib/serverInfo.js';
+import { PRODUCT, SERVER_INFO, SERVER_PRESENTATION } from './lib/serverInfo.js';
 import {
   CORS_EXPOSED_HEADERS,
   CORS_REQUEST_HEADERS,
@@ -157,7 +157,7 @@ export class AppServer extends Server {
     const backend = dependencies.backend ?? createBackend(env, { product: PRODUCT });
 
     super(
-      { name: SERVER_INFO.name, version: SERVER_INFO.version },
+      { name: SERVER_INFO.name, version: SERVER_INFO.version, ...SERVER_PRESENTATION },
       {
         capabilities: {
           tools: {},
