@@ -42,7 +42,7 @@ From `src/handlers/AnalysisHandlers.ts` of skyrim-modding-tools-core.
 
 _read-only_
 
-`log` string · `section` string, one of header/accessViolation/cppException/relevantObjects/modelRequests/modelPaths/processInfo/threadContext/systemSpecs/callStack/registers/stack/modules/sksePlugins/gameState/plugins/missingMasters
+`log` string · `section` string
 
 ## Bundled skills
 
