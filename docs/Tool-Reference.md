@@ -102,15 +102,11 @@ From `src/handlers/NexusHandlers.ts` of skyrim-modding-tools-core.
 
 _read-only · reaches outside this backend_
 
-Needs the backend feature `nexus-api-key`; withheld where it is missing.
-
 `text` string · `sort` string, one of endorsements/downloads/updated · `limit` number, default `10`
 
 **`readNexusMod`** — One Nexus Mods page for Skyrim Special Edition: its description as text, what it requires — SKSE, other mods, DLC — and the files it offers now (main, update, optional, miscellaneous), each with its fileId, version and size. Check the requirements before recommending or installing a mod: one that lacks them crashes the game or does nothing.
 
 _read-only · reaches outside this backend_
-
-Needs the backend feature `nexus-api-key`; withheld where it is missing.
 
 `modId`**\*** number
 
