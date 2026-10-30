@@ -1,0 +1,68 @@
+[center][img]https://raw.githubusercontent.com/Ciltress/skyrim-modding-tools-mcp/main/.github/banner.jpg[/img][/center]
+
+[center][size=5][b]Mod Skyrim by talking to your AI assistant[/b][/size][/center]
+
+[size=4][b]Hi, fellow modders![/b][/size]
+I love this community, and I enjoy your mods every day. Modding Skyrim in my youth is what finally made me become a developer, so this project is my way of giving something back. I hope it makes modding a little easier, and a lot more fun, for you too.
+
+[size=4][b]What it is[/b][/size]
+Skyrim Modding Tools is an [b]MCP server[/b]: a set of tools an AI assistant can use on your own Skyrim Special Edition setup. It works with [b]Claude Code, Claude Desktop, VS Code[/b] and any other MCP client, [b]local models[/b] on your own PC included, and with [b]Mod Organizer 2[/b] on Windows or [b]Amethyst Mod Manager[/b] on Linux.
+
+Ask it things like:
+[quote]Make me a sword called Flame Blade that sets enemies on fire.
+Which mods change the Iron Sword, and which one wins?
+Make a patch that makes the Iron Sword a bit stronger.
+My game just crashed. Why?[/quote]
+
+[size=4][b]What it can do[/b][/size]
+[list]
+[*][b]Look it up:[/b] any record by name, editor ID or FormID, across your whole load order. Which mod adds it, which one wins, who else changes it.
+[*][b]Make mods as text:[/b] a mod is a folder of plain YAML files in Spriggit's format, easy to read and to keep in git. The build checks every link, gives new records their FormIDs, compiles Papyrus scripts and writes a real plugin, then tells you what it holds.
+[*][b]Patch without touching:[/b] copy another mod's record into your own patch and change it there. The original mod stays as it is.
+[*][b]Install mods:[/b] search Nexus Mods, read a mod's requirements, install it with its FOMOD installer answered, enable or disable mods, and check SKSE plugins against your game version.
+[*][b]Read crash logs:[/b] Crash Logger SSE's logs, checked against 105 known crashes, with the mod behind every file and record the log names.
+[/list]
+The Creation Kit stays for what only it does well, like placing objects and navmesh. Its work is pulled back into the text.
+
+[size=4][b]Requirements[/b][/size]
+[list]
+[*]Skyrim Special Edition 1.5.97 to 1.7.x
+[*]Mod Organizer 2 (2.5) on Windows, or Amethyst Mod Manager (2.5) on Linux
+[*][url=https://nodejs.org]Node.js 24[/url] and [url=https://git-scm.com]git[/url]. The setup installs the rest (the .NET 10 SDK).
+[*]An MCP client: Claude Code, Claude Desktop, VS Code and others. For OpenClaw, there is [url=https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin]the OpenClaw plugin[/url].
+[*]Optional: the Creation Kit (free on Steam), to compile Papyrus scripts
+[/list]
+
+[size=4][b]Installation[/b][/size]
+[list=1]
+[*]Download the main file and unpack it anywhere. Or clone it from GitHub, which makes updating easier.
+[*]Open a terminal in that folder and run: [code]npm run setup[/code]
+[*]Setup finds your mod manager, builds everything, registers the server with Claude Code, Claude Desktop and VS Code, and ends with a health check. It asks before it installs anything.
+[/list]
+Step-by-step instructions, for Linux too, are on [url=https://github.com/Ciltress/skyrim-modding-tools-mcp]GitHub[/url].
+
+[color=#e8a33d][b]Please start on a test instance.[/b][/color] Deploying and installing write into your Mod Organizer instance's mods and profile. A portable Mod Organizer on a clean game is the safe place to learn the tools. If your setup was installed by Wabbajack, its next update deletes every mod it did not install.
+
+[size=4][b]Nexus Mods and your API key[/b][/size]
+Searching Nexus and reading mod pages need no key. Downloading through Nexus's API needs the personal API key of a [b]premium[/b] account. The key stays on your PC and is sent only to Nexus's API. Without one, you download the file yourself, and the tools install it.
+
+[size=4][b]Made with AI, openly[/b][/size]
+The code was written together with Claude (Anthropic), and the banner was generated with FLUX. That's why this page carries the [i]AI-Generated Content[/i] and [i]AI Media[/i] tags. It is tested: over 900 automated tests, and regular evaluation rounds in which AI models build real mods on a test game.
+
+[size=4][b]Credits[/b][/size]
+[list]
+[*][url=https://github.com/Mutagen-Modding/Mutagen]Mutagen[/url] by Noggog, which reads and writes the plugins, and [url=https://github.com/Mutagen-Modding/Spriggit]Spriggit[/url], whose text format the projects use
+[*]Phostwood's [url=https://github.com/Phostwood/crash-analyzer]Skyrim Crash Log Analyzer[/url], whose crash rules the crash-log reader applies
+[*]Everyone in this community who shares mods, tools, guides and knowledge
+[/list]
+
+[size=4][b]Source and license[/b][/size]
+Free and open source, under GPL-3.0:
+[list]
+[*][url=https://github.com/Ciltress/skyrim-modding-tools-mcp]skyrim-modding-tools-mcp[/url]: this MCP server
+[*][url=https://github.com/Ciltress/skyrim-modding-tools-core]skyrim-modding-tools-core[/url]: the tools themselves, also usable from your own programs
+[*][url=https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin]skyrim-modding-tools-openclaw-plugin[/url]: the same tools for OpenClaw
+[/list]
+Found a bug or have an idea? Tell me in the Bugs or Posts tab here, or open an issue on GitHub.
+
+Happy modding! <3
