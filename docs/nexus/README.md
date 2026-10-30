@@ -16,10 +16,10 @@ website; afterwards, Nexus's v3 API can update its description and upload new fi
 | Media: Images (the gallery, at least one, 1920x1080 recommended) | [`tile.jpg`](tile.jpg), 1600x900, the same 16:9 |
 | Image in the description | [`muddy.png`](muddy.png), 200x200, Muddy for his section: [`assets/icon.png`](../../assets/icon.png) made smaller; the description links it from GitHub, so it is pushed before the page is pasted |
 | Tags | Utilities; **AI-Generated Content** (the code, written with Claude); **AI Media** (the banner, the tile and this page's text) |
-| Requirements, off-site | Node.js 24 (https://nodejs.org), git (https://git-scm.com) |
-| Requirements, Nexus mods | none |
-| Mod manager download | off: it is a program for the user's PC, not a mod to install into the game |
-| Permissions | open, as GPL-3.0 has it: upload, modify, convert and reuse, with credit and the same license |
+| Requirements (the legacy mod requirements: file-to-file ones name only Nexus files and DLC) | Off-site: Node.js 24 (https://nodejs.org), runs the server and its setup; git (https://git-scm.com), with which the setup fetches the core. Nexus mods: Mod Organizer 2, 2.5.2 or later, "On Windows. On Linux, Amethyst Mod Manager instead." The .NET 10 SDK is none: the setup installs it |
+| The file's options | Mod manager download off: it is a program for the user's PC, not a mod to install into the game. Primary file. The requirements popup on download on |
+| Third-party content | Yes, with permission: Phostwood's crash rules (GPL-3.0, as this package), offsets read from Address Library, Crash Logger SSE's log format (the core's THIRD_PARTY_NOTICES.md) |
+| Permissions | custom: open, as GPL-3.0 has it — upload, modify, convert and reuse, with credit, the same license and the source; Nexus's recommended settings forbid what GPL-3.0 allows |
 
 ## The file
 
