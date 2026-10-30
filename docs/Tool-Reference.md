@@ -3,7 +3,7 @@
 <!-- GENERATED FILE - do not edit by hand.
      Run `npm run build && npm run docs:tools` after changing any getTools(). -->
 
-Every tool this server can expose: **19 tools across 6 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
+Every tool this server can expose: **22 tools across 7 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
 
 **How many you can actually call is smaller.** The active `MCP_PROFILE` decides what is
 listed, and the server withholds anything the connected backend does not support.
@@ -24,14 +24,25 @@ what needs a human, not a permission system: nothing here is enforced.
 
 ## Families
 
+- [Analysis](#analysis) — 1 tool
 - [Bundled skills](#bundled-skills) — 1 tool
-- [Installing mods](#installing-mods) — 4 tools
+- [Installing mods](#installing-mods) — 6 tools
 - [Nexus Mods](#nexus-mods) — 3 tools
 - [Projects: authoring and patching](#projects-authoring-and-patching) — 8 tools
 - [Records in the load order](#records-in-the-load-order) — 2 tools
 - [This server's own guides](#this-servers-own-guides) — 1 tool
 
 ---
+
+## Analysis
+
+From `src/handlers/AnalysisHandlers.ts` of skyrim-modding-tools-core.
+
+**`readCrashLog`** — Why the game crashed, from Crash Logger SSE's log: the newest of this setup's, or the one `log` names. Answers the crash, up to 5 `diagnoses` — known crashes, most certain first, each with its fix — and up to 5 `suspects`: the mods whose DLL, plugin, mesh or texture the log points at, with the lines that do; and for each record the log names, the plugin that defines it and the one that changed it last. `section` answers one part of the log as written instead. Reads files; changes nothing.
+
+_read-only_
+
+`log` string · `section` string, one of header/accessViolation/cppException/relevantObjects/modelRequests/modelPaths/processInfo/threadContext/systemSpecs/callStack/registers/stack/modules/sksePlugins/gameState/plugins/missingMasters
 
 ## Bundled skills
 
@@ -70,6 +81,18 @@ _writes · destructive · idempotent_
 _writes · destructive · idempotent_
 
 `mod`**\*** string
+
+**`enableMod`** — Enable a disabled mod in the mod manager's selected profile — only when the user said so, for this mod: it stays where it is in the mod order, and its plugins join the load order as installMod places them. Then the mod manager is told, as for installMod. `missingMasters` names its plugins that need one no active plugin is: the game will not start until those mods are enabled too.
+
+_writes · idempotent_
+
+`mod`**\*** string
+
+**`editIni`** — Set or remove settings of the game's Skyrim.ini, SkyrimPrefs.ini or SkyrimCustom.ini — only when the user said so, for these settings: the copies the game reads for the selected profile (the profile's own, when the mod manager keeps them per profile; else those in My Games). Every other line stays as it was; the answer names each value as it was and is. The game reads them when it starts.
+
+_writes · destructive · idempotent_
+
+`set`**\*** array
 
 ## Nexus Mods
 

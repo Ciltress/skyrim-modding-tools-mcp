@@ -87,7 +87,7 @@ lists every tool a second time beside it: `openclaw config unset mcp.servers.sky
 **Paths in settings.** Neither `.env` nor a client's `env` block passes through a shell, so the server
 reads every setting that names a file or folder — `SKYRIM_MO2_INSTANCE`, `SKYRIM_AMETHYST_DIR`,
 `SKYRIM_WINE_PREFIX`, `SKYRIM_PROJECTS_DIR`, `SKYRIM_CK_DIR`, `SKYRIM_PAPYRUS_COMPILER`,
-`SKYRIM_HELPER_PATH` — the way a POSIX shell would, on Windows too
+`SKYRIM_HELPER_PATH`, `SKYRIM_CRASH_LOG_DIR` — the way a POSIX shell would, on Windows too
 (the core's [`pathSettings.ts`](https://github.com/Ciltress/skyrim-modding-tools-core/blob/main/src/backend/skyrim/pathSettings.ts)):
 
 | Written | Read as |

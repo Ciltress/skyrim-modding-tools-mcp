@@ -103,6 +103,7 @@ in a shell, on every system; a relative one is taken from the server's folder
 | `SKYRIM_PROJECTS_DIR` | `./projects` | Where projects live |
 | `SKYRIM_CK_DIR` | the instance's game folder | The Creation Kit, for its Papyrus compiler and vanilla script sources |
 | `SKYRIM_PAPYRUS_COMPILER` | the Creation Kit's (Windows); on Linux `papyrus-compiler` on `PATH`, else `tools/papyrus-compiler/papyrus` beside the server or in your home folder | `PapyrusCompiler.exe`, or russo-2025's `papyrus-compiler`, which runs on Linux |
+| `SKYRIM_CRASH_LOG_DIR` | `My Games\Skyrim Special Edition\SKSE` (under Proton, the prefix's) | Where `readCrashLog` reads Crash Logger SSE's `crash-*.log` files |
 | `SKYRIM_HELPER_PATH` | the core's `helper/bin/SkyrimHelper(.exe)` | The built plugin helper |
 | `MCP_PROFILE` | `all` | `core`, `readonly` or `all` — which tools are listed and callable |
 | `MCP_MAX_RESPONSE_BYTES` | per profile | Ceiling on one answer; `0` removes it |
