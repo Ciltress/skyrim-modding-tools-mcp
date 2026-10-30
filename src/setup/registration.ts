@@ -48,7 +48,7 @@ export const OPENCLAW_PLUGIN_URL = 'https://github.com/Ciltress/skyrim-modding-t
 export function openClawAdvice(registered: boolean): string[] {
     return [
         `For OpenClaw, install the OpenClaw plugin, not this server: ${OPENCLAW_PLUGIN_URL} — its README says how; ` +
-        'then set the Mod Organizer instance and the rest in OpenClaw\'s Settings, under Plugins → Skyrim Modding Tools.',
+        'then openclaw skyrim setup sets it up, and Muddy, the modding agent.',
         ...(registered
             ? [`OpenClaw still has this server from an earlier setup, which the plugin replaces: openclaw config unset mcp.servers.${SERVER_NAME}`]
             : [])

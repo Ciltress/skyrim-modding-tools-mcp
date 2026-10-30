@@ -58,11 +58,12 @@ src/
   lib/serverInfo.ts        PROJECT_ROOT, SERVER_INFO, RESOURCE_SCHEME and PRODUCT, from package.json
   lib/http.ts              the HTTP transport's gates: origins, hosts, bearer tokens, the rate limit
   setup/main.ts            npm run setup, a second program: prerequisites, the helper (built in the core's
-                           folder), .env, the Papyrus compiler, script sources, client registration, a
-                           healthcheck — asking only what readConfiguration() cannot find
+                           folder), .env, the Papyrus compiler, script sources, client registration, Muddy,
+                           a healthcheck — asking only what readConfiguration() cannot find
   setup/system.ts          setup's own operating-system seam: starting programs, package managers,
                            Claude Desktop's and Mod Organizer's folders
-  setup/envFile.ts, registration.ts, mo2Instances.ts, compiler.ts   what setup writes and runs
+  setup/envFile.ts, registration.ts, muddy.ts, compiler.ts   what setup writes and runs; Muddy's files are the
+                           core's (agents/muddy), shaped here for Claude Code and a folder's AGENTS.md
   __tests__/               vitest suites, all offline; the doubles come from skyrim-modding-tools-core/testing
 projects/                  the user's projects (mods as text); created on first use
 scripts/generate-tool-docs.mjs   writes docs/Tool-Reference.md; run after changing any getTools()

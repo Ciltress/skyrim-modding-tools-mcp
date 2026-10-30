@@ -3,6 +3,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {
   CallToolRequestSchema,
+  GetPromptRequestSchema,
+  ListPromptsRequestSchema,
   ListToolsRequestSchema,
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
@@ -24,6 +26,8 @@ import {
   createHandlers,
   discoverSkills,
   evaluateGate,
+  MUDDY,
+  muddyPrompt,
   explainMissingEnv,
   gatingEnabled,
   guideByUri,
@@ -163,6 +167,8 @@ export class AppServer extends Server {
           tools: {},
           // The server's own documentation and the bundled skills.
           resources: {},
+          // Muddy, the modding agent, for a client that starts a chat from a prompt.
+          prompts: {},
         },
         // The only thing a client sees before it calls anything — and therefore
         // the only way it can tell several of these servers apart.
@@ -179,6 +185,7 @@ export class AppServer extends Server {
     this.buildToolRoutes();
     this.setupToolHandlers();
     this.setupResourceHandlers();
+    this.setupPromptHandlers();
   }
 
   /**
@@ -506,6 +513,30 @@ export class AppServer extends Server {
         `Unknown resource '${uri}'. Guides: ${PRODUCT.guides.map((g) => guideUri(PRODUCT, g.id)).join(', ')}. ` +
           `Skills are listed by resources/list.`,
       );
+    });
+  }
+
+  /**
+   * Muddy, the modding agent, as a prompt: a client that lists prompts (Claude Desktop's attach menu, VS Code's slash
+   * commands) starts a chat with him from it. His soul and working rules are the core's, the ones every product
+   * installs.
+   */
+  private setupPromptHandlers() {
+    this.setRequestHandler(ListPromptsRequestSchema, async () => ({
+      prompts: [{ name: MUDDY.id, title: `${MUDDY.name} ${MUDDY.emoji}`, description: MUDDY.description }],
+    }));
+
+    this.setRequestHandler(GetPromptRequestSchema, async (request) => {
+      if (request.params.name !== MUDDY.id) {
+        throw new McpError(ErrorCode.InvalidParams, `Unknown prompt '${request.params.name}'. The one prompt is '${MUDDY.id}'.`);
+      }
+      return {
+        description: MUDDY.description,
+        messages: [{
+          role: 'user' as const,
+          content: { type: 'text' as const, text: `${muddyPrompt()}\nGreet me as ${MUDDY.name}, then ask what I want to mod.` },
+        }],
+      };
     });
   }
 

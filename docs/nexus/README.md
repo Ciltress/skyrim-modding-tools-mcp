@@ -14,6 +14,7 @@ website; afterwards, Nexus's v3 API can update its description and upload new fi
 | Description | [`description.bbcode`](description.bbcode), pasted into the editor's source view |
 | Primary image | [`.github/banner.jpg`](../../.github/banner.jpg) |
 | Image, 16:9 | [`tile.jpg`](tile.jpg), 1600x900, for where Nexus shows the mod as a tile |
+| Image in the description | [`muddy.png`](muddy.png), 200x200, Muddy for his section: [`assets/icon.png`](../../assets/icon.png) made smaller; the description links it from GitHub, so it is pushed before the page is pasted |
 | Tags | Utilities; **AI-Generated Content** (the code, written with Claude); **AI Media** (the banner, the tile and this page's text) |
 | Requirements, off-site | Node.js 24 (https://nodejs.org), git (https://git-scm.com) |
 | Requirements, Nexus mods | none |

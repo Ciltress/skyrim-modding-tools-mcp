@@ -4,8 +4,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { parse } from 'dotenv';
 import { checksumMatches, PAPYRUS_COMPILER } from '../setup/compiler';
+import { muddyPrompt } from 'skyrim-modding-tools-core';
 import { envValue, setEnvValues } from '../setup/envFile';
-import { skyrimInstances } from '../setup/mo2Instances';
+import { claudeCodeAgent, folderAgentsFile, FOLDER_CLAUDE_FILE, muddyFileState, writeMuddyFile } from '../setup/muddy';
 import { claudeCodeArgs, desktopConfigWithServer, openClawAdvice, SERVER_NAME, vsCodeArgs } from '../setup/registration';
 import { helperHolders, installCommand, windowsCommandLine } from '../setup/system';
 
@@ -92,19 +93,44 @@ describe('registering the server', () => {
 });
 
 describe('OpenClaw', () => {
-    it('is pointed to the OpenClaw plugin, whose settings are in OpenClaw\'s own Settings', () => {
+    it('is pointed to the OpenClaw plugin, whose own wizard sets it up, and Muddy', () => {
         // The user, 2026-10-25: OpenClaw uses the plugin only; it carries the instructions, the skills and the tools
         // under their own names, which OpenClaw drops, loads apart and prefixes for an MCP server. Its settings are
-        // its OpenClaw config, set in OpenClaw's Settings page, not this server's .env.
+        // its OpenClaw config, which its wizard writes, not this server's .env.
         const advice = openClawAdvice(false);
         expect(advice).toHaveLength(1);
         expect(advice[0]).toContain('https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin');
-        expect(advice[0]).toContain('Settings');
+        expect(advice[0]).toContain('openclaw skyrim setup');
         expect(advice[0]).not.toContain('.env');
     });
 
     it('is told to remove this server where an earlier setup registered it, as every tool would be listed twice', () => {
         expect(openClawAdvice(true)[1]).toContain('openclaw config unset mcp.servers.skyrim');
+    });
+});
+
+describe('Muddy, the modding agent', () => {
+    it('is a Claude Code agent with every tool, his description a YAML string, his body the core\'s prompt', () => {
+        const [, frontmatter, body] = claudeCodeAgent().split(/^---$/m);
+        const fields = Object.fromEntries(frontmatter!.trim().split('\n').map(line => [line.slice(0, line.indexOf(':')), line.slice(line.indexOf(':') + 1).trim()]));
+        expect(fields.name).toBe('muddy');
+        expect(JSON.parse(fields.description!)).toMatch(/^Muddy, the mudcrab who mods Skyrim Special Edition: /);
+        expect(fields.model).toBe('inherit');
+        expect(fields.tools).toBeUndefined();
+        expect(body!.trim()).toBe(muddyPrompt().trim());
+    });
+
+    it('is one AGENTS.md for a folder, soul and rules, with a CLAUDE.md that imports it', () => {
+        expect(folderAgentsFile()).toMatch(/^# AGENTS\.md - Muddy\n\nYou are Muddy[\s\S]*## How you work/);
+        expect(FOLDER_CLAUDE_FILE).toBe('@AGENTS.md\n');
+    });
+
+    it('tells a missing file, his own, and one that differs apart', () => {
+        const file = path.join(tempDir(), 'agents', 'muddy.md');
+        expect(muddyFileState(file, 'his')).toBe('missing');
+        writeMuddyFile(file, 'his');
+        expect(muddyFileState(file, 'his')).toBe('same');
+        expect(muddyFileState(file, 'his, newer')).toBe('differs');
     });
 });
 
@@ -125,18 +151,6 @@ describe('a helper in use', () => {
         ];
         expect(helperHolders(programs, dir).map(p => p.pid)).toEqual([10, 20]);
         expect(helperHolders(programs.filter(p => p.name !== 'SkyrimHelper.exe'), dir)).toEqual([]);
-    });
-});
-
-describe('Mod Organizer\'s instances', () => {
-    it('offers the global instances that manage Skyrim Special Edition, and no others', () => {
-        const root = tempDir();
-        write(path.join(root, 'Skyrim SE', 'ModOrganizer.ini'), '[General]\ngameName=Skyrim Special Edition\n');
-        write(path.join(root, 'Fallout', 'ModOrganizer.ini'), '[General]\ngameName=Fallout 4\n');
-        write(path.join(root, 'Broken', 'notes.txt'), 'no ini');
-        write(path.join(root, 'LoreRim', 'ModOrganizer.ini'), '[General]\r\ngameName=Skyrim Special Edition\r\n');
-        expect(skyrimInstances(root)).toEqual([path.join(root, 'LoreRim'), path.join(root, 'Skyrim SE')]);
-        expect(skyrimInstances(path.join(root, 'nowhere'))).toEqual([]);
     });
 });
 

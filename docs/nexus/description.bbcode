@@ -24,6 +24,15 @@ My game just crashed. Why?[/quote]
 [/list]
 The Creation Kit stays for what only it does well, like placing objects and navmesh. Its work is pulled back into the text.
 
+[size=4][b]Modding with Muddy![/b][/size]
+[center][img]https://raw.githubusercontent.com/Ciltress/skyrim-modding-tools-mcp/main/docs/nexus/muddy.png[/img][/center]
+Meet [b]Muddy[/b], the modding agent: a mudcrab from the shore below Riverwood who learned to mod Skyrim. Cheerful, proud of his shell, and exact at the workbench. He reads the modding guides before he writes a record, builds until the build says it worked, and leaves your mod manager alone unless you ask.
+[list]
+[*][b]Claude Code, VS Code, Claude Desktop, ChatGPT and others:[/b] the setup asks if you want him and sets him up. The [url=https://github.com/Ciltress/skyrim-modding-tools-mcp/blob/main/docs/Muddy.md]guide to Muddy[/url] has the steps for each one.
+[*][b]OpenClaw:[/b] the OpenClaw plugin's wizard, [code]openclaw skyrim setup[/code], makes him an agent and asks which model he thinks with.
+[*][b]The simplest way:[/b] copy his two files, AGENTS.md and SOUL.md, into the folder your AI works in.
+[/list]
+
 [size=4][b]Requirements[/b][/size]
 [list]
 [*]Skyrim Special Edition 1.5.97 to 1.7.x
@@ -37,7 +46,7 @@ The Creation Kit stays for what only it does well, like placing objects and navm
 [list=1]
 [*]Download the main file and unpack it anywhere. Or clone it from GitHub, which makes updating easier.
 [*]Open a terminal in that folder and run: [code]npm run setup[/code]
-[*]Setup finds your mod manager, builds everything, registers the server with Claude Code, Claude Desktop and VS Code, and ends with a health check. It asks before it installs anything.
+[*]Setup finds your mod manager, builds everything, registers the server with Claude Code, Claude Desktop and VS Code, sets up Muddy, and ends with a health check. It asks before it installs anything.
 [/list]
 Step-by-step instructions, for Linux too, are on [url=https://github.com/Ciltress/skyrim-modding-tools-mcp]GitHub[/url].
 

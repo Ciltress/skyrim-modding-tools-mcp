@@ -77,6 +77,29 @@ format.
 and one skill each for items and crafting, magic, NPCs, leveled lists, game updates and crash analysis.
 `readServerGuide` serves the server's own guides, and `healthcheck` says what the server is bound to.
 
+## Modding with Muddy! 🦀
+
+<img src="assets/icon.png" align="right" width="140" alt="Muddy, a mudcrab with a sword">
+
+Meet **Muddy**, the modding agent: a mudcrab from the shore below Riverwood who learned to mod Skyrim. Cheerful,
+proud of his shell, and exact at the workbench. He reads the skills before he writes a record, builds until the build
+says `success`, and leaves your mod manager alone unless you ask.
+
+`npm run setup` sets him up after a yes, and the [guide to Muddy](docs/Muddy.md) has the steps for each client:
+
+| Client | Muddy |
+| --- | --- |
+| **OpenClaw** | `openclaw skyrim setup`, the [OpenClaw plugin](https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin)'s wizard |
+| **Claude Code** | `claude --agent muddy`, or `@agent-muddy` in a chat |
+| **Claude Desktop** | A project with Muddy's instructions |
+| **VS Code** | Pick *Muddy* in the chat's agent list |
+| **ChatGPT** | The desktop app, with a local project on your projects folder |
+| **Any other MCP client** | Muddy's instructions as its system prompt, or the server's `muddy` prompt |
+
+Or paste [this prompt](docs/Muddy.md#let-your-agent-set-him-up) into the agent you use, and it sets him up for you.
+The simplest way of all: copy his two files, [`AGENTS.md` and `SOUL.md`](https://github.com/Ciltress/skyrim-modding-tools-core/tree/main/agents/muddy),
+into the folder your agent works in.
+
 ## Requirements
 
 - **Skyrim Special Edition** 1.5.97 to 1.7.x, managed by **Mod Organizer 2** (2.5) on Windows, or
@@ -116,12 +139,13 @@ npm run setup
 plugin helper, and finds your mod manager — it asks for the Mod Organizer instance only when it finds
 none, and for your Nexus Mods API key if you want to download through Nexus (a premium account's;
 searching and reading Nexus need none). It registers the server with
-Claude Code, Claude Desktop and VS Code, and ends with a healthcheck: the instance, profile and game
-version it found. Everything it installs, downloads or registers, it asks about first.
+Claude Code, Claude Desktop and VS Code, sets up [Muddy](#modding-with-muddy-), and ends with a healthcheck: the
+instance, profile and game version it found. Everything it installs, downloads, registers or writes, it asks about
+first.
 
 **OpenClaw** gets the same tools from the
-[OpenClaw plugin](https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin) instead, set up in OpenClaw's
-own Settings; setup says so when it finds OpenClaw.
+[OpenClaw plugin](https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin) instead, set up with its own
+wizard, `openclaw skyrim setup`; setup says so when it finds OpenClaw.
 
 **Updating:** `git pull && npm run setup`, then restart your client. A client still running the server
 keeps the plugin helper in use; setup then names what to close.
@@ -169,6 +193,7 @@ OpenClaw plugin both serve. The core can also be used on its own, from your own 
 | [`docs/Tool-Reference.md`](docs/Tool-Reference.md) | Every tool and argument — generated, never edited by hand |
 | The core's [`skills/`](https://github.com/Ciltress/skyrim-modding-tools-core/tree/main/skills) | The modding knowledge the server serves to agents |
 | The core's [`CONTEXT.md`](https://github.com/Ciltress/skyrim-modding-tools-core/blob/main/CONTEXT.md) | The vocabulary |
+| [`docs/Muddy.md`](docs/Muddy.md) | Muddy, the modding agent, in each client |
 | [`docs/Hosting.md`](docs/Hosting.md) | stdio and Streamable HTTP |
 | [`AGENTS.md`](AGENTS.md) | Working on this code |
 

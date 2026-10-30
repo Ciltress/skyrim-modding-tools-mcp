@@ -129,6 +129,21 @@ describe('resources', () => {
     });
 });
 
+describe('prompts', () => {
+    it('offers Muddy, the modding agent, his soul and working rules in one message', async () => {
+        const { client } = await connect();
+        expect((await client.listPrompts()).prompts).toEqual([expect.objectContaining({ name: 'muddy', title: 'Muddy 🦀' })]);
+        const prompt = await client.getPrompt({ name: 'muddy' });
+        expect(prompt.messages).toHaveLength(1);
+        expect(String((prompt.messages[0]!.content as any).text)).toMatch(/^You are Muddy[\s\S]*## How you work[\s\S]*Greet me as Muddy/);
+    });
+
+    it('refuses an unknown prompt and names the one there is', async () => {
+        const { client } = await connect();
+        await expect(client.getPrompt({ name: 'serana' })).rejects.toThrow(/The one prompt is 'muddy'/);
+    });
+});
+
 describe('routing', () => {
     it('tells a model a tool exists but is out of profile, rather than denying it', async () => {
         // Without this a model that knows the tool exists is told it does not,

@@ -14,7 +14,9 @@
  *   5. the vanilla script sources, unpacked after a yes where that is safe;
  *   6. the server registered with Claude Code, VS Code and Claude Desktop, each after a yes; OpenClaw
  *      pointed to the OpenClaw plugin, which serves it the same tools;
- *   7. a healthcheck through the built server, as a client starts it.
+ *   7. Muddy, the modding agent, after a yes: a Claude Code agent, which VS Code lists too, and his
+ *      instructions in the projects folder, for the clients that read a folder's AGENTS.md;
+ *   8. a healthcheck through the built server, as a client starts it.
  *
  * Run where no one can answer — an agent running it for the user — it asks nothing, skips what needs a
  * yes, and ends with the list of what is left. `--instance <folder>` names the Mod Organizer instance.
@@ -29,12 +31,12 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import {
     chooseModManager, CORE_ROOT, currentPlatform, findCaseInsensitive, InstanceConfigError, pathSetting, readConfiguration,
-    SOURCE_FOLDERS
+    skyrimInstances, SOURCE_FOLDERS
 } from 'skyrim-modding-tools-core';
 import { PROJECT_ROOT, SERVER_INFO } from '../lib/serverInfo.js';
 import { downloadCompiler } from './compiler.js';
 import { setEnvValues } from './envFile.js';
-import { skyrimInstances } from './mo2Instances.js';
+import { claudeCodeAgent, folderAgentsFile, FOLDER_CLAUDE_FILE, muddyFileState, writeMuddyFile } from './muddy.js';
 import { claudeCodeArgs, desktopConfigWithServer, openClawAdvice, SERVER_NAME, vsCodeArgs } from './registration.js';
 import { helperHolders, installCommand, setupSystem, type RunningProgram, type SetupSystem } from './system.js';
 
@@ -345,7 +347,43 @@ async function register(run: Run): Promise<void> {
 }
 
 /**
- * 7. The server started as a client starts it, made to read the load order with one search — the
+ * 7. Muddy, the modding agent: a Claude Code agent file, which VS Code reads too, and his instructions as the
+ * projects folder's AGENTS.md, with a CLAUDE.md that imports it. A file of his that differs — an older Muddy, or the
+ * user's own — is replaced only after a yes.
+ */
+async function muddy(run: Run): Promise<void> {
+    const { ui, left } = run;
+    if (!await ui.yes('Set up Muddy 🦀, the modding agent, for your clients?')) {
+        if (!ui.interactive) left.push('Optional: Muddy, the modding agent — run npm run setup in a terminal, or see docs/Muddy.md.');
+        return;
+    }
+    const projects = readConfiguration(currentEnv(), { root: PROJECT_ROOT }).paths.SKYRIM_PROJECTS_DIR!;
+    const agent = path.join(os.homedir(), '.claude', 'agents', 'muddy.md');
+    const files: [string, string][] = [
+        [agent, claudeCodeAgent()],
+        [path.join(projects, 'AGENTS.md'), folderAgentsFile()],
+        [path.join(projects, 'CLAUDE.md'), FOLDER_CLAUDE_FILE]
+    ];
+    for (const [file, content] of files) {
+        const state = muddyFileState(file, content);
+        if (state === 'same') continue;
+        if (state === 'missing' || await ui.yes(`${file} differs from Muddy's. Replace it?`)) {
+            writeMuddyFile(file, content);
+            ui.say(`Written: ${file}`);
+        } else {
+            left.push(`${file} is kept as it is; Muddy's is in docs/Muddy.md.`);
+        }
+    }
+    ui.say('Muddy is ready:');
+    ui.say('  Claude Code: claude --agent muddy, or @agent-muddy in a chat');
+    ui.say('  VS Code: pick Muddy in the agent list of the chat');
+    ui.say(`  Codex, the ChatGPT desktop app, Cursor: open ${projects}`);
+    ui.say(`  Claude Desktop: a project with ${path.join(projects, 'AGENTS.md')} as its instructions`);
+    ui.say('  OpenClaw: openclaw skyrim setup, in the OpenClaw plugin');
+}
+
+/**
+ * 8. The server started as a client starts it, made to read the load order with one search — the
  * helper starts with the first tool call — and asked what it found.
  */
 async function healthcheck(run: Run): Promise<void> {
@@ -396,7 +434,9 @@ async function main(): Promise<void> {
         await scriptSources(run);
         ui.step('6. Your MCP clients');
         await register(run);
-        ui.step('7. Healthcheck');
+        ui.step('7. Muddy, the modding agent');
+        await muddy(run);
+        ui.step('8. Healthcheck');
         await healthcheck(run);
     } finally {
         ui.close();
