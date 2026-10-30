@@ -1,36 +1,81 @@
+<p align="center">
+  <img src=".github/banner.jpg" alt="Skyrim Modding Tools: MCP — a mudcrab at its workbench, forging a glowing sword" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://github.com/Ciltress/skyrim-modding-tools-mcp/actions/workflows/ci.yml"><img src="https://github.com/Ciltress/skyrim-modding-tools-mcp/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0"></a>
+  <img src="https://img.shields.io/badge/Skyrim-Special%20Edition-5a6b7c" alt="Skyrim Special Edition">
+  <img src="https://img.shields.io/badge/MCP-server-8a5cf6" alt="MCP server">
+</p>
+
 # skyrim-modding-tools-mcp
 
-An MCP server for **Skyrim Special Edition modding** with Mod Organizer 2 on Windows, or Amethyst
-Mod Manager on Linux. It lets an AI agent look records up across your whole load order — who defines
-a sword, which mods change it, and how — and **author mods and patches as text**: records are YAML
-files in a git-versioned project, built into a plugin and deployed into the mod manager. The Creation Kit stays for what only it can do (placing
-objects, navmesh); its work is pulled back into the text.
+**Mod Skyrim Special Edition by talking to your AI agent.** This MCP server gives Claude Code, Claude Desktop,
+VS Code — any MCP client — the tools to look into your whole load order, make mods and patches, install mods from
+Nexus Mods and read your crash logs. It works with Mod Organizer 2 on Windows and Amethyst Mod Manager on Linux.
 
-Plugins are read and written by [Mutagen](https://github.com/Mutagen-Modding/Mutagen); the text is
-[Spriggit](https://github.com/Mutagen-Modding/Spriggit)'s format.
+Ask it things like:
+
+> *Make me a sword called Flame Blade that sets enemies on fire.*
+>
+> *Which mods change the Iron Sword, and which one wins?*
+>
+> *Make a patch that makes the Iron Sword a bit stronger.*
+>
+> *My game just crashed. Why?*
+
+A mod is made as text: one YAML file per record, in a project you can keep in git, built into a real plugin and
+deployed into your mod manager. The Creation Kit stays for what only it can do, like placing objects and navmesh;
+its work is pulled back into the text. Plugins are read and written by
+[Mutagen](https://github.com/Mutagen-Modding/Mutagen); the text is [Spriggit](https://github.com/Mutagen-Modding/Spriggit)'s
+format.
 
 ## What it offers
+
+**🔍 Look things up**
 
 | Tool | Does |
 | --- | --- |
 | `findRecords` | Search the active load order by name or editor ID; resolve FormIDs to names and back |
 | `readRecord` | One record as project text — the winning version, one plugin's, or every version side by side |
+
+**✍️ Make mods and patches**
+
+| Tool | Does |
+| --- | --- |
 | `newProject` | Start a new mod |
 | `addPatch` | Copy existing records into a patch as overrides, from their winning version, to change them without touching the original mod |
-| `buildProject` | Text → plugin: assigns FormIDs to new records, checks every reference, compiles Papyrus scripts |
-| `deployProject` | Build → Mod Organizer: mod folder, enabled, plugin at the end of the load order |
+| `editRecord` | Change a record file's fields by their paths, with no old text to match |
+| `moveRecord`, `deleteRecord` | Put a record file where the build reads it, or remove one the mod no longer needs |
+| `buildProject` | Text → plugin: assigns FormIDs to new records, checks every reference, compiles Papyrus scripts, and lists what the plugin holds |
+| `deployProject` | Build → mod manager: mod folder, enabled, plugin at the end of the load order |
 | `pullProject` | Changes made in the Creation Kit or xEdit → back into the text |
+
+**📦 Find and install mods**
+
+| Tool | Does |
+| --- | --- |
 | `searchNexus` | Find Skyrim SE mods on Nexus Mods by name, or list the most endorsed, downloaded or updated — with an API key |
 | `readNexusMod` | One Nexus mod page: description, requirements (SKSE, other mods, DLC), the files it offers — with an API key |
 | `downloadNexusFile` | A file of a Nexus mod into the instance's downloads folder — with a premium account's API key |
 | `installMod` | A downloaded file → a mod: unpacked, its FOMOD installer answered, enabled, its plugins active |
-| `disableMod` | A mod disabled, on the user's word: its plugins out of the load order, its files kept — and which plugins now miss a master |
+| `enableMod`, `disableMod` | A mod enabled or disabled, on the user's word — and which plugins now miss a master |
 | `listMods` | The mods installed, in priority order: enabled or not, their plugins, their Nexus record, whether they carry SKSE plugins |
-| `checkGameVersion` | Whether SKSE, Address Library and each SKSE plugin fit the game version — SKSE's own log of the last start first, then the rules SKSE applies |
 
-Plus `healthcheck`, and the server's own guides (`readServerGuide`) and modding skills (`readSkill`):
-how plugins, FormIDs, load order and conflicts work, the community's tools, and one reference per
-record family — items and crafting, magic, NPCs, leveled lists.
+**💥 Keep the game running**
+
+| Tool | Does |
+| --- | --- |
+| `readCrashLog` | Why the game crashed, from Crash Logger SSE's log: known crashes with their fixes, and the mods behind what the log names |
+| `checkGameVersion` | Whether SKSE, Address Library and each SKSE plugin fit the game version |
+| `editIni` | Settings of Skyrim.ini, SkyrimPrefs.ini or SkyrimCustom.ini, on the user's word |
+
+**📚 Know how**
+
+`readSkill` serves the modding skills — how plugins, FormIDs, load order and conflicts work, the community's tools,
+and one skill each for items and crafting, magic, NPCs, leveled lists, game updates and crash analysis.
+`readServerGuide` serves the server's own guides, and `healthcheck` says what the server is bound to.
 
 ## Requirements
 
@@ -112,9 +157,9 @@ in a shell, on every system; a relative one is taken from the server's folder
 
 ## Documentation
 
-The tools themselves — and their router, behaviour guide, skills, vocabulary and design decisions — are
-[skyrim-modding-tools-core](https://github.com/Ciltress/skyrim-modding-tools-core), which this server and
-its OpenClaw plugin both serve.
+The tools themselves — with their router, behaviour guide, skills and vocabulary — are
+[skyrim-modding-tools-core](https://github.com/Ciltress/skyrim-modding-tools-core), which this server and its
+OpenClaw plugin both serve. The core can also be used on its own, from your own program.
 
 | Document | For |
 | --- | --- |
@@ -122,9 +167,9 @@ its OpenClaw plugin both serve.
 | The core's [`docs/MCP-Tools.md`](https://github.com/Ciltress/skyrim-modding-tools-core/blob/main/docs/MCP-Tools.md) | How the server behaves: rules, architecture, workflows, errors, troubleshooting |
 | [`docs/Tool-Reference.md`](docs/Tool-Reference.md) | Every tool and argument — generated, never edited by hand |
 | The core's [`skills/`](https://github.com/Ciltress/skyrim-modding-tools-core/tree/main/skills) | The modding knowledge the server serves to agents |
-| The core's [`CONTEXT.md`](https://github.com/Ciltress/skyrim-modding-tools-core/blob/main/CONTEXT.md) and [`docs/adr`](https://github.com/Ciltress/skyrim-modding-tools-core/tree/main/docs/adr) | Vocabulary and design decisions |
+| The core's [`CONTEXT.md`](https://github.com/Ciltress/skyrim-modding-tools-core/blob/main/CONTEXT.md) | The vocabulary |
+| [`docs/Hosting.md`](docs/Hosting.md) | stdio and Streamable HTTP |
 | [`AGENTS.md`](AGENTS.md) | Working on this code |
-| [`docs/Hosting.md`](docs/Hosting.md) | stdio, Streamable HTTP, Docker |
 
 The guides are served to clients too: ask the running server with `readServerGuide`.
 
@@ -139,9 +184,8 @@ npm run docs:tools     # regenerate docs/Tool-Reference.md after changing a tool
 npm run smoke          # the built server over real stdio
 ```
 
-## License
+## License and thanks
 
-GPL-3.0 — see [`LICENSE`](LICENSE). The plugin engine, Mutagen, is GPL-3.0; the core's
-[ADR-0006](https://github.com/Ciltress/skyrim-modding-tools-core/blob/main/docs/adr/0006-gpl-3.md) explains why
-the whole project follows it. Copyright © 2026 Andreas Breit; co-authored with Claude
-(Anthropic).
+GPL-3.0 — see [`LICENSE`](LICENSE) — as [Mutagen](https://github.com/Mutagen-Modding/Mutagen), the plugin engine, is
+GPL-3.0. The crash rules are Phostwood's [Skyrim Crash Log Analyzer](https://github.com/Phostwood/crash-analyzer)'s,
+ported in the core. Copyright © 2026 Andreas Breit; co-authored with Claude (Anthropic).
