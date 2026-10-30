@@ -1,1 +1,13 @@
-{"0": "Setup Command and Its System Seam", "1": "Tool Reference and README", "2": "Repo Guidance and Scripts", "3": "Hosting and the HTTP Transport", "4": "AppServer and Its Tests", "5": "Muddy and the Nexus Page", "6": "Package Dependencies and CI", "7": "Server Identity", "8": "Smoke Test and stdio", "9": "TypeScript Config", "10": "MCP Server Manifest"}
+{
+  "0": "Setup Command and Its System Seam",
+  "1": "Tool Reference and README",
+  "2": "Repo Guidance and Scripts",
+  "3": "Hosting and the HTTP Transport",
+  "4": "AppServer and Its Tests",
+  "5": "Muddy and the Nexus Page",
+  "6": "Package Dependencies and CI",
+  "7": "Server Identity",
+  "8": "Smoke Test and stdio",
+  "9": "TypeScript Config",
+  "10": "MCP Server Manifest"
+}
