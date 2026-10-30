@@ -1,5 +1,14 @@
 {
-  "68": "TypeScript Config",
-  "81": "MCP Server Manifest",
-  "93": "Host and Origin Allow-Lists"
+  "0": "Setup Command",
+  "1": "Repo Guidance and Scripts",
+  "2": "Tool Reference and Nexus Page",
+  "3": "AppServer and Its Tests",
+  "4": "Server Identity",
+  "5": "Package Dependencies",
+  "6": "HTTP Transport Guards",
+  "7": "Hosting Guide",
+  "8": "TypeScript Config",
+  "9": "npm Scripts",
+  "10": "MCP Server Manifest",
+  "11": "Mudcrab Artwork"
 }
