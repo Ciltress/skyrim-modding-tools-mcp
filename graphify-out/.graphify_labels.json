@@ -1,1 +1,14 @@
-{"0": "Setup Command and Muddy's Files", "1": "Repo Guidance and Scripts", "2": "Server Identity", "3": "Tool Reference and README", "4": "AppServer and Its Tests", "5": "Muddy and the Nexus Page", "6": "Hosting Guide", "7": "Smoke Test and stdio", "8": "Package Dependencies", "9": "Setup System Seam", "10": "TypeScript Config", "11": "MCP Server Manifest"}
+{
+  "0": "Setup Command and Muddy's Files",
+  "1": "Repo Guidance and Scripts",
+  "2": "Server Identity",
+  "3": "Tool Reference and README",
+  "4": "AppServer and Its Tests",
+  "5": "Muddy and the Nexus Page",
+  "6": "Hosting Guide",
+  "7": "Smoke Test and stdio",
+  "8": "Package Dependencies",
+  "9": "Setup System Seam",
+  "10": "TypeScript Config",
+  "11": "MCP Server Manifest"
+}
