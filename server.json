@@ -3,7 +3,7 @@
   "name": "io.github.ciltress/skyrim-modding-tools-mcp",
   "title": "Skyrim Modding Tools",
   "description": "Skyrim SE modding: look up records in a Mod Organizer load order, author mods and patches as text",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "websiteUrl": "https://github.com/Ciltress/skyrim-modding-tools-mcp",
   "icons": [
     {
@@ -23,7 +23,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "skyrim-modding-tools-mcp",
-      "version": "0.2.11",
+      "version": "0.2.12",
       "transport": {
         "type": "stdio"
       },
