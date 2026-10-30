@@ -56,8 +56,8 @@ format.
 
 | Tool | Does |
 | --- | --- |
-| `searchNexus` | Find Skyrim SE mods on Nexus Mods by name, or list the most endorsed, downloaded or updated — with an API key |
-| `readNexusMod` | One Nexus mod page: description, requirements (SKSE, other mods, DLC), the files it offers — with an API key |
+| `searchNexus` | Find Skyrim SE mods on Nexus Mods by name, or list the most endorsed, downloaded or updated |
+| `readNexusMod` | One Nexus mod page: description, requirements (SKSE, other mods, DLC), the files it offers |
 | `downloadNexusFile` | A file of a Nexus mod into the instance's downloads folder — with a premium account's API key |
 | `installMod` | A downloaded file → a mod: unpacked, its FOMOD installer answered, enabled, its plugins active |
 | `enableMod`, `disableMod` | A mod enabled or disabled, on the user's word — and which plugins now miss a master |
@@ -114,7 +114,8 @@ npm run setup
 
 `npm run setup` installs the .NET 10 SDK if it is missing, builds the server and its
 plugin helper, and finds your mod manager — it asks for the Mod Organizer instance only when it finds
-none, and for your Nexus Mods API key if you want the Nexus tools. It registers the server with
+none, and for your Nexus Mods API key if you want to download through Nexus (a premium account's;
+searching and reading Nexus need none). It registers the server with
 Claude Code, Claude Desktop and VS Code, and ends with a healthcheck: the instance, profile and game
 version it found. Everything it installs, downloads or registers, it asks about first.
 
@@ -144,7 +145,7 @@ in a shell, on every system; a relative one is taken from the server's folder
 | `SKYRIM_MO2_INSTANCE` | — (required with Mod Organizer) | The Mod Organizer instance folder; the server follows its selected profile |
 | `SKYRIM_WINE_PREFIX` | found by itself for MO2-LINT | Mod Organizer under Proton: the Wine prefix it runs in, to read its ini's Windows paths |
 | `SKYRIM_AMETHYST_DIR` | found by itself | Amethyst's config folder, if it is neither the Flatpak's nor `~/.config`'s |
-| `NEXUS_API_KEY` | none | Your personal Nexus Mods API key; `healthcheck` shows its account. Without it the Nexus tools are not offered; `downloadNexusFile` is offered only when Nexus confirms a premium account |
+| `NEXUS_API_KEY` | none | Your personal Nexus Mods API key; `healthcheck` shows its account. `downloadNexusFile` is offered only when Nexus confirms a premium account; `searchNexus` and `readNexusMod` need no key |
 | `SKYRIM_PROJECTS_DIR` | `./projects` | Where projects live |
 | `SKYRIM_CK_DIR` | the instance's game folder | The Creation Kit, for its Papyrus compiler and vanilla script sources |
 | `SKYRIM_PAPYRUS_COMPILER` | the Creation Kit's (Windows); on Linux `papyrus-compiler` on `PATH`, else `tools/papyrus-compiler/papyrus` beside the server or in your home folder | `PapyrusCompiler.exe`, or russo-2025's `papyrus-compiler`, which runs on Linux |

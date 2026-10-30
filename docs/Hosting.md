@@ -40,7 +40,7 @@ on Linux (Mod Organizer under Proton, §5):
 echo 'SKYRIM_MO2_INSTANCE=~/Games/mo2-lint/mo2-skyrim_se-steam' >> .env
 ```
 
-The Nexus tools want `NEXUS_API_KEY=<your key>` the same way. Then the client — **Claude Code**, for
+Downloading through Nexus wants a premium account's `NEXUS_API_KEY=<your key>` the same way. Then the client — **Claude Code**, for
 every folder (`--scope user`: registered for one folder, a server is missing in all others), run in
 the server's folder. In PowerShell:
 

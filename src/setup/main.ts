@@ -184,10 +184,10 @@ async function settings(run: Run): Promise<void> {
 
     if (!env.NEXUS_API_KEY?.trim()) {
         const key = ui.interactive
-            ? await ui.text('Your Nexus Mods API key, for the Nexus tools (https://www.nexusmods.com/settings/api-keys) — Enter skips:', true)
+            ? await ui.text('Your Nexus Mods API key, to download through Nexus with a premium account (https://www.nexusmods.com/settings/api-keys) — Enter skips:', true)
             : '';
         if (key) values.NEXUS_API_KEY = key;
-        else if (!ui.interactive) left.push('Optional: put your Nexus Mods API key into .env as NEXUS_API_KEY=… for the Nexus tools.');
+        else if (!ui.interactive) left.push('Optional: put a premium account\'s Nexus Mods API key into .env as NEXUS_API_KEY=… to download through Nexus.');
     }
 
     if (Object.keys(values).length > 0 || !fs.existsSync(ENV_FILE)) {
