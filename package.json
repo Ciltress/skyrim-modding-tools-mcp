@@ -1,6 +1,6 @@
 {
   "name": "skyrim-modding-tools-mcp",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "mcpName": "io.github.ciltress/skyrim-modding-tools-mcp",
   "description": "MCP server for Skyrim SE modding: look up records across a Mod Organizer load order, and author mods and patches as text projects built into plugins",
   "type": "module",
