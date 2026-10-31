@@ -168,10 +168,10 @@ describe('routing', () => {
 
         expect(Object.keys(payload).slice(0, 2)).toEqual(['status', 'note']);
         expect(payload.note).toMatch(/^sample \(000800:Sample\.esp\) is copied as an override: it changes that record itself, everywhere/);
-        // Written empty while OpenClaw gave a model no tool to delete a file (eval round 26); deleteRecord since core v0.1.9,
-        // its call written out with the copy's path in the plugin folder.
-        expect(payload.note).toMatch(/write a new file instead, mirroring it without the FormKey line.*and delete the copy: deleteRecord \{"project": "FlameBlade", "record": "Weapons\/000800_Sample\.esp\.yaml"\}\.$/);
-        expect(payload.note).not.toMatch(/write the copy empty/);
+        // The copy made new by one call, its changes kept (core v0.2.23): told to write a new file and delete the copy, a model
+        // deleted the copy that held the price it had set (eval round 89's sword+detailed #1). Its path in the plugin folder.
+        expect(payload.note).toMatch(/one call makes the copy a new record, keeping what it holds and what was changed in it, and builds: editRecord \{"project": "FlameBlade", "record": "Weapons\/000800_Sample\.esp\.yaml", "set": \[\{"path": "EditorID", "value": "Newsample"\}\], "remove": \["FormKey"\], "build": true\}, with an EditorID of its own in place of Newsample\.$/);
+        expect(payload.note).not.toMatch(/write the copy empty|deleteRecord/);
         // Edited with the edit tool, 32 of 82 such edits of eval rounds 49–57 were refused; 3 of 42 editRecord calls.
         expect(Object.keys(payload)[2]).toBe('nextStep');
         expect(payload.nextStep).toMatch(/^Change a copy's fields with editRecord, which needs no old text to match — \{"record": "sample", "set": \[\{"path": /);
