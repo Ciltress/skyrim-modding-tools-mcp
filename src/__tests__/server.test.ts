@@ -167,7 +167,8 @@ describe('routing', () => {
         const payload = payloadOf(await call(client, 'addPatch', { project: 'FlameBlade', records: ['sample'] }));
 
         expect(Object.keys(payload).slice(0, 2)).toEqual(['status', 'note']);
-        expect(payload.note).toMatch(/^sample \(000800:Sample\.esp\) is copied as an override: it changes that record itself, everywhere/);
+        // Each copy's type with it (core v0.2.33): a model took an enchanted sword's copy for its enchantment (eval round 111).
+        expect(payload.note).toMatch(/^sample \(000800:Sample\.esp, a Weapon\) is copied as an override: it changes that record itself, everywhere/);
         // The copy made new by one call, its changes kept (core v0.2.23): told to write a new file and delete the copy, a model
         // deleted the copy that held the price it had set (eval round 89's sword+detailed #1). Its path in the plugin folder.
         expect(payload.note).toMatch(/one call makes the copy a new record, keeping what it holds and what was changed in it, and builds: editRecord \{"project": "FlameBlade", "record": "Weapons\/000800_Sample\.esp\.yaml", "set": \[\{"path": "EditorID", "value": "Newsample"\}\], "remove": \["FormKey"\], "build": true\}, with an EditorID of its own in place of Newsample\.$/);
