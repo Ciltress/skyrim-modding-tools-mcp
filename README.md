@@ -7,6 +7,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0"></a>
   <img src="https://img.shields.io/badge/Skyrim-Special%20Edition-5a6b7c" alt="Skyrim Special Edition">
   <img src="https://img.shields.io/badge/MCP-server-8a5cf6" alt="MCP server">
+  <a href="https://m8ven.ai/mcp/ciltress-skyrim-modding-tools-mcp-1wxokp?s=readme"><img src="https://m8ven.ai/badge/mcp/ciltress-skyrim-modding-tools-mcp-1wxokp?v=bab8c409bc860f0bd774a8f2d40d1fd0" alt="M8ven Score"></a>
 </p>
 
 # skyrim-modding-tools-mcp
