@@ -174,13 +174,13 @@ _writes · destructive · idempotent_
 
 From `src/handlers/RecordsHandlers.ts` of skyrim-modding-tools-core.
 
-**`findRecords`** — Find records in the active load order — by text in the editor ID or name, or by exact FormIDs and editor IDs. Each row says which plugin defines the record, which one wins, and how many override it. Use `records` to turn the FormIDs in project text into names (and back) before reasoning about them. Placed references, landscape and navmesh are not searched. `total` counts matches before the limit.
+**`findRecords`** — Find records in the active load order — by text in the editor ID or name, or by exact FormIDs and editor IDs. Each row says which plugin defines the record, which one wins, and how many override it. Use `records` to turn the FormIDs in project text into names (and back) before reasoning about them. Placed references, landscape and navmesh are not searched: readRecord of a cell lists what is placed in it. `total` counts matches before the limit.
 
 _read-only_
 
 `text` string · `records` array · `types` array · `plugin` string · `limit` number, default `25`
 
-**`readRecord`** — One record as project text (YAML): by default the version that wins in the load order; with `plugin`, that plugin's version; with `allVersions`, every plugin's version, winning first — compare them to see a conflict. Each file carries `pathInPluginFolder`, where it would sit in a project's plugin folder; to change a record, copy it in with addPatch rather than writing this text yourself. Links inside are FormIDs, each followed by the editor ID of the record it names as a comment (`Race: 013746:Skyrim.esm  # NordRace`); a project file may link by either.
+**`readRecord`** — One record as project text (YAML): by default the version that wins in the load order; with `plugin`, that plugin's version; with `allVersions`, every plugin's version, winning first — compare them to see a conflict. Each file carries `pathInPluginFolder`, where it would sit in a project's plugin folder; to change a record, copy it in with addPatch rather than writing this text yourself. Links inside are FormIDs, each followed by the editor ID of the record it names as a comment (`Race: 013746:Skyrim.esm  # NordRace`); a project file may link by either. A cell comes with `placed`: what the load order places in it, and the file and lines a new reference placed there is written with.
 
 _read-only_
 
