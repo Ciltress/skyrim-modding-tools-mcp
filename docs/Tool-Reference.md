@@ -48,7 +48,7 @@ _read-only_
 
 From `src/handlers/SkillsHandlers.ts` of skyrim-modding-tools-core.
 
-**`readSkill`** — Bundled agent skills — how Skyrim modding works and how to approach it here: the basics (plugins, FormIDs, load order, conflicts, the tool landscape) and one skill per record family (weapons, armor, other items, their enchantments and recipes; spells, magic effects and enchantments; NPCs; leveled lists; quests and Papyrus scripts; cells and what is placed in them; perks). Call with no arguments to see which exist, then pass `collection` for their descriptions and `skill` to read one. Consult a skill's SKILL.md before starting a task it covers: they carry the conventions and checklists the tool descriptions alone do not.
+**`readSkill`** — Bundled agent skills — how Skyrim modding works and how to approach it here: the basics (plugins, FormIDs, load order, conflicts, the tool landscape) and one skill per record family (weapons, armor, other items, their enchantments and recipes; spells, magic effects, enchantments, shouts; NPCs; leveled lists: what NPCs carry, loot, merchant stock; quests and Papyrus scripts: anything given or done when a game starts; cells and what is placed in them: a chest, furniture or NPC put in a house or room; perks). Call with no arguments to see which exist, then pass `collection` for their descriptions and `skill` to read one. Consult a skill's SKILL.md before starting a task it covers: they carry the conventions and checklists the tool descriptions alone do not.
 
 _read-only_
 
