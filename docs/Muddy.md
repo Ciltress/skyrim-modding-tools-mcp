@@ -103,6 +103,14 @@ Use the full path to `dist/index.js` in the folder where you cloned the server; 
 wrote. Then give the client Muddy: as its custom instructions or system prompt, paste the text of `AGENTS.md` from your
 projects folder. If the client shows MCP prompts, the `muddy` prompt does the same for one chat.
 
+## Muddy in Blender
+
+To arrange a cell by eye, Muddy exports it to Blender with `exportCell` and brings what was moved, copied or deleted
+back with `importCell`. Blender needs the [PyNifly](https://github.com/BadDogSkyrim/PyNifly) add-on, which reads the
+game's meshes. Give your client [Blender's MCP server](https://www.blender.org/lab/mcp-server/) beside this one too, and
+Muddy arranges the cell himself, without a Blender window: its `execute_blender_code_for_cli` works on the `cell.blend`
+`exportCell` saves. That tool starts Blender from `BLENDER_PATH`; set it in that server's `env` to your `blender.exe`.
+
 ## Let your agent set him up
 
 Paste this into the agent you already use (one that can run commands and edit files):

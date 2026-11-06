@@ -3,7 +3,7 @@
 <!-- GENERATED FILE - do not edit by hand.
      Run `npm run build && npm run docs:tools` after changing any getTools(). -->
 
-Every tool this server can expose: **22 tools across 7 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
+Every tool this server can expose: **24 tools across 7 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
 
 **How many you can actually call is smaller.** The active `MCP_PROFILE` decides what is
 listed, and the server withholds anything the connected backend does not support.
@@ -28,7 +28,7 @@ what needs a human, not a permission system: nothing here is enforced.
 - [Bundled skills](#bundled-skills) — 1 tool
 - [Installing mods](#installing-mods) — 6 tools
 - [Nexus Mods](#nexus-mods) — 3 tools
-- [Projects: authoring and patching](#projects-authoring-and-patching) — 8 tools
+- [Projects: authoring and patching](#projects-authoring-and-patching) — 10 tools
 - [Records in the load order](#records-in-the-load-order) — 2 tools
 - [This server's own guides](#this-servers-own-guides) — 1 tool
 
@@ -48,7 +48,7 @@ _read-only_
 
 From `src/handlers/SkillsHandlers.ts` of skyrim-modding-tools-core.
 
-**`readSkill`** — Bundled agent skills — how Skyrim modding works and how to approach it here: the basics (plugins, FormIDs, load order, conflicts, the tool landscape) and one skill per record family (weapons, armor, other items, their enchantments and recipes; spells, magic effects, enchantments, shouts; NPCs; leveled lists: what NPCs carry, loot, merchant stock; quests and Papyrus scripts: anything given or done when a game starts; cells and what is placed in them: a chest, furniture or NPC put in a house or room; perks). Call with no arguments to see which exist, then pass `collection` for their descriptions and `skill` to read one. Consult a skill's SKILL.md before starting a task it covers: they carry the conventions and checklists the tool descriptions alone do not.
+**`readSkill`** — Bundled agent skills — how Skyrim modding works and how to approach it here: the basics (plugins, FormIDs, load order, conflicts, the tool landscape) and one skill per record family (weapons, armor, other items, their enchantments and recipes; spells, magic effects, enchantments, shouts; NPCs; leveled lists: what NPCs carry, loot, merchant stock; quests and Papyrus scripts: anything given or done when a game starts; cells and what is placed in them, indoors or out: a chest, furniture or NPC; a cell in Blender; perks). Call with no arguments to see which exist, then pass `collection` for their descriptions and `skill` to read one. Consult a skill's SKILL.md before starting a task it covers: they carry the conventions and checklists the tool descriptions alone do not.
 
 _read-only_
 
@@ -169,6 +169,18 @@ _writes · destructive · idempotent_
 _writes · destructive · idempotent_
 
 `project`**\*** string
+
+**`exportCell`** — Lay a cell out for Blender, to arrange it by eye: every object placed in it — the project's own build over the load order's — with the meshes and textures they show, copied out of the mods and archives, and the Python that places them in Blender through the PyNifly add-on, where the game places them. An interior (WhiterunBreezehome) or an exterior cell (Riverwood), with its ground. Creates the project when it does not exist. Answers the folder and the two scripts: importScript places the cell, exportScript writes what was moved, copied (Shift+D) or deleted — run each in Blender's Scripting tab, or send its text through Blender's MCP server — then importCell brings the changes into the project.
+
+_writes · idempotent_
+
+`project`**\*** string · `cell`**\*** string · `textures` boolean
+
+**`importCell`** — Bring a cell arranged in Blender back into the project, from the layout its exportScript wrote: each object moved, turned or scaled is written as the project's copy of its reference with the new placement; each copy made in Blender as a new reference of the project, in the cell's Temporary folder; each one deleted disabled — another plugin's reference is never deleted, what names it would break — or, the project's own, its file deleted. Answers the full path of each file written; run buildProject next.
+
+_writes · idempotent_
+
+`project`**\*** string · `cell` string
 
 ## Records in the load order
 

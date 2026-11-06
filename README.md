@@ -28,14 +28,16 @@ Ask it things like:
 >
 > *Add a dragon shout that deals shock damage, with three words of its own.*
 >
+> *Open Breezehome in Blender — I want to move the furniture around.*
+>
 > *My game just crashed. Why?*
 
 A mod is made as text: one YAML file per record, in a project you can keep in git, built into a real plugin and
 deployed into your mod manager — weapons, armor, arrows, potions, recipes, enchantments, spells, shouts, NPCs,
-leveled lists, perks, notes, quests with their scripts, and objects placed in a house or a dungeon. The build warns
-of what would go wrong in game, each warning with the one call that fixes it. Some work still needs the Creation Kit,
-like navmesh, objects placed outdoors or a new NPC's face; what you make there, `pullProject` reads back into the
-text. Plugins are read and written by
+leveled lists, perks, notes, quests with their scripts, and objects placed in the world, indoors and out. The build
+warns of what would go wrong in game, each warning with the one call that fixes it. A cell can be arranged in Blender
+— by hand or through Blender's MCP server — and brought back. Some work still needs the Creation Kit, like navmesh,
+distant LOD or a new NPC's face; what you make there, `pullProject` reads back into the text. Plugins are read and written by
 [Mutagen](https://github.com/Mutagen-Modding/Mutagen); the text is [Spriggit](https://github.com/Mutagen-Modding/Spriggit)'s
 format.
 
@@ -59,6 +61,8 @@ format.
 | `buildProject` | Text → plugin: assigns FormIDs to new records, checks every reference, compiles Papyrus scripts, and lists what the plugin holds — and warns of what would go wrong in game: an armor no one can wear, a missing mesh, an effect that does nothing, a chest under the floor |
 | `deployProject` | Build → mod manager: mod folder, enabled, plugin at the end of the load order |
 | `pullProject` | Changes made in the Creation Kit or xEdit → back into the text |
+| `exportCell` | A cell → Blender: its objects with their meshes and textures, saved as a `.blend` and with the scripts that place them (PyNifly add-on) |
+| `importCell` | What was moved, copied or deleted in Blender → back into the project, as the mod's own references |
 
 **📦 Find and install mods**
 
@@ -183,6 +187,7 @@ in a shell, on every system; a relative one is taken from the server's folder
 | `SKYRIM_CK_DIR` | the instance's game folder | The Creation Kit, for its Papyrus compiler and vanilla script sources |
 | `SKYRIM_PAPYRUS_COMPILER` | the Creation Kit's (Windows); on Linux `papyrus-compiler` on `PATH`, else `tools/papyrus-compiler/papyrus` beside the server or in your home folder | `PapyrusCompiler.exe`, or russo-2025's `papyrus-compiler`, which runs on Linux |
 | `SKYRIM_CRASH_LOG_DIR` | `My Games\Skyrim Special Edition\SKSE` (under Proton, the prefix's) | Where `readCrashLog` reads Crash Logger SSE's `crash-*.log` files |
+| `SKYRIM_BLENDER` | `blender` on `PATH`, else where Blender's installer or Steam puts it | The Blender `exportCell` saves a cell's `.blend` with, in the background; it needs the PyNifly add-on |
 | `SKYRIM_HELPER_PATH` | the core's `helper/bin/SkyrimHelper(.exe)` | The built plugin helper |
 | `MCP_PROFILE` | `all` | `core`, `readonly` or `all` — which tools are listed and callable |
 | `MCP_MAX_RESPONSE_BYTES` | per profile | Ceiling on one answer; `0` removes it |
