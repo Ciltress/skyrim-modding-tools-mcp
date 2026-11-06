@@ -24,11 +24,17 @@ Ask it things like:
 >
 > *Make a patch that makes the Iron Sword a bit stronger.*
 >
+> *Put a chest in Breezehome holding 500 gold and a Steel Sword.*
+>
+> *Add a dragon shout that deals shock damage, with three words of its own.*
+>
 > *My game just crashed. Why?*
 
 A mod is made as text: one YAML file per record, in a project you can keep in git, built into a real plugin and
-deployed into your mod manager. The Creation Kit stays for what only it can do, like placing objects and navmesh;
-its work is pulled back into the text. Plugins are read and written by
+deployed into your mod manager — weapons, armor, arrows, potions, recipes, enchantments, spells, shouts, NPCs,
+leveled lists, perks, notes, quests with their scripts, and objects placed in a house or a dungeon. The build warns
+of what would go wrong in game, each warning with the one call that fixes it. The Creation Kit stays for what only it
+can do, like navmesh and placing objects outdoors; its work is pulled back into the text. Plugins are read and written by
 [Mutagen](https://github.com/Mutagen-Modding/Mutagen); the text is [Spriggit](https://github.com/Mutagen-Modding/Spriggit)'s
 format.
 
@@ -47,9 +53,9 @@ format.
 | --- | --- |
 | `newProject` | Start a new mod |
 | `addPatch` | Copy existing records into a patch as overrides, from their winning version, to change them without touching the original mod |
-| `editRecord` | Change a record file's fields by their paths, with no old text to match |
+| `editRecord` | Change a record file's fields by their paths, with no old text to match — and build again in the same call |
 | `moveRecord`, `deleteRecord` | Put a record file where the build reads it, or remove one the mod no longer needs |
-| `buildProject` | Text → plugin: assigns FormIDs to new records, checks every reference, compiles Papyrus scripts, and lists what the plugin holds |
+| `buildProject` | Text → plugin: assigns FormIDs to new records, checks every reference, compiles Papyrus scripts, and lists what the plugin holds — and warns of what would go wrong in game: an armor no one can wear, a missing mesh, an effect that does nothing, a chest under the floor |
 | `deployProject` | Build → mod manager: mod folder, enabled, plugin at the end of the load order |
 | `pullProject` | Changes made in the Creation Kit or xEdit → back into the text |
 
@@ -75,7 +81,8 @@ format.
 **📚 Know how**
 
 `readSkill` serves the modding skills — how plugins, FormIDs, load order and conflicts work, the community's tools,
-and one skill each for items and crafting, magic, NPCs, leveled lists, game updates and crash analysis.
+and one skill each for items and crafting, magic, NPCs, leveled lists, perks, quests and scripts, the world (cells and
+what is placed in them), game updates and crash analysis.
 `readServerGuide` serves the server's own guides, and `healthcheck` says what the server is bound to.
 
 ## Modding with Muddy! 🦀
