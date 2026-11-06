@@ -33,8 +33,9 @@ Ask it things like:
 A mod is made as text: one YAML file per record, in a project you can keep in git, built into a real plugin and
 deployed into your mod manager — weapons, armor, arrows, potions, recipes, enchantments, spells, shouts, NPCs,
 leveled lists, perks, notes, quests with their scripts, and objects placed in a house or a dungeon. The build warns
-of what would go wrong in game, each warning with the one call that fixes it. The Creation Kit stays for what only it
-can do, like navmesh and placing objects outdoors; its work is pulled back into the text. Plugins are read and written by
+of what would go wrong in game, each warning with the one call that fixes it. Some work still needs the Creation Kit,
+like navmesh, objects placed outdoors or a new NPC's face; what you make there, `pullProject` reads back into the
+text. Plugins are read and written by
 [Mutagen](https://github.com/Mutagen-Modding/Mutagen); the text is [Spriggit](https://github.com/Mutagen-Modding/Spriggit)'s
 format.
 
