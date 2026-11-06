@@ -196,7 +196,7 @@ _read-only_
 
 _read-only_
 
-`record`**\*** string · `plugin` string · `allVersions` boolean
+`record`**\*** string · `plugin` string · `allVersions` boolean · `in` string
 
 ## This server's own guides
 
