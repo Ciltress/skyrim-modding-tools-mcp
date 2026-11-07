@@ -3,7 +3,7 @@
 <!-- GENERATED FILE - do not edit by hand.
      Run `npm run build && npm run docs:tools` after changing any getTools(). -->
 
-Every tool this server can expose: **24 tools across 7 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
+Every tool this server can expose: **27 tools across 7 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
 
 **How many you can actually call is smaller.** The active `MCP_PROFILE` decides what is
 listed, and the server withholds anything the connected backend does not support.
@@ -24,9 +24,9 @@ what needs a human, not a permission system: nothing here is enforced.
 
 ## Families
 
-- [Analysis](#analysis) — 1 tool
+- [Analysis](#analysis) — 2 tools
 - [Bundled skills](#bundled-skills) — 1 tool
-- [Installing mods](#installing-mods) — 6 tools
+- [Installing mods](#installing-mods) — 8 tools
 - [Nexus Mods](#nexus-mods) — 3 tools
 - [Projects: authoring and patching](#projects-authoring-and-patching) — 10 tools
 - [Records in the load order](#records-in-the-load-order) — 2 tools
@@ -44,11 +44,17 @@ _read-only_
 
 `log` string · `section` string
 
+**`findConflicts`** — Mods in conflict, as the game sees them. `records`: each record whose winning version lost another plugin's changes, with those changes plugin by plugin — a field's value, an item a list gained or lost (`Keywords + WeapMaterialSilver`); a patch that names both plugins as masters settles a conflict, and is not listed. `files`: each pair of mods giving the game the same files, the one it takes and how — the mod order for loose files, the load order for archives, a loose file over any archive. Of one `plugin`, one `mod`, one `record`, or the whole setup. `nextStep` says how to settle them: addPatch with `merge` for records. Reads only; changes nothing.
+
+_read-only_
+
+`plugin` string · `mod` string · `record` string · `kind` string · `limit` number, default `25`
+
 ## Bundled skills
 
 From `src/handlers/SkillsHandlers.ts` of skyrim-modding-tools-core.
 
-**`readSkill`** — Bundled agent skills — how Skyrim modding works and how to approach it here: the basics (plugins, FormIDs, load order, conflicts, the tool landscape) and one skill per record family (weapons, armor, other items, their enchantments and recipes; spells, magic effects, enchantments, shouts; NPCs; leveled lists: what NPCs carry, loot, merchant stock; quests and Papyrus scripts: anything given or done when a game starts; cells and what is placed in them, indoors or out: a chest, furniture or NPC; a cell in Blender; perks). Call with no arguments to see which exist, then pass `collection` for their descriptions and `skill` to read one. Consult a skill's SKILL.md before starting a task it covers: they carry the conventions and checklists the tool descriptions alone do not.
+**`readSkill`** — Bundled agent skills — how Skyrim modding works and how to approach it here: the basics (plugins, FormIDs, load order, conflicts, the tool landscape) and one skill per record family (weapons, armor, other items, enchantments, recipes; spells, magic effects, enchantments, shouts; NPCs; leveled lists: what NPCs carry, loot, merchant stock; quests, Papyrus scripts, dialogue: anything given or done when a game starts; cells and what is placed in them, indoors or out: a chest, an NPC; a cell in Blender; perks; game settings, globals, keywords). Call with no arguments to see which exist, then pass `collection` for their descriptions and `skill` to read one. Consult a skill's SKILL.md before starting a task it covers: they carry the conventions and checklists the tool descriptions alone do not.
 
 _read-only_
 
@@ -87,6 +93,18 @@ _writes · destructive · idempotent_
 _writes · idempotent_
 
 `mod`**\*** string
+
+**`movePlugin`** — Move a plugin in the load order of the selected profile — only when the user said so: just `after` another, so its version of a record they both change is the game's, or just `before` one, so that one's is. Refused where the game would not load it so: before one of its masters or after a plugin that needs it, across the line between master-flagged and plain plugins, or among the game's own. Then the mod manager is told, as for installMod. findConflicts says which plugin loses what; a patch (addPatch with `merge`) keeps both plugins' changes, where a move keeps one's.
+
+_writes · idempotent_
+
+`plugin`**\*** string · `after` string · `before` string
+
+**`setModPriority`** — Move a mod in the mod order of the selected profile — only when the user said so: just `after` another, so its loose files win over that one's (below it in Mod Organizer's list), or just `before` one, so that one's win. The mod order decides loose files only: files in archives (BSAs) follow the load order of their plugins, and a loose file beats every archive. Then the mod manager is told, as for installMod. findConflicts says which mod's files lose to which.
+
+_writes · idempotent_
+
+`mod`**\*** string · `after` string · `before` string
 
 **`editIni`** — Set or remove settings of the game's Skyrim.ini, SkyrimPrefs.ini or SkyrimCustom.ini — only when the user said so, for these settings: the copies the game reads for the selected profile (the profile's own, when the mod manager keeps them per profile; else those in My Games). Every other line stays as it was; the answer names each value as it was and is. The game reads them when it starts.
 
@@ -132,7 +150,7 @@ _writes · idempotent_
 
 _writes · idempotent_
 
-`project`**\*** string · `records`**\*** array · `from` string · `plugin` string
+`project`**\*** string · `records`**\*** array · `from` string · `merge` boolean · `plugin` string
 
 **`editRecord`** — Change fields of one record file of a project by their paths — no old text to match. `set` lists each field's path and its value: [{"path": "BasicStats.Damage", "value": 12}, {"path": "Name", "value": "Flame Blade"}, {"path": "Effects[0].Data.Magnitude", "value": 40}] — a text field (Name, Description) takes its words, a link a FormID or an editor ID, a list a list, written whole; an object sets the fields it names inside that part and keeps its others, as {"path": "BasicStats", "value": {"Damage": 12}} does. `remove` takes paths to delete, any the file has: ["Critical", "Effects[1]"]. Changes only those lines, refuses a field the record's type does not have, and answers the file's new text. Then run buildProject — or send `"build": true`, and this call builds the project after the change and answers that build, as buildProject does.
 
