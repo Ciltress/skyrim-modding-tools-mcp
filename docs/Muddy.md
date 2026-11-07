@@ -111,6 +111,20 @@ game's meshes. Give your client [Blender's MCP server](https://www.blender.org/l
 Muddy arranges the cell himself, without a Blender window: its `execute_blender_code_for_cli` works on the `cell.blend`
 `exportCell` saves. That tool starts Blender from `BLENDER_PATH`; set it in that server's `env` to your `blender.exe`.
 
+On Windows, start Blender's MCP server through the script the tools ship, or that tool never answers: started as
+`blender-mcp.exe`, the Blender it runs in the background waits on your client's pipe, and every call times out after 120
+seconds. The script gives that Blender no input and starts the server as it is installed. In your client's settings:
+
+```json
+"blender": {
+  "command": "C:\\Users\\<you>\\AppData\\Roaming\\uv\\tools\\blender-mcp\\Scripts\\python.exe",
+  "args": ["<this server's folder>\\node_modules\\skyrim-modding-tools-core\\blender\\blender-mcp-no-stdin.py"],
+  "env": { "BLENDER_PATH": "C:\\Program Files\\Blender Foundation\\Blender 5.2\\blender.exe" }
+}
+```
+
+The Python is the one uv installed the server with (`uv tool install`). OpenClaw's `openclaw skyrim setup` writes this for you.
+
 ## Let your agent set him up
 
 Paste this into the agent you already use (one that can run commands and edit files):

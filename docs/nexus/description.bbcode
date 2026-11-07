@@ -49,10 +49,11 @@ Step-by-step instructions, for Linux too, are on [url=https://github.com/Ciltres
 [*][b]Look it up:[/b] any record by name, editor ID or FormID, across your whole load order. Which mod adds it, which one wins, who else changes it.
 [*][b]Make mods as text:[/b] a mod is a folder of plain YAML files in Spriggit's format, easy to read and to keep in git. The build checks every link, gives new records their FormIDs, compiles Papyrus scripts and writes a real plugin, then tells you what it holds.
 [*][b]Patch without touching:[/b] copy another mod's record into your own patch and change it there. The original mod stays as it is.
+[*][b]Place things in the world:[/b] put a chest, a lamp or an NPC in a house or outdoors, beside what the game already places there. Warned when it would float, sink into the ground or stand inside something. Arrange a cell in Blender, by hand or through Blender's MCP server, and bring it back.
 [*][b]Install mods:[/b] search Nexus Mods, read a mod's requirements, install it with its FOMOD installer answered, enable or disable mods, and check SKSE plugins against your game version.
 [*][b]Read crash logs:[/b] Crash Logger SSE's logs, checked against 105 known crashes, with the mod behind every file and record the log names.
 [/list]
-The Creation Kit stays for what only it does well, like placing objects and navmesh. Its work is pulled back into the text.
+Some work still needs the Creation Kit, like navmesh, distant LOD or a new NPC's face. What you make there, pullProject reads back into the project's text.
 
 [size=5][b]Requirements[/b][/size]
 [list]
@@ -61,6 +62,7 @@ The Creation Kit stays for what only it does well, like placing objects and navm
 [*][url=https://nodejs.org]Node.js 24[/url] and [url=https://git-scm.com]git[/url]. The setup installs the rest (the .NET 10 SDK).
 [*]An MCP client: Claude Code, Claude Desktop, VS Code and others. For OpenClaw, there is [url=https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin]the OpenClaw plugin[/url].
 [*]Optional: the Creation Kit (free on Steam), to compile Papyrus scripts
+[*]Optional: Blender with the [url=https://github.com/BadDogSkyrim/PyNifly]PyNifly[/url] add-on, to arrange a cell in Blender
 [/list]
 [b]Nexus Mods and your API key:[/b] searching Nexus and reading mod pages need no key. Downloading through Nexus's API needs the personal API key of a [b]premium[/b] account. The key stays on your PC and is sent only to Nexus's API. Without one, you download the file yourself, and the tools install it.
 
