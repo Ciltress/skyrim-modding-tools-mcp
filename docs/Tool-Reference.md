@@ -3,7 +3,7 @@
 <!-- GENERATED FILE - do not edit by hand.
      Run `npm run build && npm run docs:tools` after changing any getTools(). -->
 
-Every tool this server can expose: **27 tools across 7 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
+Every tool this server can expose: **28 tools across 7 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
 
 **How many you can actually call is smaller.** The active `MCP_PROFILE` decides what is
 listed, and the server withholds anything the connected backend does not support.
@@ -24,7 +24,7 @@ what needs a human, not a permission system: nothing here is enforced.
 
 ## Families
 
-- [Analysis](#analysis) — 2 tools
+- [Analysis](#analysis) — 3 tools
 - [Bundled skills](#bundled-skills) — 1 tool
 - [Installing mods](#installing-mods) — 8 tools
 - [Nexus Mods](#nexus-mods) — 3 tools
@@ -43,6 +43,12 @@ From `src/handlers/AnalysisHandlers.ts` of skyrim-modding-tools-core.
 _read-only_
 
 `log` string · `section` string
+
+**`readPapyrusLog`** — What the game's scripts did wrong, from its Papyrus log: script and install `problems`, grouped and counted, bugs first — a call on None, a script or framework missing, a script on the wrong record — each with its fix, its scripts by the mod whose .pex the game loads, its records by plugin; what the save still holds of mods removed mid-playthrough; script lag in `load`, from stack dumps; harmless messages counted in `noise`. Not a crash log: readCrashLog reads crashes. `script` lists one script's entries with their stacks. With logging off, it says the editIni call that turns it on. Reads files; changes nothing.
+
+_read-only_
+
+`log` string · `script` string
 
 **`findConflicts`** — Mods in conflict, as the game sees them. `records`: each record whose winning version lost another plugin's changes, with those changes plugin by plugin — a field's value, an item a list gained or lost (`Keywords + WeapMaterialSilver`); a patch that names both plugins as masters settles a conflict, and is not listed. `files`: each pair of mods giving the game the same files, the one it takes and how — the mod order for loose files, the load order for archives, a loose file over any archive. Of one `plugin`, one `mod`, one `record`, or the whole setup. `nextStep` says how to settle them: addPatch with `merge` for records. Reads only; changes nothing.
 

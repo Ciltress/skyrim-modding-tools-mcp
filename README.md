@@ -80,6 +80,7 @@ format.
 | Tool | Does |
 | --- | --- |
 | `readCrashLog` | Why the game crashed, from Crash Logger SSE's log: known crashes with their fixes, and the mods behind what the log names |
+| `readPapyrusLog` | What the game's scripts did wrong, from the Papyrus log: problems grouped and counted with their fixes, each script by its mod, script lag, a save's leftovers of removed mods |
 | `checkGameVersion` | Whether SKSE, Address Library and each SKSE plugin fit the game version |
 | `editIni` | Settings of Skyrim.ini, SkyrimPrefs.ini or SkyrimCustom.ini, on the user's word |
 
