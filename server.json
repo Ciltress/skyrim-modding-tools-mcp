@@ -3,7 +3,7 @@
   "name": "io.github.ciltress/skyrim-modding-tools-mcp",
   "title": "Skyrim Modding Tools",
   "description": "Skyrim SE modding: look up records in a Mod Organizer load order, author mods and patches as text",
-  "version": "0.2.66",
+  "version": "0.2.67",
   "websiteUrl": "https://github.com/Ciltress/skyrim-modding-tools-mcp",
   "icons": [
     {
@@ -23,7 +23,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "skyrim-modding-tools-mcp",
-      "version": "0.2.66",
+      "version": "0.2.67",
       "transport": {
         "type": "stdio"
       },
@@ -111,6 +111,10 @@
         {
           "name": "SKYRIM_CRASH_LOG_DIR",
           "description": "The folder readCrashLog reads Crash Logger SSE's crash-*.log files from. Defaults to the SKSE folder in the game's My Games folder, where Crash Logger writes them (under Proton, the prefix's)."
+        },
+        {
+          "name": "SKYRIM_PAPYRUS_LOG_DIR",
+          "description": "The folder readPapyrusLog reads the game's Papyrus.0.log–Papyrus.3.log from. Defaults to Logs\\Script in the game's My Games folder, where the game writes them with Papyrus logging on (under Proton, the prefix's)."
         },
         {
           "name": "SKYRIM_BLENDER",
