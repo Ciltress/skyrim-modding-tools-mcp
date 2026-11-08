@@ -66,8 +66,11 @@ const DELIBERATELY_UNDECLARED: string[] = [
     'XDG_CONFIG_HOME', 'XDG_RUNTIME_DIR', 'MOD_MANAGER_PROFILES_DIR',
     // The system's search path, where a Papyrus compiler is looked for on Linux.
     'PATH',
-    // Windows' own folders, read only by npm run setup (src/setup) to find Claude Desktop's and Mod Organizer's files.
-    'APPDATA', 'LOCALAPPDATA'
+    // Windows' own folders, read only by npm run setup (src/setup) to find Claude Desktop's and Mod Organizer's files,
+    // and LOCALAPPDATA also by the core's LOOT cache (src/backend/skyrim/loot/libloot.ts).
+    'APPDATA', 'LOCALAPPDATA',
+    // The system's cache folder on Linux, where the core keeps LOOT's library and masterlist (the same file).
+    'XDG_CACHE_HOME'
 ];
 
 describe('server.json', () => {

@@ -3,7 +3,7 @@
 <!-- GENERATED FILE - do not edit by hand.
      Run `npm run build && npm run docs:tools` after changing any getTools(). -->
 
-Every tool this server can expose: **28 tools across 7 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
+Every tool this server can expose: **31 tools across 7 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
 
 **How many you can actually call is smaller.** The active `MCP_PROFILE` decides what is
 listed, and the server withholds anything the connected backend does not support.
@@ -26,9 +26,9 @@ what needs a human, not a permission system: nothing here is enforced.
 
 - [Analysis](#analysis) — 3 tools
 - [Bundled skills](#bundled-skills) — 1 tool
-- [Installing mods](#installing-mods) — 8 tools
+- [Installing mods](#installing-mods) — 9 tools
 - [Nexus Mods](#nexus-mods) — 3 tools
-- [Projects: authoring and patching](#projects-authoring-and-patching) — 10 tools
+- [Projects: authoring and patching](#projects-authoring-and-patching) — 12 tools
 - [Records in the load order](#records-in-the-load-order) — 2 tools
 - [This server's own guides](#this-servers-own-guides) — 1 tool
 
@@ -106,6 +106,12 @@ _writes · idempotent_
 
 `plugin`**\*** string · `after` string · `before` string
 
+**`sortPlugins`** — Sort the load order of the selected profile with LOOT — its library, libloot, LOOT's masterlist and the user's own LOOT rules — and say what LOOT says of the setup: its messages, dirty plugins to clean, files a plugin needs that are missing, plugins it knows as incompatible. A preview: `moves` names each plugin LOOT would move and where, nothing written. `apply: true` writes LOOT's order — only when the user said so — and tells the mod manager, as movePlugin does. The first sort downloads LOOT's library and masterlist.
+
+_writes · idempotent · reaches outside this backend_
+
+`apply` boolean
+
 **`setModPriority`** — Move a mod in the mod order of the selected profile — only when the user said so: just `after` another, so its loose files win over that one's (below it in Mod Organizer's list), or just `before` one, so that one's win. The mod order decides loose files only: files in archives (BSAs) follow the load order of their plugins, and a loose file beats every archive. Then the mod manager is told, as for installMod. findConflicts says which mod's files lose to which.
 
 _writes · idempotent_
@@ -175,6 +181,18 @@ _writes · idempotent_
 _writes · destructive · idempotent_
 
 `project`**\*** string · `record`**\*** string · `build` boolean
+
+**`editTerrain`** — Change the ground of a worldspace in a circle: `flatten` it to a height (a plot for a house, a road), `raise` or `lower` it by an `amount`, or `smooth` it — across every exterior cell it touches, blended into the ground around over `falloff`. The project gets a copy of each cell with its landscape, heights and normals written anew, the edge two cells share kept the same; a second edit changes the copy further. Answers each cell changed and the game's trees, rocks and buildings there whose ground moved: they float or sink now. Positions are world units, as readRecord gives them; a cell is 4096 wide. Then buildProject.
+
+_writes_
+
+`project`**\*** string · `at`**\*** string · `radius`**\*** number · `falloff` number · `action`**\*** string, one of flatten/raise/lower/smooth · `height` number · `amount` number · `worldspace` string
+
+**`generateNavmesh`** — Make a cell's navmesh — the triangles NPCs and followers walk on — from what stands in it: the collision of its floors, walls, stairs and furniture, outdoors its ground, the project's own objects with the game's. Written into the project over the cell's navmeshes (FormIDs kept; a new one for a room the project made), its load doors linked, outdoors its edges linked with the cells beside it, deep water left out; no Creation Kit needed. Run it after placing, moving or removing objects, after editTerrain, or for a new room; the project is built first where it changed. Answers the triangles, the doors linked and, over the game's navmesh, how much of the old one the new covers. Then buildProject.
+
+_writes · idempotent_
+
+`project`**\*** string · `cell`**\*** string
 
 **`buildProject`** — Build a project's plugin from its text: gives new records their FormIDs (written back into their files, which keep their names), builds a link written as an editor ID — a new record of the project, or one of the load order — as that record's FormID, the file keeping the editor ID (`resolvedLinks`), checks that every link points at a record that exists, compiles the project's Papyrus scripts and writes the plugin with the header this game version needs. Refuses a project with no records, fields a record type does not have, and files below a group's folder — each named. What has one right fix — a FormKey copied into a new record, escapes copied out of a JSON answer, a field written where its record has none but one place it goes — it writes into the file and lists in `corrected`. What builds but likely not as meant — record files outside the plugin folder, an override renamed as if it were a new record, a woman's voice on a man — is answered with status `built_with_warnings` and the `warnings` first: the plugin is written, and each warning says what to fix. `built` lists each record the written plugin holds, with its name and numbers. Does not touch the mod manager — deployProject does.
 
