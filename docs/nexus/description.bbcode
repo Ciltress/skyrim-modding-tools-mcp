@@ -23,7 +23,7 @@ Meet [b]Muddy[/b], the modding agent: a mudcrab from the shore below Riverwood w
 [/list]
 
 [size=4][b]Made with AI, openly[/b][/size]
-The code was written together with Claude (Anthropic), and the banner was generated with FLUX. That's why this page carries the [i]AI-Generated Content[/i] and [i]AI Media[/i] tags. It is tested: over 900 automated tests, and regular evaluation rounds in which AI models build real mods on a test game.
+The code was written together with Claude (Anthropic), and the banner was generated with FLUX. That's why this page carries the [i]AI-Generated Content[/i] and [i]AI Media[/i] tags. It is tested: over 1,100 automated tests, and regular evaluation rounds in which AI models build real mods on a test game.
 
 [size=4][b]Source and license[/b][/size]
 Free and open source, under GPL-3.0:
@@ -53,11 +53,15 @@ Step-by-step instructions, for Linux too, are on [url=https://github.com/Ciltres
 [*][b]Change how the game plays:[/b] game settings such as jump height or prices, globals, and the keywords the game checks on an item.
 [*][b]Find and settle mod conflicts:[/b] which plugin's changes to a record are lost to another's, change by change, and which mod's files hide another's, loose or in archives. One call makes a patch that keeps every plugin's changes; plugins and mods can be moved in the order on your word.
 [*][b]Place things in the world:[/b] put a chest, a lamp or an NPC in a house or outdoors, beside what the game already places there. Warned when it would float, sink into the ground or stand inside something. Arrange a cell in Blender, by hand or through Blender's MCP server, and bring it back.
+[*][b]Navmesh in one call, no Creation Kit:[/b] a cell's navmesh made from what stands in it, indoors and outdoors, linked to the cells beside it, so NPCs and followers walk around what you placed. Touch it up in Blender if you like. The build tells you when a cell's navmesh no longer fits what you changed there.
+[*][b]Shape the land:[/b] flatten, raise, lower or smooth the ground outdoors, or sculpt it in Blender and bring it back.
+[*][b]A land of your own:[/b] a new worldspace, flat or shaped by a heightmap image, with water and Skyrim's sky and weather. Type [code]coc[/code] in the console to go there, then build on it like anywhere else.
+[*][b]Sort the load order:[/b] LOOT's own library sorts your plugins and shows what LOOT says about them: what would move, dirty plugins, missing masters. You see it first; it is applied only when you say so.
 [*][b]Install mods:[/b] search Nexus Mods, read a mod's requirements, install it with its FOMOD installer answered, enable or disable mods, and check SKSE plugins against your game version.
 [*][b]Read crash logs:[/b] Crash Logger SSE's logs, checked against 105 known crashes, with the mod behind every file and record the log names.
 [*][b]Read the Papyrus log:[/b] what your scripts did wrong, grouped and counted, each script traced to its mod, with script lag and what your save still holds of removed mods. No crash is put on it: it is no crash log.
 [/list]
-Some work still needs the Creation Kit, like navmesh, distant LOD or a new NPC's face. What you make there, pullProject reads back into the project's text.
+Some work still needs other tools: a new NPC's face needs the Creation Kit, distant land needs LOD from xLODGen. What you make in the Creation Kit, pullProject reads back into the project's text.
 
 [size=5][b]Requirements[/b][/size]
 [list]
@@ -66,7 +70,7 @@ Some work still needs the Creation Kit, like navmesh, distant LOD or a new NPC's
 [*][url=https://nodejs.org]Node.js 24[/url] and [url=https://git-scm.com]git[/url]. The setup installs the rest (the .NET 10 SDK).
 [*]An MCP client: Claude Code, Claude Desktop, VS Code and others. For OpenClaw, there is [url=https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin]the OpenClaw plugin[/url].
 [*]Optional: the Creation Kit (free on Steam), to compile Papyrus scripts
-[*]Optional: Blender with the [url=https://github.com/BadDogSkyrim/PyNifly]PyNifly[/url] add-on, to arrange a cell in Blender
+[*]Optional: Blender with the [url=https://github.com/BadDogSkyrim/PyNifly]PyNifly[/url] add-on, to arrange a cell, its ground or its navmesh in Blender
 [/list]
 [b]Nexus Mods and your API key:[/b] searching Nexus and reading mod pages need no key. Downloading through Nexus's API needs the personal API key of a [b]premium[/b] account. The key stays on your PC and is sent only to Nexus's API. Without one, you download the file yourself, and the tools install it.
 
@@ -75,6 +79,8 @@ Some work still needs the Creation Kit, like navmesh, distant LOD or a new NPC's
 [*][url=https://github.com/Mutagen-Modding/Mutagen]Mutagen[/url] by Noggog, which reads and writes the plugins, and [url=https://github.com/Mutagen-Modding/Spriggit]Spriggit[/url], whose text format the projects use
 [*]Phostwood's [url=https://github.com/Phostwood/crash-analyzer]Skyrim Crash Log Analyzer[/url], whose crash rules the crash-log reader applies
 [*]Arthmoor's notes on Papyrus log errors, DavidJCobb's Papyrus logging guide and Nightfallstorm's Papyrus Tweaks NG, which the Papyrus log reader follows
+[*][url=https://github.com/recastnavigation/recastnavigation]Recast[/url] by Mikko Mononen, through ikpil's [url=https://github.com/ikpil/DotRecast]DotRecast[/url], which builds the navmeshes, and [url=https://github.com/ousnius/NiflySharp]NiflySharp[/url], which reads the meshes' collision
+[*]The LOOT team's [url=https://github.com/loot/libloot]libloot[/url] and LOOT's masterlist, which sort the load order
 [*]Everyone in this community who shares mods, tools, guides and knowledge
 [/list]
 Found a bug or have an idea? Tell me in the Bugs or Posts tab here, or open an issue on GitHub.

@@ -10,7 +10,7 @@ website; afterwards, Nexus's v3 API can update its description and upload new fi
 | Game | Skyrim Special Edition |
 | Name | Skyrim Modding Tools - MCP Server |
 | Category | Utilities |
-| Short description (at most 350 characters, on the mod card) | Mod Skyrim Special Edition by talking to your AI agent. This MCP server gives an AI model — any MCP client — the tools to look into your whole load order, make mods and patches, install mods from Nexus Mods and read your crash logs. |
+| Short description (at most 350 characters, on the mod card) | Mod Skyrim Special Edition by talking to your AI agent. This MCP server gives an AI model — any MCP client — the tools to look into your whole load order, make mods and patches, shape land and navmesh without the Creation Kit, install mods from Nexus Mods and read your crash logs. |
 | Full description | [`description.bbcode`](description.bbcode), pasted into the editor's source view (its `[ ]` button). It follows the five sections Nexus's editor starts with — Description, Installation instructions, Main features, Requirements, Shout outs — and replaces that template |
 | Media: Header (the banner at the top of the page, 1300x372 recommended) | [`header.jpg`](header.jpg), 1300x372: [`.github/banner.jpg`](../../.github/banner.jpg) cut to its 3.5:1, the title and Muddy whole |
 | Media: Images (the gallery, at least one, 1920x1080 recommended) | [`tile.jpg`](tile.jpg), 1600x900, the same 16:9 |

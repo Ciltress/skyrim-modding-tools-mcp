@@ -13,8 +13,9 @@
 # skyrim-modding-tools-mcp
 
 **Mod Skyrim Special Edition by talking to your AI agent.** This MCP server gives Claude Code, Claude Desktop,
-VS Code — any MCP client — the tools to look into your whole load order, make mods and patches, install mods from
-Nexus Mods and read your crash logs. It works with Mod Organizer 2 on Windows and Amethyst Mod Manager on Linux.
+VS Code — any MCP client — the tools to look into your whole load order, make mods and patches, arrange cells in
+Blender, shape the land and make navmeshes without the Creation Kit, install mods from Nexus Mods and read your crash
+logs. It works with Mod Organizer 2 on Windows and Amethyst Mod Manager on Linux.
 
 Ask it things like:
 
@@ -30,14 +31,23 @@ Ask it things like:
 >
 > *Open Breezehome in Blender — I want to move the furniture around.*
 >
+> *Make the navmesh for my new house, so my follower can walk in.*
+>
+> *Make me a small valley from this heightmap, with a lake at the bottom.*
+>
 > *My game just crashed. Why?*
 
 A mod is made as text: one YAML file per record, in a project you can keep in git, built into a real plugin and
 deployed into your mod manager — weapons, armor, arrows, potions, recipes, enchantments, spells, shouts, NPCs,
 leveled lists, perks, notes, quests with their scripts, and objects placed in the world, indoors and out. The build
-warns of what would go wrong in game, each warning with the one call that fixes it. A cell can be arranged in Blender
-— by hand or through Blender's MCP server — and brought back. Some work still needs the Creation Kit, like navmesh,
-distant LOD or a new NPC's face; what you make there, `pullProject` reads back into the text. Plugins are read and written by
+warns of what would go wrong in game, each warning with the one call that fixes it.
+
+**Blender, land and navmesh.** A cell, inside or out, opens in Blender with its objects, meshes and textures (through
+the PyNifly add-on): move the furniture, sculpt the ground, touch up the navmesh — by hand or through Blender's MCP
+server — and it all comes back into the project. Without Blender, the ground outdoors can be flattened, raised,
+lowered or smoothed in one call; a cell's navmesh is made from what stands in it; and a new worldspace of the mod's
+own comes from a heightmap. Some work still needs other tools: a new NPC's face needs the Creation Kit, distant land
+needs LOD from xLODGen. What you make in the Creation Kit, `pullProject` reads back into the text. Plugins are read and written by
 [Mutagen](https://github.com/Mutagen-Modding/Mutagen); the text is [Spriggit](https://github.com/Mutagen-Modding/Spriggit)'s
 format.
 
@@ -61,8 +71,25 @@ format.
 | `buildProject` | Text → plugin: assigns FormIDs to new records, checks every reference, compiles Papyrus scripts, and lists what the plugin holds — and warns of what would go wrong in game: an armor no one can wear, a missing mesh, an effect that does nothing, a chest under the floor |
 | `deployProject` | Build → mod manager: mod folder, enabled, plugin at the end of the load order |
 | `pullProject` | Changes made in the Creation Kit or xEdit → back into the text |
-| `exportCell` | A cell → Blender: its objects with their meshes and textures, saved as a `.blend` and with the scripts that place them (PyNifly add-on) |
-| `importCell` | What was moved, copied or deleted in Blender → back into the project, as the mod's own references |
+
+**🧊 Blender, land and navmesh**
+
+| Tool | Does |
+| --- | --- |
+| `exportCell` | A cell → Blender: its objects with their meshes and textures, outdoors its ground, and its navmesh, saved as a `.blend` with the scripts that place them (PyNifly add-on) |
+| `importCell` | Blender → the project: objects moved, copied or deleted as the mod's own references, the ground sculpted, the navmesh edited |
+| `editTerrain` | The ground outdoors flattened (a plot for a house), raised, lowered or smoothed in a circle, blended into the land around |
+| `generateNavmesh` | A cell's navmesh, made from the collision of what stands in it, indoors and outdoors: load doors linked, edges linked with the cells beside it |
+| `newWorldspace` | A land of the mod's own, apart from Skyrim: flat or from a heightmap image, with water and Skyrim's weather, and a start cell to `coc` to |
+
+**⚖️ Conflicts and order**
+
+| Tool | Does |
+| --- | --- |
+| `findConflicts` | Which plugin's changes to a record are lost to another's, change by change, and which mods' files hide each other's; `addPatch` with `merge` then makes a patch that keeps every plugin's changes |
+| `sortPlugins` | The load order sorted by LOOT's own library and masterlist, with LOOT's messages: a preview first, applied on the user's word |
+| `movePlugin` | One plugin moved in the load order, on the user's word, where the game can load it |
+| `setModPriority` | One mod moved in the mod order, on the user's word, so its loose files win or lose |
 
 **📦 Find and install mods**
 
@@ -126,6 +153,10 @@ into the folder your agent works in.
   as ordinary files.
 - For compiling Papyrus scripts (optional otherwise): the **Creation Kit** (free on Steam) for its
   vanilla script sources; on Windows its compiler needs **.NET Framework 3.5** (Windows Features).
+- For arranging cells, their ground and their navmesh by eye (optional): **Blender** with the
+  [PyNifly](https://github.com/BadDogSkyrim/PyNifly) add-on. Blender's own
+  [MCP server](https://www.blender.org/lab/mcp-server/) lets the agent work in Blender too. Land, navmesh and a new
+  worldspace need no Blender.
 
 ## Setup
 
