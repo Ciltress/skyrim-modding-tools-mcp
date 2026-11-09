@@ -3,7 +3,7 @@
 <!-- GENERATED FILE - do not edit by hand.
      Run `npm run build && npm run docs:tools` after changing any getTools(). -->
 
-Every tool this server can expose: **32 tools across 7 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
+Every tool this server can expose: **33 tools across 7 families**, rendered from the tool definitions themselves so it cannot drift from the code. `healthcheck` is not listed here: the server defines it outside every handler and lists it in every profile.
 
 **How many you can actually call is smaller.** The active `MCP_PROFILE` decides what is
 listed, and the server withholds anything the connected backend does not support.
@@ -28,7 +28,7 @@ what needs a human, not a permission system: nothing here is enforced.
 - [Bundled skills](#bundled-skills) — 1 tool
 - [Installing mods](#installing-mods) — 9 tools
 - [Nexus Mods](#nexus-mods) — 3 tools
-- [Projects: authoring and patching](#projects-authoring-and-patching) — 13 tools
+- [Projects: authoring and patching](#projects-authoring-and-patching) — 14 tools
 - [Records in the load order](#records-in-the-load-order) — 2 tools
 - [This server's own guides](#this-servers-own-guides) — 1 tool
 
@@ -60,7 +60,7 @@ _read-only_
 
 From `src/handlers/SkillsHandlers.ts` of skyrim-modding-tools-core.
 
-**`readSkill`** — Bundled agent skills — how Skyrim modding works and how to approach it here: the basics (plugins, FormIDs, load order, conflicts, the tool landscape) and one skill per record family (weapons, armor, other items, enchantments, recipes; spells, magic effects, enchantments, shouts; NPCs; leveled lists: what NPCs carry, loot, merchant stock; quests, Papyrus scripts, dialogue: anything given or done when a game starts; cells and what is placed in them, indoors or out: a chest, an NPC; a cell in Blender; perks; game settings, globals, keywords). Call with no arguments to see which exist, then pass `collection` for their descriptions and `skill` to read one. Consult a skill's SKILL.md before starting a task it covers: they carry the conventions and checklists the tool descriptions alone do not.
+**`readSkill`** — Bundled agent skills — how Skyrim modding works and how to approach it here: the basics (plugins, FormIDs, load order, conflicts, the tool landscape) and one skill per record family (weapons, armor, other items, enchantments, recipes; spells, magic effects, enchantments, shouts; NPCs, followers; leveled lists: what NPCs carry, loot, merchant stock; quests, Papyrus scripts, dialogue: anything given or done when a game starts; cells and what is placed in them, indoors or out: a chest, an NPC; a cell in Blender; perks; game settings, globals, keywords, form lists). Call with no arguments to see which exist, then pass `collection` for their descriptions and `skill` to read one. Consult a skill's SKILL.md before starting a task it covers: they carry the conventions and checklists the tool descriptions alone do not.
 
 _read-only_
 
@@ -199,6 +199,12 @@ _writes · idempotent_
 _writes_
 
 `project`**\*** string · `editorId`**\*** string · `name` string · `cells` number · `height` number · `heightmap` string · `lowest` number · `highest` number · `water` number · `climate` string · `texture` string
+
+**`newCell`** — Make a new interior cell — a room of the mod's own: a cellar, a cave, a shop's back room — made like a room of the game (`like`): its lighting and sound, and its walls, floor, lights and furniture copied as the mod's own references, so it stands lit and walkable. With `door`, the player walks in: the room keeps its own load door, and the door the game pairs with it is placed `at` a spot in the cell `in` — each teleporting to the other — and the new room takes that cell's location and owner. A COC marker stands where the player arrives, so `coc <cell>` goes there. Creates the project when it does not exist. Then generateNavmesh the new cell and the door's cell, and buildProject. Move, add or remove what stands in the room as in any cell.
+
+_writes_
+
+`project`**\*** string · `cell`**\*** string · `name` string · `like`**\*** string · `door` object
 
 **`buildProject`** — Build a project's plugin from its text: gives new records their FormIDs (written back into their files, which keep their names), builds a link written as an editor ID — a new record of the project, or one of the load order — as that record's FormID, the file keeping the editor ID (`resolvedLinks`), checks that every link points at a record that exists, compiles the project's Papyrus scripts and writes the plugin with the header this game version needs. Refuses a project with no records, fields a record type does not have, and files below a group's folder — each named. What has one right fix — a FormKey copied into a new record, escapes copied out of a JSON answer, a field written where its record has none but one place it goes — it writes into the file and lists in `corrected`. What builds but likely not as meant — record files outside the plugin folder, an override renamed as if it were a new record, a woman's voice on a man — is answered with status `built_with_warnings` and the `warnings` first: the plugin is written, and each warning says what to fix. `built` lists each record the written plugin holds, with its name and numbers. Does not touch the mod manager — deployProject does.
 

@@ -81,6 +81,7 @@ format.
 | `editTerrain` | The ground outdoors flattened (a plot for a house), raised, lowered or smoothed in a circle, blended into the land around |
 | `generateNavmesh` | A cell's navmesh, made from the collision of what stands in it, indoors and outdoors: load doors linked, edges linked with the cells beside it |
 | `newWorldspace` | A land of the mod's own, apart from Skyrim: flat or from a heightmap image, with water and Skyrim's weather, and a start cell to `coc` to |
+| `newCell` | A room of the mod's own, made like a room of the game — its walls, lights and furniture — with a pair of load doors to the cell the player comes from |
 
 **⚖️ Conflicts and order**
 
