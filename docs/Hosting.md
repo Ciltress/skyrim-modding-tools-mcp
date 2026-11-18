@@ -199,7 +199,8 @@ Once, on the machine with the game and Amethyst. Package names are Arch's (Cachy
    Setup installs the .NET 10 SDK (which brings ICU; the plugin helper does not start without it)
    through pacman after a yes, builds everything, offers the Papyrus compiler (step 4), says
    what step 3 needs, and registers the server (step 5). By hand: `sudo pacman -S dotnet-sdk`,
-   then `npm install && npm run build:helper && npm run build && npm run check:helper`.
+   then `npm install --allow-git=all && npm run build:helper && npm run build && npm run check:helper` (npm 12 fetches the
+   core, a git dependency, only with `--allow-git=all`).
 3. **Vanilla script sources**, for projects with Papyrus scripts: install *Skyrim Special Edition:
    Creation Kit* in Steam, which puts `Scripts.zip` into the game's `Data`. With nothing deployed in
    Amethyst (Restore), unpack it there: `cd "<game>/Data" && unzip -n Scripts.zip`. Unpacked while a

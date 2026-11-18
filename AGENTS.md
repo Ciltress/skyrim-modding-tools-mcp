@@ -86,7 +86,7 @@ scripts/smoke.mjs                drives the built server over stdio; fails on an
 
 The core is `node_modules/skyrim-modding-tools-core`, installed from a tag of its GitHub repository and
 built there by its `prepare` script (allowed in package.json's `allowScripts`). A new core release is a new
-tag: `npm install "skyrim-modding-tools-core@git+https://github.com/Ciltress/skyrim-modding-tools-core.git#vX.Y.Z"`
+tag: `npm install --allow-git=all "skyrim-modding-tools-core@git+https://github.com/Ciltress/skyrim-modding-tools-core.git#vX.Y.Z"`
 and `npm approve-scripts skyrim-modding-tools-core`, then drop the old pin from `allowScripts`. To try a core
 change here before it is tagged, `npm install ../skyrim-modding-tools-core` links the checkout beside this
 one — put the tag back before you commit.
@@ -119,7 +119,7 @@ one — put the tag back before you commit.
 
 ```bash
 npm run setup          # what a modder runs: install, build, .env, registration, healthcheck
-npm install
+npm install --allow-git=all   # npm 12 fetches the core, a git dependency, only so
 npm run build:helper   # the core's helper, built in its folder (needs the .NET 10 SDK)
 npm run build          # tsc -> dist/
 npm test               # vitest, fully offline
