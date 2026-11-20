@@ -155,7 +155,8 @@ into the folder your agent works in.
 - For compiling Papyrus scripts (optional otherwise): the **Creation Kit** (free on Steam) for its
   vanilla script sources; on Windows its compiler needs **.NET Framework 3.5** (Windows Features).
 - For arranging cells, their ground and their navmesh by eye (optional): **Blender** with the
-  [PyNifly](https://github.com/BadDogSkyrim/PyNifly) add-on. Blender's own
+  [PyNifly](https://github.com/BadDogSkyrim/PyNifly) add-on — on Linux its [Linux build](https://github.com/Ciltress/PyNifly), as PyNifly itself is
+  Windows-only. Blender's own
   [MCP server](https://www.blender.org/lab/mcp-server/) lets the agent work in Blender too. Land, navmesh and a new
   worldspace need no Blender.
 
