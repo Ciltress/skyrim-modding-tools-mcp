@@ -1,4 +1,7 @@
 .env
+# Backup copies of it hold the same keys (.env.before-linux, 2026-11-14).
+.env.*
+!.env.example
 coverage
 dist
 node_modules
