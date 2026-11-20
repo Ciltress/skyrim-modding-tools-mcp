@@ -60,7 +60,7 @@ _read-only_
 
 From `src/handlers/SkillsHandlers.ts` of skyrim-modding-tools-core.
 
-**`readSkill`** — Bundled agent skills — how Skyrim modding works and how to approach it here: the basics (plugins, FormIDs, load order, conflicts, the tool landscape) and one skill per record family (weapons, armor, other items, enchantments, recipes; spells, magic effects, enchantments, shouts; NPCs, followers; leveled lists: what NPCs carry, loot, merchant stock; quests, Papyrus scripts, dialogue: anything given or done when a game starts; cells and what is placed in them, indoors or out: a chest, an NPC; a cell in Blender; perks; game settings, globals, keywords, form lists). Call with no arguments to see which exist, then pass `collection` for their descriptions and `skill` to read one. Consult a skill's SKILL.md before starting a task it covers: they carry the conventions and checklists the tool descriptions alone do not.
+**`readSkill`** — Bundled agent skills — how Skyrim modding works and how to approach it here: the basics (plugins, FormIDs, load order, conflicts, the tool landscape) and one skill per record family (weapons, armor, other items, enchantments, recipes; spells, magic effects, enchantments, shouts; NPCs, followers; leveled lists: what NPCs carry, loot, merchant stock; quests, Papyrus scripts, dialogue: anything given or done when a game starts; cells and what is placed in them: a chest, an NPC, a lever; a cell in Blender; perks; game settings, globals, keywords, form lists). Call with no arguments to see which exist, then pass `collection` for their descriptions and `skill` to read one. Consult a skill's SKILL.md before starting a task it covers: they carry the conventions and checklists the tool descriptions alone do not.
 
 _read-only_
 
