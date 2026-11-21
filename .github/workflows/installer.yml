@@ -57,6 +57,10 @@ jobs:
 
       - name: The server starts
         shell: bash
+        env:
+          # No game on a runner, as in ci.yml: an instance that does not exist, so the server starts and
+          # healthcheck reports it unreadable.
+          SKYRIM_MO2_INSTANCE: ${{ runner.temp }}/no-instance
         run: |
           cd "$RUNNER_TEMP/skyrim-modding-tools-mcp"
           test -f dist/index.js
