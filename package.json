@@ -1,6 +1,6 @@
 {
   "name": "skyrim-modding-tools-mcp",
-  "version": "0.2.111",
+  "version": "0.2.112",
   "mcpName": "io.github.ciltress/skyrim-modding-tools-mcp",
   "description": "MCP server for Skyrim SE modding: look up records across a Mod Organizer load order, and author mods and patches as text projects built into plugins",
   "type": "module",
@@ -46,7 +46,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
     "dotenv": "^18.0.7",
-    "skyrim-modding-tools-core": "github:Ciltress/skyrim-modding-tools-core#v0.2.111"
+    "skyrim-modding-tools-core": "github:Ciltress/skyrim-modding-tools-core#v0.2.112"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
@@ -55,6 +55,6 @@
     "vitest": "^5.0.4"
   },
   "allowScripts": {
-    "github:Ciltress/skyrim-modding-tools-core#3a84e71bfe4408e5b285a8bd299a379331d34750": true
+    "github:Ciltress/skyrim-modding-tools-core#f04a0d344c15df9d9bb11f8a4a0ab723d125bd73": true
   }
 }
