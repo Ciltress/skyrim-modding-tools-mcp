@@ -1,10 +1,10 @@
 Skyrim Modding Tools - MCP Server: the installer
 ================================================
 
-These installers fetch the newest version of the server from GitHub
-(https://github.com/Ciltress/skyrim-modding-tools-mcp) and set it up. Run one again
-whenever a new version is out: it updates the server where it is, and keeps your
-settings and your projects.
+These installers install the newest version of the server from GitHub
+(https://github.com/Ciltress/skyrim-modding-tools-mcp) and set it up. You never need
+to download them again: run one again whenever you want the newest version. It
+updates the server where it is, and keeps your settings and your projects.
 
 Windows
 -------

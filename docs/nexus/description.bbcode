@@ -5,13 +5,23 @@
 [size=5][b]Description[/b][/size]
 [b]Hi, fellow modders![/b] I love this community, and I enjoy your mods every day. Modding Skyrim in my youth is what finally made me become a developer, so this project is my way of giving something back. I hope it makes modding a little easier, and a lot more fun, for you too.
 
-Skyrim Modding Tools is an [b]MCP server[/b]: a set of tools an AI assistant can use on your own Skyrim Special Edition setup. It works with [b]Claude Code, Claude Desktop, VS Code[/b] and any other MCP client, [b]local models[/b] on your own PC included, and with [b]Mod Organizer 2[/b] on Windows or [b]Amethyst Mod Manager[/b] on Linux.
+Skyrim Modding Tools is an [b]MCP server[/b]: a set of tools an AI assistant can use on your own Skyrim Special Edition setup. It works with [b]Claude Code, Claude Desktop, VS Code, ChatGPT[/b] and any other MCP client, [b]local models[/b] on your own PC included, and with [b]Mod Organizer 2[/b] on Windows or [b]Amethyst Mod Manager[/b] on Linux.
 
 Ask it things like:
 [quote]Make me a sword called Flame Blade that sets enemies on fire.
 Which mods change the Iron Sword, and which one wins?
 Make a patch that makes the Iron Sword a bit stronger.
+Put a chest in Breezehome holding 500 gold and a Steel Sword.
+Add a dragon shout that deals shock damage, with three words of its own.
+Open Breezehome in Blender. I want to move the furniture around.
+Make the navmesh for my new house, so my follower can walk in.
+Make me a small valley from this heightmap, with a lake at the bottom.
 My game just crashed. Why?[/quote]
+
+A mod is made as text, one file per record, and built into a real plugin: weapons, armor, arrows, potions, recipes, enchantments, spells, shouts, NPCs, leveled lists, perks, notes, quests with their scripts, and whatever is placed in the world, indoors and out. The build warns of what would go wrong in game, and each warning comes with the one step that fixes it.
+
+[size=4][b]Always the newest version[/b][/size]
+This page has one file, the installer, and it never changes: it installs the newest version of the server straight from GitHub. To update, run it again. You never need to download anything here twice. What changed lately is in the [url=https://github.com/Ciltress/skyrim-modding-tools-mcp/commits/main]server's history[/url] and the [url=https://github.com/Ciltress/skyrim-modding-tools-core/tags]releases of the tools[/url] on GitHub.
 
 [size=4][b]Modding with Muddy![/b][/size]
 [center][img]https://raw.githubusercontent.com/Ciltress/skyrim-modding-tools-mcp/main/docs/nexus/muddy.png[/img][/center]
@@ -23,7 +33,7 @@ Meet [b]Muddy[/b], the modding agent: a mudcrab from the shore below Riverwood w
 [/list]
 
 [size=4][b]Made with AI, openly[/b][/size]
-The code was written together with Claude (Anthropic), and the banner was generated with FLUX. That's why this page carries the [i]AI-Generated Content[/i] and [i]AI Media[/i] tags. It is tested: over 1,100 automated tests, and regular evaluation rounds in which AI models build real mods on a test game.
+The code was written together with Claude (Anthropic), and the banner was generated with FLUX. That's why this page carries the [i]AI-Generated Content[/i] and [i]AI Media[/i] tags. It is tested: well over a thousand automated tests, on Windows and Linux, and regular evaluation rounds in which AI models, small local ones too, build real mods on a test game, each checked in the plugin it built.
 
 [size=4][b]Source and license[/b][/size]
 Free and open source, under GPL-3.0:
@@ -37,11 +47,13 @@ Free and open source, under GPL-3.0:
 This is a program for your PC, not a mod for your game: download the main file manually, not with your mod manager.
 [list=1]
 [*]Download the main file, the installer, and unpack it anywhere.
-[*][b]Windows:[/b] double-click [code]Install on Windows.cmd[/code]. [b]Linux:[/b] open a terminal in that folder and run [code]bash install-linux.sh[/code]
-[*]The installer brings git and Node.js where they are missing, downloads the newest version of the server from GitHub into your user folder and runs its setup. Setup finds your mod manager, builds everything, registers the server with Claude Code, Claude Desktop and VS Code, sets up Muddy, and ends with a health check. They ask before they install anything.
+[*][b]Windows:[/b] double-click [code]Install on Windows.cmd[/code]. If Windows asks whether to run it, choose Run (on a blue SmartScreen window: More info, then Run anyway).
+[b]Linux:[/b] open a terminal in that folder and run [code]bash install-linux.sh[/code]
+[*]The installer brings git and Node.js where they are missing, downloads the newest version of the server from GitHub into your user folder ([code]skyrim-modding-tools-mcp[/code]) and runs its setup. Setup finds your mod manager, builds everything, registers the server with Claude Code, Claude Desktop and VS Code, sets up Muddy, and ends with a health check. Both ask before they install anything.
+[*]Restart your MCP client, and ask it something.
 [/list]
 [b]Updating:[/b] run the installer again. It updates the server where it is and keeps your settings and your projects. Then restart your MCP client.
-Step-by-step instructions, and setting it up by hand, are on [url=https://github.com/Ciltress/skyrim-modding-tools-mcp]GitHub[/url].
+Step-by-step instructions, and setting it up by hand, are on [url=https://github.com/Ciltress/skyrim-modding-tools-mcp#setup]GitHub[/url].
 
 [color=#e8a33d][b]Please start on a test instance.[/b][/color] Deploying and installing write into your Mod Organizer instance's mods and profile. A portable Mod Organizer on a clean game is the safe place to learn the tools. If your setup was installed by Wabbajack, its next update deletes every mod it did not install.
 
@@ -49,35 +61,41 @@ Step-by-step instructions, and setting it up by hand, are on [url=https://github
 [list]
 [*][b]Look it up:[/b] any record by name, editor ID or FormID, across your whole load order. Which mod adds it, which one wins, who else changes it.
 [*][b]Make mods as text:[/b] a mod is a folder of plain YAML files in Spriggit's format, easy to read and to keep in git. The build checks every link, gives new records their FormIDs, compiles Papyrus scripts and writes a real plugin, then tells you what it holds.
+[*][b]Warned before you play:[/b] an armor no one can wear, a missing mesh, an effect that does nothing, a chest under the floor or floating in the air. Every warning names the one step that fixes it.
 [*][b]Patch without touching:[/b] copy another mod's record into your own patch and change it there. The original mod stays as it is.
+[*][b]Items, magic, NPCs and more:[/b] weapons, armor, arrows and potions with their recipes and enchantments; spells, magic effects and shouts with words of their own; NPCs and followers; leveled lists for loot and merchants; perks; quests with their Papyrus scripts.
 [*][b]Give NPCs new lines:[/b] a topic the player can ask and what an NPC answers, given to that NPC alone. The build writes the SEQ file a quest's dialogue needs, and warns where nobody, or everybody, would say a line.
 [*][b]Change how the game plays:[/b] game settings such as jump height or prices, globals, and the keywords the game checks on an item.
-[*][b]Find and settle mod conflicts:[/b] which plugin's changes to a record are lost to another's, change by change, and which mod's files hide another's, loose or in archives. One call makes a patch that keeps every plugin's changes; plugins and mods can be moved in the order on your word.
 [*][b]Place things in the world:[/b] put a chest, a lamp or an NPC in a house or outdoors, beside what the game already places there. Warned when it would float, sink into the ground or stand inside something. Arrange a cell in Blender, by hand or through Blender's MCP server, and bring it back.
+[*][b]A room of your own:[/b] a new interior made like the game's rooms, with its walls, lights and furniture, and a pair of load doors to the cell the player comes from.
 [*][b]Navmesh in one call, no Creation Kit:[/b] a cell's navmesh made from what stands in it, indoors and outdoors, linked to the cells beside it, so NPCs and followers walk around what you placed. Touch it up in Blender if you like. The build tells you when a cell's navmesh no longer fits what you changed there.
 [*][b]Shape the land:[/b] flatten, raise, lower or smooth the ground outdoors, or sculpt it in Blender and bring it back.
 [*][b]A land of your own:[/b] a new worldspace, flat or shaped by a heightmap image, with water and Skyrim's sky and weather. Type [code]coc[/code] in the console to go there, then build on it like anywhere else.
+[*][b]Find and settle mod conflicts:[/b] which plugin's changes to a record are lost to another's, change by change, and which mod's files hide another's, loose or in archives. One call makes a patch that keeps every plugin's changes; plugins and mods can be moved in the order on your word.
 [*][b]Sort the load order:[/b] LOOT's own library sorts your plugins and shows what LOOT says about them: what would move, dirty plugins, missing masters. You see it first; it is applied only when you say so.
-[*][b]Install mods:[/b] search Nexus Mods, read a mod's requirements, install it with its FOMOD installer answered, enable or disable mods, and check SKSE plugins against your game version.
-[*][b]Read crash logs:[/b] Crash Logger SSE's logs, checked against 105 known crashes, with the mod behind every file and record the log names.
+[*][b]Install mods:[/b] search Nexus Mods, read a mod's requirements, install it with its FOMOD installer answered, list, enable or disable your mods, and check SKSE plugins against your game version.
+[*][b]Read crash logs:[/b] Crash Logger SSE's logs, checked against over a hundred known crashes, with the mod behind every file and record the log names.
 [*][b]Read the Papyrus log:[/b] what your scripts did wrong, grouped and counted, each script traced to its mod, with script lag and what your save still holds of removed mods. No crash is put on it: it is no crash log.
+[*][b]Game settings files:[/b] Skyrim.ini, SkyrimPrefs.ini and SkyrimCustom.ini changed on your word.
+[*][b]The know-how built in:[/b] modding guides for every kind of record, plugins and FormIDs, load order and conflicts, game updates and crash analysis, which your AI reads before it starts.
 [/list]
-Some work still needs other tools: a new NPC's face needs the Creation Kit, distant land needs LOD from xLODGen. What you make in the Creation Kit, pullProject reads back into the project's text.
+Some work still needs other tools: a new NPC's face needs the Creation Kit, distant land needs LOD from xLODGen. What you make in the Creation Kit, the tools read back into the project's text.
 
 [size=5][b]Requirements[/b][/size]
 [list]
 [*]Skyrim Special Edition 1.5.97 to 1.7.x
 [*]Mod Organizer 2 (2.5) on Windows, or Amethyst Mod Manager (2.5) on Linux
-[*][url=https://nodejs.org]Node.js 24[/url] and [url=https://git-scm.com]git[/url], which the installer brings where they are missing. The setup installs the rest (the .NET 10 SDK).
-[*]An MCP client: Claude Code, Claude Desktop, VS Code and others. For OpenClaw, there is [url=https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin]the OpenClaw plugin[/url].
-[*]Optional: the Creation Kit (free on Steam), to compile Papyrus scripts
-[*]Optional: Blender with the [url=https://github.com/BadDogSkyrim/PyNifly]PyNifly[/url] add-on, to arrange a cell, its ground or its navmesh in Blender
+[*][url=https://nodejs.org]Node.js 24[/url] and [url=https://git-scm.com]git[/url], which the installer brings where they are missing. The setup installs the rest: the .NET 10 SDK, and on Linux a Papyrus compiler.
+[*]An MCP client: Claude Code, Claude Desktop, VS Code, ChatGPT and others. For OpenClaw, there is [url=https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin]the OpenClaw plugin[/url].
+[*]Optional: the Creation Kit (free on Steam), to compile Papyrus scripts. On Windows, its compiler needs .NET Framework 3.5 (Windows Features).
+[*]Optional: Blender with the [url=https://github.com/BadDogSkyrim/PyNifly]PyNifly[/url] add-on, to arrange a cell, its ground or its navmesh in Blender. On Linux, its [url=https://github.com/Ciltress/PyNifly]Linux build[/url]. Land, navmesh and a new worldspace need no Blender.
 [/list]
 [b]Nexus Mods and your API key:[/b] searching Nexus and reading mod pages need no key. Downloading through Nexus's API needs the personal API key of a [b]premium[/b] account. The key stays on your PC and is sent only to Nexus's API. Without one, you download the file yourself, and the tools install it.
 
 [size=5][b]Shout outs[/b][/size]
 [list]
 [*][url=https://github.com/Mutagen-Modding/Mutagen]Mutagen[/url] by Noggog, which reads and writes the plugins, and [url=https://github.com/Mutagen-Modding/Spriggit]Spriggit[/url], whose text format the projects use
+[*]BadDog's [url=https://github.com/BadDogSkyrim/PyNifly]PyNifly[/url], which brings Skyrim's meshes into Blender and back
 [*]Phostwood's [url=https://github.com/Phostwood/crash-analyzer]Skyrim Crash Log Analyzer[/url], whose crash rules the crash-log reader applies
 [*]Arthmoor's notes on Papyrus log errors, DavidJCobb's Papyrus logging guide and Nightfallstorm's Papyrus Tweaks NG, which the Papyrus log reader follows
 [*][url=https://github.com/recastnavigation/recastnavigation]Recast[/url] by Mikko Mononen, through ikpil's [url=https://github.com/ikpil/DotRecast]DotRecast[/url], which builds the navmeshes, and [url=https://github.com/ousnius/NiflySharp]NiflySharp[/url], which reads the meshes' collision

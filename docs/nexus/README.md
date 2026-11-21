@@ -10,8 +10,9 @@ website; afterwards, Nexus's v3 API can update its description and upload new fi
 | Game | Skyrim Special Edition |
 | Name | Skyrim Modding Tools - MCP Server |
 | Category | Utilities |
-| Short description (at most 350 characters, on the mod card) | Mod Skyrim Special Edition by talking to your AI agent. This MCP server gives an AI model — any MCP client — the tools to look into your whole load order, make mods and patches, shape land and navmesh without the Creation Kit, install mods from Nexus Mods and read your crash logs. |
-| Full description | [`description.bbcode`](description.bbcode), pasted into the editor's source view (its `[ ]` button). It follows the five sections Nexus's editor starts with — Description, Installation instructions, Main features, Requirements, Shout outs — and replaces that template |
+| Version | none, left empty: the installer always installs the newest version, so the page has none of its own. Where the form insists on one, `latest`, never changed |
+| Short description (at most 350 characters, on the mod card) | Mod Skyrim Special Edition by talking to your AI agent. This MCP server gives any MCP client the tools to look into your whole load order, make mods and patches, arrange cells in Blender, shape land and make navmesh without the Creation Kit, install mods from Nexus Mods and read your crash logs. One installer, always the newest version. |
+| Full description | [`description.bbcode`](description.bbcode), pasted into the editor's source view (its `[ ]` button). It follows the five sections Nexus's editor starts with — Description, Installation instructions, Main features, Requirements, Shout outs — and replaces that template. It names no version or count that a release would make stale, so a release changes nothing on the page |
 | Media: Header (the banner at the top of the page, 1300x372 recommended) | [`header.jpg`](header.jpg), 1300x372: [`.github/banner.jpg`](../../.github/banner.jpg) cut to its 3.5:1, the title and Muddy whole |
 | Media: Images (the gallery, at least one, 1920x1080 recommended) | [`tile.jpg`](tile.jpg), 1600x900, the same 16:9 |
 | Image in the description | [`muddy.png`](muddy.png), 200x200, Muddy for his section: [`assets/icon.png`](../../assets/icon.png) made smaller; the description links it from GitHub, so it is pushed before the page is pasted |
@@ -26,20 +27,20 @@ website; afterwards, Nexus's v3 API can update its description and upload new fi
 The main file is the installers, [`installer/`](../../installer), packed as committed:
 
 ```bash
-npm run pack:installer   # release/skyrim-modding-tools-mcp-installer-<version>.zip
+npm run pack:installer   # release/skyrim-modding-tools-mcp-installer.zip
 ```
 
-They fetch the newest version from GitHub's `main` and run `npm run setup`, so the zip itself changes only when
-the installers do; it is uploaded again **with every release**, under the release's version, so that everyone who
-tracks the page learns of the update. Run again, an installer updates the folder it installed (or one unpacked from
-an older download, which it makes a clone of), keeping `.env` and `projects/`.
+It is **uploaded once, with no version**. The installers install the newest version of the server from GitHub's
+`main` themselves and run `npm run setup`, so a release changes nothing on the page; the zip is packed and uploaded
+again only if `installer/` itself changes. Run again, an installer updates the folder it installed (or one unpacked
+from an older download, which it makes a clone of), keeping `.env` and `projects/`.
 
 | Field | Value |
 | --- | --- |
 | Name (at most 50 characters of letters, digits, spaces and `_'().-`) | Installer for Windows and Linux |
-| Version (letters, digits, `.` and `-`) | the release's, package.json's `version` |
-| Description | Installs the MCP server, or updates it: fetches the newest version from GitHub and sets it up. Windows: double-click Install on Windows.cmd. Linux: bash install-linux.sh in a terminal. |
-| Category | Main file; the previous upload of it moved to Old versions |
+| Version | none, as the mod's: left empty, or `latest` where the form insists |
+| Description | Installs the MCP server, or updates it to the newest version from GitHub; you never need to download this again. Windows: double-click Install on Windows.cmd. Linux: bash install-linux.sh in a terminal. |
+| Category | Main file |
 
 ## Before publishing
 

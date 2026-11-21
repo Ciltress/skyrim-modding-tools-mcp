@@ -84,7 +84,7 @@ installer/                 the Nexus page's main file: install-windows.ps1 (with
                            install-linux.sh bring git and Node.js, clone or update main into the user's folder
                            and run npm run setup; installer.test.ts holds them to package.json and server.json
 scripts/generate-tool-docs.mjs   writes docs/Tool-Reference.md; run after changing any getTools()
-scripts/pack-installer.mjs       npm run pack:installer: installer/ as committed, zipped for Nexus at every release
+scripts/pack-installer.mjs       npm run pack:installer: installer/ as committed, zipped for Nexus, uploaded once
 scripts/smoke.mjs                drives the built server over stdio; fails on anything but frames on stdout
 ```
 
