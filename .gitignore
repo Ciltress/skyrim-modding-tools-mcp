@@ -22,6 +22,9 @@ helper/*/obj/
 projects/*/build/
 projects/*/.deploy.json
 
+# The Nexus file npm run pack:installer packs.
+release/
+
 # What npm run setup downloads: the Papyrus compiler on Linux.
 tools/
 

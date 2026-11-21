@@ -162,7 +162,18 @@ into the folder your agent works in.
 
 ## Setup
 
-**Windows**, in PowerShell — the first two lines only for what you do not have yet, then open a new
+**The installer** does it all, on Windows and Linux: it brings git and Node.js where they are missing (asking first),
+fetches the newest version from GitHub into your user folder's `skyrim-modding-tools-mcp` and runs `npm run setup`.
+It is the main file on the Nexus Mods page, and [`installer/`](installer) here:
+
+- **Windows:** double-click `Install on Windows.cmd`.
+- **Linux:** `bash install-linux.sh` in a terminal. Without Node.js 24 from your distribution (Arch and its kin
+  package it), it installs Node.js 24 from nodejs.org into `~/.local`, for you alone.
+
+Run it again to update. Another folder: `-Dir <folder>` on Windows, `--dir <folder>` on Linux. Your Mod Organizer
+instance, named so setup need not look for it: `-Instance <folder>`, `--instance <folder>`.
+
+**By hand**, on **Windows**, in PowerShell — the first two lines only for what you do not have yet, then open a new
 PowerShell:
 
 ```powershell
@@ -194,7 +205,7 @@ first.
 [OpenClaw plugin](https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin) instead, set up with its own
 wizard, `openclaw skyrim setup`; setup says so when it finds OpenClaw.
 
-**Updating:** `git pull && npm run setup`, then restart your client. A client still running the server
+**Updating:** the installer again, or `git pull && npm run setup`; then restart your client. A client still running the server
 keeps the plugin helper in use; setup then names what to close.
 
 **By hand** instead — the settings file and each client's registration, ready to copy:

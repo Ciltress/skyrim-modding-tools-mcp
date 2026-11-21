@@ -1,0 +1,63 @@
+name: Installer
+
+# The installers in installer/, run as a modder runs them: each clones main from GitHub into a fresh folder and
+# runs npm run setup there, unattended (it asks nothing and skips what needs a yes), then runs again to update
+# it. Only when they change, or by hand: each run builds the server and its helper from scratch.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "installer/**"
+      - ".github/workflows/installer.yml"
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            shell: powershell
+            run: ./installer/install-windows.ps1 -Dir "$env:RUNNER_TEMP\skyrim-modding-tools-mcp"
+          - os: ubuntu-24.04
+            shell: bash
+            run: bash installer/install-linux.sh --dir "$RUNNER_TEMP/skyrim-modding-tools-mcp"
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # The runners have git; Node.js and the .NET SDK are the versions the server is tested with.
+      - name: Setup node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install
+        run: ${{ matrix.run }}
+
+      - name: Update
+        run: ${{ matrix.run }}
+
+      - name: The server starts
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP/skyrim-modding-tools-mcp"
+          test -f dist/index.js
+          npm run smoke

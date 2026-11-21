@@ -24,6 +24,7 @@
     "build": "tsc",
     "docs:tools": "node scripts/generate-tool-docs.mjs",
     "smoke": "node scripts/smoke.mjs",
+    "pack:installer": "node scripts/pack-installer.mjs",
     "build:helper": "npm --prefix node_modules/skyrim-modding-tools-core run build:helper",
     "check:helper": "npm --prefix node_modules/skyrim-modding-tools-core run check:helper"
   },

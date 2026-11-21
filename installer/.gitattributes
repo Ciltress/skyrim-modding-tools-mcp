@@ -1,0 +1,7 @@
+# What Windows runs keeps CRLF, whatever the checkout: cmd.exe misreads a batch file with bare LF at times.
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.txt text eol=crlf
+*.sh text eol=lf
+# The zip for Nexus (npm run pack:installer) holds the installers alone.
+.gitattributes export-ignore

@@ -80,7 +80,11 @@ src/
                            core's (agents/muddy), shaped here for Claude Code and a folder's AGENTS.md
   __tests__/               vitest suites, all offline; the doubles come from skyrim-modding-tools-core/testing
 projects/                  the user's projects (mods as text); created on first use
+installer/                 the Nexus page's main file: install-windows.ps1 (with Install on Windows.cmd) and
+                           install-linux.sh bring git and Node.js, clone or update main into the user's folder
+                           and run npm run setup; installer.test.ts holds them to package.json and server.json
 scripts/generate-tool-docs.mjs   writes docs/Tool-Reference.md; run after changing any getTools()
+scripts/pack-installer.mjs       npm run pack:installer: installer/ as committed, zipped for Nexus at every release
 scripts/smoke.mjs                drives the built server over stdio; fails on anything but frames on stdout
 ```
 

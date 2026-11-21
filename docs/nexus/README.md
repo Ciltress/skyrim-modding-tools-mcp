@@ -16,21 +16,30 @@ website; afterwards, Nexus's v3 API can update its description and upload new fi
 | Media: Images (the gallery, at least one, 1920x1080 recommended) | [`tile.jpg`](tile.jpg), 1600x900, the same 16:9 |
 | Image in the description | [`muddy.png`](muddy.png), 200x200, Muddy for his section: [`assets/icon.png`](../../assets/icon.png) made smaller; the description links it from GitHub, so it is pushed before the page is pasted |
 | Tags | Utilities; **AI-Generated Content** (the code, written with Claude); **AI Media** (the banner, the tile and this page's text) |
-| Requirements (the legacy mod requirements: file-to-file ones name only Nexus files and DLC) | Off-site: Node.js 24 (https://nodejs.org), runs the server and its setup; git (https://git-scm.com), with which the setup fetches the core. Nexus mods: Mod Organizer 2, 2.5.2 or later, "On Windows. On Linux, Amethyst Mod Manager instead." The .NET 10 SDK is none: the setup installs it |
+| Requirements (the legacy mod requirements: file-to-file ones name only Nexus files and DLC) | Off-site: Node.js 24 (https://nodejs.org), runs the server and its setup; git (https://git-scm.com), with which the installer fetches the server and setup the core — the installer brings both where they are missing. Nexus mods: Mod Organizer 2, 2.5.2 or later, "On Windows. On Linux, Amethyst Mod Manager instead." The .NET 10 SDK is none: the setup installs it |
 | The file's options | Mod manager download off: it is a program for the user's PC, not a mod to install into the game. Primary file. The requirements popup on download on |
 | Third-party content | Yes, with permission: Phostwood's crash rules (GPL-3.0, as this package), offsets read from Address Library, Crash Logger SSE's log format (the core's THIRD_PARTY_NOTICES.md) |
 | Permissions | custom: open, as GPL-3.0 has it — upload, modify, convert and reuse, with credit, the same license and the source; Nexus's recommended settings forbid what GPL-3.0 allows |
 
 ## The file
 
-The main file is the repository at a release tag, packed by git, so it holds exactly what is committed:
+The main file is the installers, [`installer/`](../../installer), packed as committed:
 
 ```bash
-git archive --format=zip --prefix=skyrim-modding-tools-mcp/ -o skyrim-modding-tools-mcp-<version>.zip <tag>
+npm run pack:installer   # release/skyrim-modding-tools-mcp-installer-<version>.zip
 ```
 
-Its Nexus name is at most 50 characters of letters, digits, spaces and `_'().-`; its version, letters, digits, `.`
-and `-`. Unpacked, `npm run setup` takes it from there, as from a clone; only `git pull` needs the clone.
+They fetch the newest version from GitHub's `main` and run `npm run setup`, so the zip itself changes only when
+the installers do; it is uploaded again **with every release**, under the release's version, so that everyone who
+tracks the page learns of the update. Run again, an installer updates the folder it installed (or one unpacked from
+an older download, which it makes a clone of), keeping `.env` and `projects/`.
+
+| Field | Value |
+| --- | --- |
+| Name (at most 50 characters of letters, digits, spaces and `_'().-`) | Installer for Windows and Linux |
+| Version (letters, digits, `.` and `-`) | the release's, package.json's `version` |
+| Description | Installs the MCP server, or updates it: fetches the newest version from GitHub and sets it up. Windows: double-click Install on Windows.cmd. Linux: bash install-linux.sh in a terminal. |
+| Category | Main file; the previous upload of it moved to Old versions |
 
 ## Before publishing
 

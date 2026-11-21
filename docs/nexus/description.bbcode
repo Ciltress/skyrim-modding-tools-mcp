@@ -36,11 +36,12 @@ Free and open source, under GPL-3.0:
 [size=5][b]Installation instructions[/b][/size]
 This is a program for your PC, not a mod for your game: download the main file manually, not with your mod manager.
 [list=1]
-[*]Download the main file and unpack it anywhere. Or clone it from GitHub, which makes updating easier.
-[*]Open a terminal in that folder and run: [code]npm run setup[/code]
-[*]Setup finds your mod manager, builds everything, registers the server with Claude Code, Claude Desktop and VS Code, sets up Muddy, and ends with a health check. It asks before it installs anything.
+[*]Download the main file, the installer, and unpack it anywhere.
+[*][b]Windows:[/b] double-click [code]Install on Windows.cmd[/code]. [b]Linux:[/b] open a terminal in that folder and run [code]bash install-linux.sh[/code]
+[*]The installer brings git and Node.js where they are missing, downloads the newest version of the server from GitHub into your user folder and runs its setup. Setup finds your mod manager, builds everything, registers the server with Claude Code, Claude Desktop and VS Code, sets up Muddy, and ends with a health check. They ask before they install anything.
 [/list]
-Step-by-step instructions, for Linux too, are on [url=https://github.com/Ciltress/skyrim-modding-tools-mcp]GitHub[/url].
+[b]Updating:[/b] run the installer again. It updates the server where it is and keeps your settings and your projects. Then restart your MCP client.
+Step-by-step instructions, and setting it up by hand, are on [url=https://github.com/Ciltress/skyrim-modding-tools-mcp]GitHub[/url].
 
 [color=#e8a33d][b]Please start on a test instance.[/b][/color] Deploying and installing write into your Mod Organizer instance's mods and profile. A portable Mod Organizer on a clean game is the safe place to learn the tools. If your setup was installed by Wabbajack, its next update deletes every mod it did not install.
 
@@ -67,7 +68,7 @@ Some work still needs other tools: a new NPC's face needs the Creation Kit, dist
 [list]
 [*]Skyrim Special Edition 1.5.97 to 1.7.x
 [*]Mod Organizer 2 (2.5) on Windows, or Amethyst Mod Manager (2.5) on Linux
-[*][url=https://nodejs.org]Node.js 24[/url] and [url=https://git-scm.com]git[/url]. The setup installs the rest (the .NET 10 SDK).
+[*][url=https://nodejs.org]Node.js 24[/url] and [url=https://git-scm.com]git[/url], which the installer brings where they are missing. The setup installs the rest (the .NET 10 SDK).
 [*]An MCP client: Claude Code, Claude Desktop, VS Code and others. For OpenClaw, there is [url=https://github.com/Ciltress/skyrim-modding-tools-openclaw-plugin]the OpenClaw plugin[/url].
 [*]Optional: the Creation Kit (free on Steam), to compile Papyrus scripts
 [*]Optional: Blender with the [url=https://github.com/BadDogSkyrim/PyNifly]PyNifly[/url] add-on, to arrange a cell, its ground or its navmesh in Blender
