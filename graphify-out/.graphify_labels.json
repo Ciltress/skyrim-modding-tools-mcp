@@ -1,12 +1,1 @@
-{
-  "0": "Setup Command and Its System Seam (0)",
-  "1": "AGENTS.md",
-  "2": "Repo Guidance and Scripts (6) (2)",
-  "3": "ci.yml",
-  "6": "Package Dependencies and CI",
-  "7": "Muddy and the Nexus Page",
-  "8": "Repo Guidance and Scripts (6) (8)",
-  "10": "Nexus mod page form (Skyrim Special Edition, 'Skyrim Modding Tools - MCP Server', Utilities)",
-  "14": "compilerOptions",
-  "19": "Ui"
-}
+{"0": "Setup Command and Its System Seam (0)", "1": "AGENTS.md", "2": "Repo Guidance and Scripts (6) (2)", "3": "README.md (skyrim-modding-tools-mcp)", "4": "Tool reference (generated)", "5": "server.json", "6": "Package Dependencies and CI", "7": "Muddy and the Nexus Page", "8": "Repo Guidance and Scripts (6) (8)", "9": "server.ts", "10": "Nexus mod page form (Skyrim Special Edition, 'Skyrim Modding Tools - MCP Server', Utilities)", "12": "smoke.mjs", "14": "compilerOptions", "15": "steps", "16": "install-linux.sh", "19": "Ui"}
